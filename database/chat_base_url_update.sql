@@ -1,0 +1,1 @@
+ALTER TABLE agents ADD COLUMN chat_base_url TEXT;

@@ -1,0 +1,1 @@
+UPDATE agents SET welcome_message = 'Soy el asistente inteligente de AgentOSweb. Puedo responder tus dudas sobre precios, instalación y funcionamiento 24/7.' WHERE id = 'agent-demo';

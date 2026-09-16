@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "fullstack-guardian": {
+      "source": "farmage/opencode-skills",
+      "sourceType": "github",
+      "skillPath": "skills/fullstack-guardian/SKILL.md",
+      "computedHash": "3eddd40f8ee78912e7c22c264f02f613e68e837d8fbccddb40f0d09a78a8ecfa"
+    },
+    "nextjs-developer": {
+      "source": "farmage/opencode-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nextjs-developer/SKILL.md",
+      "computedHash": "cf742be11dca9d4fd0cfc687276ba14a90fe9e311b957b331c2d99dbc6bf1e70"
+    },
+    "react-expert": {
+      "source": "farmage/opencode-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-expert/SKILL.md",
+      "computedHash": "f8591b283d78a1ccb4456766c29ce29df5e0f7af041f3bb695f891d0eee4e770"
+    }
+  }
+}

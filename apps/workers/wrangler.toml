@@ -1,0 +1,31 @@
+name = "agentosweb-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 🗄️ Base de Datos Serverless (Cloudflare D1)
+[[d1_databases]]
+binding = "DB"
+database_name = "agentosweb-db"
+database_id = "416bf3d1-9a32-4500-b7d9-36f8e4c979be"
+
+# 🔥 🔑 Caché en Memoria Ultra Rápida (<10ms) para Prompts y Agentes
+[[kv_namespaces]]
+binding = "AGENT_CACHE"
+id = "48e26fa26d0c4b498b5009b26ef0a3d9"
+
+# 🤖 Motor de Inferencia en la Red de Cloudflare (sin API key externa)
+[ai]
+binding = "AI"
+
+[vars]
+ENVIRONMENT = "production"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
+
+# 🔒 Secretos (npx wrangler secret put <KEY>):
+# - GROQ_MANAGED_KEY
+# - OPENAI_MANAGED_KEY
+# - API_KEY
+# - OWNER_TOKEN       (dashboard → worker, escritura/lectura de config y agentes)
+# - ENCRYPTION_KEY    (AES-GCM para cifrar chat_api_key en reposo; sin ella no se cifra)
+# En vars o secret opcional: OWNER_USER_ID (dueño multi-agente; si falta, se deduce del primer agente)

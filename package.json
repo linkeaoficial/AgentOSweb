@@ -1,0 +1,14 @@
+{
+  "name": "agentosweb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AgentOSweb - AI Agent Builder & Embeddable Chat Widget (monorepo)",
+  "scripts": {
+    "dev": "pnpm --filter dashboard dev",
+    "build": "pnpm --filter dashboard build",
+    "workers:dev": "pnpm --filter @agentosweb/workers dev",
+    "workers:deploy": "pnpm --filter @agentosweb/workers deploy",
+    "widget:build": "pnpm --filter @agentosweb/widget build"
+  },
+  "packageManager": "pnpm@11.9.0"
+}

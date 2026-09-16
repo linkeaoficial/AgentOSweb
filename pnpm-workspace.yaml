@@ -1,0 +1,13 @@
+packages:
+  - apps/dashboard
+  - apps/landing
+  - apps/workers
+  - apps/widget
+
+allowBuilds:
+  esbuild: set this to true or false
+  workerd: set this to true or false
+
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
