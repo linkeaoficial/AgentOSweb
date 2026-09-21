@@ -3,6 +3,7 @@ import { DEFAULT_CONFIG, localReply, type AgentConfig } from "./fallback";
 
 const DEFAULT_API = "https://agentosweb.com/api";
 const THEME_KEY = "agentosweb-theme";
+const BRAND_KEY = "agentosweb-brand";
 const PAUSED_REPLY = "⏸️ Este asistente está en pausa. Vuelve a intentar más tarde.";
 
 const ICON_HOME = `<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>`;
@@ -27,6 +28,11 @@ function shadeColor(hex: string, percent: number): string {
   return "#" + ((1 << 24) | (mix(16) << 16) | (mix(8) << 8) | mix(0)).toString(16).slice(1);
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 const SVG_SEND = `<svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z"></path></svg>`;
 
 const SVG_MIC = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>`;
@@ -43,7 +49,7 @@ const CHAT_PHRASES = [
 function markup(logoUrl: string, iconoChatUrl: string): string {
   return `
     <div class="floating-action-button floating" id="toggle-button" role="button" aria-expanded="false" aria-controls="chatbot-window">
-      <img class="chat-icon" id="chat-icon" type="image/png" src="${iconoChatUrl}" alt="Abrir Chat AgentOSweb" style="display: block;">
+      <img class="chat-icon" id="chat-icon" type="image/png" src="${iconoChatUrl}" alt="Abrir Chat" style="display: block;">
       ${SVG_CLOSE}
     </div>
     <div class="chatbot-container hidden" id="chatbot-window">
@@ -165,6 +171,7 @@ function createWidget(script: HTMLScriptElement) {
     headerSubtitle.textContent = cfg.header_subtitle;
     welcomeText.innerHTML = mdToHtml(cfg.welcome_message);
     avatarImg.src = cfg.avatar_url || logoUrl;
+    $<HTMLImageElement>("chat-icon").src = cfg.bubble_logo_url || iconoChatUrl;
     const hasPrompts = cfg.prompts.length > 0;
     promptList.innerHTML = cfg.prompts
       .map(
@@ -181,13 +188,19 @@ function createWidget(script: HTMLScriptElement) {
     }
     if (overrides?.primary_color) {
       const c = overrides.primary_color;
-      container.style.setProperty("--primary-color", c);
-      container.style.setProperty("--primary-color-dark", c);
-      container.style.setProperty("--primary-gradient-start", c);
-      container.style.setProperty(
-        "--primary-gradient-end",
-        c.toLowerCase() === "#3559ff" ? "#13a0ff" : shadeColor(c, 28)
-      );
+      // Se aplican en el host (padre del shadow DOM) para que TODOS los elementos
+      // (burbuja flotante + ventana) hereden el color de marca y sus brillos.
+      host.style.setProperty("--primary-color", c);
+      const gradientEnd = c.toLowerCase() === "#3559ff" ? "#13a0ff" : shadeColor(c, 28);
+      host.style.setProperty("--primary-color-dark", gradientEnd);
+      host.style.setProperty("--primary-gradient-start", c);
+      host.style.setProperty("--primary-gradient-end", gradientEnd);
+      host.style.setProperty("--primary-box-shadow", hexToRgba(c, 0.5));
+      host.style.setProperty("--primary-box-shadow-glow", hexToRgba(c, 0.8));
+      host.style.setProperty("--primary-box-shadow-soft", hexToRgba(c, 0.2));
+      host.style.setProperty("--primary-tint", hexToRgba(c, 0.08));
+      host.style.setProperty("--link-text-color", c);
+      host.style.setProperty("--chat-bubble-color", c);
     }
     promptList
       .querySelectorAll<HTMLElement>(".prompt-item")
@@ -480,6 +493,18 @@ function createWidget(script: HTMLScriptElement) {
   applyConfig(null);
   updateSendIdle();
 
+  // Pintar el color de marca guardado ANTES de que llegue la config del worker,
+  // para evitar el parpadeo azul por defecto. La DB siempre gana después.
+  let cachedBrand: Partial<AgentConfig> | null = null;
+  try {
+    cachedBrand = JSON.parse(localStorage.getItem(BRAND_KEY + "_" + agentId) || "null");
+  } catch {
+    /* críptico no bloquea */
+  }
+  if (cachedBrand && typeof cachedBrand === "object" && cachedBrand.primary_color) {
+    applyConfig(cachedBrand);
+  }
+
   const savedTheme = localStorage.getItem(THEME_KEY);
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   applyTheme(savedTheme ? savedTheme === "dark" : prefersDark);
@@ -542,7 +567,14 @@ function createWidget(script: HTMLScriptElement) {
 
   fetch(`${apiBase}/agent/${agentId}`)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error("config"))))
-    .then((c: Partial<AgentConfig>) => applyConfig(c))
+    .then((c: Partial<AgentConfig>) => {
+      applyConfig(c);
+      try {
+        localStorage.setItem(BRAND_KEY + "_" + agentId, JSON.stringify({ primary_color: c.primary_color }));
+      } catch {
+        /* sin almacenamiento no bloquea */
+      }
+    })
     .catch(() => {});
 
   (window as unknown as { AgentOSweb?: { agentId: string; apiUrl: string } })
@@ -564,6 +596,7 @@ function bootstrap() {
     (script.src.match(/\/w\/([a-f0-9-]{36})\/widget\.js/) || [])[1] ||
     "";
   if (!agentId) return;
+  if (!script.dataset.agentId) script.dataset.agentId = agentId;
   createWidget(script);
 }
 

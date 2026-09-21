@@ -9,6 +9,10 @@ binding = "DB"
 database_name = "agentosweb-db"
 database_id = "416bf3d1-9a32-4500-b7d9-36f8e4c979be"
 
+# ⏰ Reset mensual del cupo de IA administrada (Free 20 msgs/mes → se renueva el día 1 a las 00:00 UTC)
+[triggers]
+crons = ["0 0 1 * *"]
+
 # 🔥 🔑 Caché en Memoria Ultra Rápida (<10ms) para Prompts y Agentes
 [[kv_namespaces]]
 binding = "AGENT_CACHE"

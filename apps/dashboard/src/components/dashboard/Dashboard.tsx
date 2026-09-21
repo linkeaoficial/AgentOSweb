@@ -164,7 +164,7 @@ export default function Dashboard() {
       // Cache corrupto: ignorar y volver a buscar
     }
 
-    fetch(`${API_BASE}/overview/${currentAgentId}`)
+    fetch(`/api/overview/${currentAgentId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
       .then((d: OverviewData) => {
         if (!alive) return;
@@ -298,6 +298,7 @@ export default function Dashboard() {
               key={currentAgentId}
               apiBase={API_BASE}
               agentId={currentAgentId}
+              plan={owner?.plan ?? null}
               onChanged={handleAgentsChanged}
               onDeleted={handleAgentDeleted}
             />

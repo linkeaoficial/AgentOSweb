@@ -9,6 +9,8 @@
   --primary-gradient-end: #13a0ff;
   --primary-box-shadow: rgba(53, 89, 255, 0.5);
   --primary-box-shadow-glow: rgba(19, 160, 255, 0.8);
+  --primary-box-shadow-soft: rgba(53, 89, 255, 0.2);
+  --primary-tint: rgba(53, 89, 255, 0.08);
 
   --secondary-bg-color: #e5e5e5;
   --container-bg-color: #fff;
@@ -24,16 +26,10 @@
 }
 
 .chatbot-container.dark-mode {
-  --primary-color: #3559ff;
-  --primary-color-dark: #13a0ff;
-  --primary-gradient-start: #3559ff;
-  --primary-gradient-end: #13a0ff;
   --secondary-bg-color: #3a3f4b;
   --container-bg-color: #1c2128;
   --chat-text-color: #cdd9e5;
   --light-text-color: #909dab;
-  --link-text-color: #3559ff;
-  --chat-bubble-color: #3559ff;
   --chat-bubble-text-color: #fff;
   --border-color: #333942;
   --separator-color: #333942;
@@ -82,11 +78,7 @@
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background-image: linear-gradient(
-    to bottom,
-    var(--primary-gradient-start) 0%,
-    var(--primary-gradient-end) 100%
-  );
+  background-color: var(--primary-color-dark);
   box-shadow: 0 6px 18px var(--primary-box-shadow);
   display: flex;
   justify-content: center;
@@ -94,6 +86,23 @@
   cursor: pointer;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     box-shadow 0.3s ease-in-out;
+}
+
+.floating-action-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: linear-gradient(
+    to bottom,
+    var(--primary-gradient-start) 0%,
+    var(--primary-gradient-end) 100%
+  );
+}
+
+.floating-action-button > * {
+  position: relative;
+  z-index: 1;
 }
 
 .floating-action-button.floating {
@@ -111,11 +120,6 @@
 }
 
 .floating-action-button.hover-disabled {
-  background-image: linear-gradient(
-    to bottom,
-    var(--primary-gradient-start) 0%,
-    var(--primary-gradient-end) 100%
-  );
   box-shadow: 0 6px 18px var(--primary-box-shadow);
   transform: none;
   transition: transform 0.2s ease-in-out;
@@ -123,14 +127,16 @@
 
 .floating-action-button.hover-disabled:hover {
   transform: scale(1.08);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
 }
 
 .floating-action-button:not(.hover-disabled):hover {
-  background-color: var(--primary-color-dark);
-  background-image: none;
-  transform: scale(1.005);
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease-in-out;
+  transition: none;
+}
+
+.floating-action-button:not(.hover-disabled):hover::before {
+  opacity: 0;
 }
 
 .floating-action-button .chat-icon {
@@ -472,12 +478,12 @@
 
 .widget-brand {
   flex-shrink: 0;
+  margin-top: auto;
   padding: 9px 12px 4px;
   text-align: center;
   font-size: 11px;
   color: var(--placeholder-color);
   border-top: 1px solid var(--separator-color);
-  margin-top: 6px;
 }
 
 .widget-brand span {
@@ -502,7 +508,7 @@
 .prompt-item:hover {
   border-color: var(--primary-color);
   transform: translateX(3px);
-  background-color: rgba(53, 89, 255, 0.05);
+  background-color: var(--primary-tint);
 }
 
 .prompt-item svg {
@@ -690,7 +696,7 @@
   background-color: var(--primary-color);
   color: #ffffff;
   border-bottom-right-radius: 4px;
-  box-shadow: 0 2px 8px rgba(53, 89, 255, 0.2);
+  box-shadow: 0 2px 8px var(--primary-box-shadow-soft);
 }
 
 .typing-indicator .message-bubble {
@@ -819,7 +825,7 @@
 .input-bar .mic-button:hover {
   color: var(--primary-color);
   border-color: var(--primary-color);
-  background-color: rgba(53, 89, 255, 0.08);
+  background-color: var(--primary-tint);
 }
 
 .input-bar .mic-button.recording {
@@ -963,7 +969,7 @@
 .chatbot-container.dark-mode .home-body::-webkit-scrollbar-thumb:hover,
 .chatbot-container.dark-mode .quick-prompts-list::-webkit-scrollbar-thumb:hover,
 .chatbot-container.dark-mode .welcome-card p::-webkit-scrollbar-thumb:hover {
-  background-color: #7d8590;
+  background-color: #94a3b8;
 }
 
 :host(.left) .chatbot-container,

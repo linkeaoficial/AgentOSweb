@@ -23,7 +23,7 @@ const assert = (cond, label) => {
 
 assert(localReply("¿cómo lo instalo en mi web?").includes("script"), "respuesta instalación");
 assert(localReply("explica BYOK por favor").includes("BYOK"), "respuesta BYOK");
-assert(localReply("¿cuánto cuesta el plan pro?").includes("$79"), "respuesta planes");
+assert(localReply("¿cuánto cuesta el plan pro?").includes("$89"), "respuesta planes");
 assert(localReply("hola mundo").includes(DEFAULT_CONFIG.header_title), "respuesta genérica");
 
 console.log("check OK");

@@ -17,6 +17,7 @@ interface AgentConfig {
   header_subtitle: string;
   welcome_message: string;
   avatar_url: string | null;
+  bubble_logo_url: string | null;
   primary_color: string;
   position: "right" | "left";
   default_theme: "light" | "dark" | "auto";
@@ -37,6 +38,7 @@ interface AgentConfig {
 interface AgentsViewProps {
   apiBase: string;
   agentId: string;
+  plan?: string | null;
 
   onActiveChange?: (active: boolean) => void;
   onChanged?: () => void;
@@ -240,6 +242,11 @@ function shadeColor(hex: string, percent: number): string {
     return Math.round((t - v) * p + v);
   };
   return "#" + ((1 << 24) | (mix(16) << 16) | (mix(8) << 8) | mix(0)).toString(16).slice(1);
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
 const pe = (d: string) => (
@@ -608,7 +615,13 @@ function WidgetMock({
         style={{
           bottom: 25,
           [cfg.position]: 25,
-          ...({ "--wv-g1": start, "--wv-g2": end } as React.CSSProperties),
+          ...({
+            "--wv-g1": start,
+            "--wv-g2": end,
+            "--wv-dark": end,
+            "--wv-shadow": hexToRgba(start, 0.5),
+            "--wv-glow": hexToRgba(start, 0.8),
+          } as React.CSSProperties),
         }}
         onClick={onToggle}
         aria-label={open ? "Cerrar vista previa" : "Abrir vista previa"}
@@ -619,7 +632,7 @@ function WidgetMock({
           </svg>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- logo de marca en la vista previa
-          <img className="wv-launcher-logo" src="/imagen/Icono_Chat.png" alt="" />
+          <img className="wv-launcher-logo" src={cfg.bubble_logo_url || "/imagen/Icono_Chat.png"} alt="" />
         )}
       </button>
 
@@ -629,7 +642,16 @@ function WidgetMock({
           style={{
             bottom: 90,
             ...(cfg.position === "right" ? { right: 25 } : { left: 25 }),
-            ...({ "--wv-bg": containerBgc, "--wv-bor": borderColor, "--wv-txt": chatText } as React.CSSProperties),
+            ...({
+              "--wv-bg": containerBgc,
+              "--wv-bor": borderColor,
+              "--wv-txt": chatText,
+              "--wv-color": start,
+              "--wv-shadow": hexToRgba(start, 0.5),
+              "--wv-shadow-soft": hexToRgba(start, 0.2),
+              "--wv-tint": hexToRgba(start, 0.08),
+              "--wv-glow": hexToRgba(start, 0.8),
+            } as React.CSSProperties),
           }}
         >
           <div className="wv-header" style={{ background: gradVertical }}>
@@ -667,7 +689,7 @@ function WidgetMock({
             <div className="wv-header-content">
               <div className="wv-avatar">
                 {/* eslint-disable-next-line @next/next/no-img-element -- logo de marca en la vista previa */}
-                <img src="/imagen/Logo_AgentOSweb_chat.png" alt="" />
+                <img src={cfg.avatar_url || "/imagen/Logo_AgentOSweb_chat.png"} alt="" />
               </div>
               <span className="wv-title">{headerTitle}</span>
               <span className="wv-subtitle">{headerSubtitle}</span>
@@ -682,7 +704,7 @@ function WidgetMock({
                 <p style={{ color: textSub }}>{renderInline(cfg.welcome_message)}</p>
               </div>
 
-              <button className="wv-start" style={{ background: grad }} type="button" onClick={() => switchTab("chat")}>
+              <button className="wv-start" style={{ background: grad, ["--wv-glow" as string]: hexToRgba(start, 0.8), ["--wv-shadow" as string]: hexToRgba(start, 0.5) }} type="button" onClick={() => switchTab("chat")}>
                 {pe(ICON_CHAT_D)}
                 <span>Iniciar conversación</span>
               </button>
@@ -835,7 +857,7 @@ function Skeleton() {
   );
 }
 
-export default function AgentsView({ apiBase, agentId, onActiveChange, onChanged, onDeleted }: AgentsViewProps) {
+export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onChanged, onDeleted }: AgentsViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [draft, setDraft] = useState<AgentConfig | null>(null);
@@ -984,6 +1006,7 @@ export default function AgentsView({ apiBase, agentId, onActiveChange, onChanged
       position: draft.position,
       default_theme: draft.default_theme,
       avatar_url: draft.avatar_url ? draft.avatar_url : null,
+      bubble_logo_url: draft.bubble_logo_url ? draft.bubble_logo_url : null,
       max_tokens: draft.max_tokens,
       allowed_domains: draft.allowed_domains,
       rate_limit_per_minute: draft.rate_limit_per_minute,
@@ -1251,15 +1274,76 @@ export default function AgentsView({ apiBase, agentId, onActiveChange, onChanged
               <label className="form-label" htmlFor="cfg-avatar">
                 URL del avatar (opcional)
               </label>
-              <input
-                id="cfg-avatar"
-                className="form-input"
-                type="url"
-                value={draft.avatar_url ?? ""}
-                onChange={(e) => set("avatar_url", e.target.value)}
-                placeholder="https://tusitio.com/avatar.png"
-              />
-              <span className="form-hint">Déjalo vacío para usar el robot por defecto.</span>
+              <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                <input
+                  id="cfg-avatar"
+                  className="form-input"
+                  type="url"
+                  style={{ flex: 1 }}
+                  value={draft.avatar_url ?? ""}
+                  onChange={(e) => set("avatar_url", e.target.value)}
+                  placeholder="https://tusitio.com/avatar.png"
+                />
+                {(draft.avatar_url ?? "").trim() && (
+                  <button
+                    type="button"
+                    className="form-input-clear"
+                    title="Eliminar avatar"
+                    aria-label="Eliminar avatar"
+                    onClick={() => set("avatar_url", "")}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <line x1="10" y1="11" x2="10" y2="17" />
+                      <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              <span className="form-hint">Déjalo vacío para usar el logo de AgentOSweb por defecto.</span>
+            </div>
+
+            <div className="form-group" style={{ marginTop: 20 }}>
+              {plan === "agency" ? (
+                <>
+                  <label className="form-label" htmlFor="cfg-bubble-logo">
+                    URL del logo de la burbuja (opcional)
+                  </label>
+                  <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                    <input
+                      id="cfg-bubble-logo"
+                      className="form-input"
+                      style={{ flex: 1 }}
+                      type="url"
+                      value={draft.bubble_logo_url ?? ""}
+                      onChange={(e) => set("bubble_logo_url", e.target.value)}
+                      placeholder="https://tusitio.com/logo-burbuja.png"
+                    />
+                    {(draft.bubble_logo_url ?? "").trim() && (
+                      <button
+                        type="button"
+                        className="form-input-clear"
+                        title="Eliminar logo"
+                        aria-label="Eliminar logo"
+                        onClick={() => set("bubble_logo_url", "")}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <line x1="10" y1="11" x2="10" y2="17" />
+                          <line x1="14" y1="11" x2="14" y2="17" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <span className="form-hint">Aparece en la burbuja flotante. Vacío = icono AgentOSweb.</span>
+                </>
+              ) : (
+                <span className="form-hint">
+                  El logo propio de la burbuja (marca blanca) es exclusivo del plan Agency.
+                </span>
+              )}
             </div>
           </div>
 

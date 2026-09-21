@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KAIRO - Deterministic Compute Engine</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+            }
+          },
+          boxShadow: {
+            'tactile': '0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 12px 30px -10px rgba(0, 0, 0, 0.8)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #09090b;
+      color: #f4f4f5;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .btn-tactile {
+      transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .btn-tactile:active {
+      transform: scale(0.97) translateY(1px);
+    }
+    .bg-grid-pattern {
+      background-size: 40px 40px;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-delay: -1ms !important;
+        animation-duration: 1ms !important;
+        transition-duration: 0s !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-zinc-950 text-zinc-100 selection:bg-emerald-500/30 selection:text-emerald-200">
+
+  <!-- Header Navigation -->
+  <header class="fixed top-0 left-0 right-0 z-50 h-16 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto h-full px-6 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3 group">
+        <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-emerald-400 font-mono font-bold text-sm shadow-inner group-hover:border-emerald-500/50 transition-colors">
+          K·
+        </div>
+        <span class="font-bold tracking-tight text-lg text-zinc-100 group-hover:text-white transition-colors">Kairo</span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
+        <a href="#features" class="hover:text-zinc-100 transition-colors">Architecture</a>
+        <a href="#benchmarks" class="hover:text-zinc-100 transition-colors">Benchmarks</a>
+        <a href="#access" class="hover:text-zinc-100 transition-colors">Pricing</a>
+      </nav>
+
+      <div class="flex items-center gap-4">
+        <a href="#access" class="hidden sm:inline-flex text-xs font-mono text-zinc-400 hover:text-zinc-200 transition-colors">Sign in</a>
+        <a href="#access" class="btn-tactile inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-tactile">
+          Request Access
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative pt-16">
+
+    <!-- Hero Section -->
+    <section class="relative min-h-[calc(100dvh-4rem)] flex items-center bg-grid-pattern border-b border-zinc-800/60 overflow-hidden px-6 py-12 md:py-16">
+      <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+      <div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+        <div class="lg:col-span-6 flex flex-col items-start text-left">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-emerald-400 text-xs font-mono tracking-wider uppercase mb-6">
+            <span>Deterministic Compute Engine</span>
+          </div>
+
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.08] mb-6">
+            Cloud execution with instant local replay.
+          </h1>
+
+          <p class="text-base sm:text-lg text-zinc-400 max-w-[54ch] leading-relaxed mb-8">
+            Build, test, and isolate distributed backends with sub-millisecond cold starts and deterministic memory states.
+          </p>
+
+          <div class="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+            <a href="#access" class="btn-tactile w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-500 text-zinc-950 font-semibold text-sm hover:bg-emerald-400 shadow-tactile text-center">
+              Request Access
+            </a>
+            <a href="#features" class="btn-tactile w-full sm:w-auto px-6 py-3 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 font-medium text-sm hover:bg-zinc-850 hover:text-white text-center">
+              View Technical Spec
+            </a>
+          </div>
+
+          <div class="mt-10 flex items-center gap-6 text-xs text-zinc-500 font-mono">
+            <div><span class="text-zinc-300 font-semibold">0.42ms</span> cold start</div>
+            <div class="w-1 h-1 rounded-full bg-zinc-700"></div>
+            <div><span class="text-zinc-300 font-semibold">WASM / Linux</span> native</div>
+          </div>
+        </div>
+
+        <!-- Terminal Window Preview -->
+        <div class="lg:col-span-6">
+          <div class="rounded-xl border border-zinc-800 bg-zinc-900/90 shadow-2xl p-5 font-mono text-xs overflow-hidden relative">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-zinc-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
+                <span class="ml-2 text-zinc-400 font-medium">instance_trace_id_4402.kairo</span>
+              </div>
+              <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[11px] font-semibold border border-emerald-500/20">
+                ACTIVE
+              </span>
+            </div>
+
+            <div class="space-y-3 leading-relaxed">
+              <div class="text-zinc-500">// 1. Deterministic snapshot captured</div>
+              <div class="flex items-start gap-2 text-zinc-300">
+                <span class="text-emerald-400 font-bold">&gt;</span>
+                <span>kairo snapshot --isolate=region-iad-1</span>
+              </div>
+              <div class="p-3 rounded bg-zinc-950 border border-zinc-800/80 text-zinc-400 text-[11px]">
+                <div class="flex justify-between text-zinc-500 mb-1">
+                  <span>SNAPSHOT METRICS</span>
+                  <span>TIME: 0.18ms</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-zinc-300">
+                  <div>heap_size: <span class="text-emerald-400">14.2MB</span></div>
+                  <div>entropy_seed: <span class="text-emerald-400">0x9F4B3</span></div>
+                  <div>syscalls_logged: <span class="text-emerald-400">184</span></div>
+                  <div>io_divergence: <span class="text-emerald-400">0.000%</span></div>
+                </div>
+              </div>
+              <div class="pt-2 text-zinc-500">// 2. Exact state replay validation</div>
+              <div class="flex items-center justify-between text-zinc-400 text-[11px] bg-zinc-950 p-2.5 rounded border border-zinc-800/60">
+                <span>Branch: main-reproduce</span>
+                <span class="text-emerald-400 font-semibold">100% BIT-EXACT MATCH</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Logo Wall -->
+    <section class="border-b border-zinc-800/60 py-10 px-6 bg-zinc-950/60">
+      <div class="max-w-7xl mx-auto">
+        <p class="text-center text-xs font-mono uppercase tracking-widest text-zinc-400 mb-8">
+          Reliable infrastructure chosen by engineering organizations
+        </p>
+        <div class="flex flex-wrap items-center justify-center gap-10 md:gap-16 opacity-60 hover:opacity-90 transition-opacity">
+          <svg class="h-6 w-auto text-zinc-300 fill-current" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+          <svg class="h-6 w-auto text-zinc-300 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <svg class="h-6 w-auto text-zinc-300 fill-current" viewBox="0 0 24 24"><path d="M21.362 9.354H12V.314a.314.314 0 0 0-.535-.222L.854 11.08a.628.628 0 0 0 .445 1.072H12v9.04c0 .28.338.42.535.222l10.61-10.988a.628.628 0 0 0-.445-1.072h-.338z"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bento Grid Section -->
+    <section id="features" class="py-24 px-6 max-w-7xl mx-auto">
+      <div class="mb-14 max-w-2xl">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-4">
+          Core primitives for deterministic isolation
+        </h2>
+        <p class="text-zinc-400 text-base leading-relaxed">
+          Engineered to replace flaky container mocks with snapshot-capable runtime engines.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div class="md:col-span-7 rounded-xl border border-zinc-800 bg-zinc-900/80 p-7 flex flex-col justify-between shadow-tactile">
+          <div>
+            <h3 class="text-xl font-bold text-white mb-2">Microsecond Memory Forking</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed mb-6">
+              Clone live database and application memory trees in 400 microseconds with zero shared mutation leaks.
+            </p>
+          </div>
+          <div class="rounded-lg bg-zinc-950 border border-zinc-800 p-4 font-mono text-xs">
+            <div class="flex justify-between items-center text-zinc-500 pb-2 mb-2 border-b border-zinc-850">
+              <span>FORK CONCURRENCY</span>
+              <span class="text-emerald-400">128 PARALLEL COPIES</span>
+            </div>
+            <div class="grid grid-cols-4 gap-2 text-center text-[10px]">
+              <div class="p-2 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">node-01 <span class="text-emerald-400 block">0.31ms</span></div>
+              <div class="p-2 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">node-02 <span class="text-emerald-400 block">0.28ms</span></div>
+              <div class="p-2 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">node-03 <span class="text-emerald-400 block">0.34ms</span></div>
+              <div class="p-2 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">node-04 <span class="text-emerald-400 block">0.29ms</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-5 rounded-xl border border-emerald-500/20 bg-zinc-900/60 p-7 flex flex-col justify-between shadow-tactile relative overflow-hidden">
+          <div class="absolute -right-8 -bottom-8 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+          <div>
+            <h3 class="text-xl font-bold text-white mb-2">Hermetic Syscall Interception</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed mb-6">
+              Clocks and network sockets are recorded directly into reproducible deterministic streams.
+            </p>
+          </div>
+          <div class="p-3.5 rounded-lg bg-zinc-950/80 border border-zinc-800/80 font-mono text-[11px] text-zinc-400 space-y-1">
+            <div>entropy_source: <span class="text-emerald-400">fixed_seed_0x33</span></div>
+            <div>wall_clock: <span class="text-emerald-400">frozen_monotonic</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonial Section -->
+    <section class="py-20 px-6 border-t border-zinc-800/60 bg-zinc-950">
+      <div class="max-w-4xl mx-auto text-center">
+        <blockquote class="text-xl sm:text-2xl font-medium text-zinc-200 tracking-tight leading-snug mb-6">
+          "Kairo eliminated all test flakiness across our staging fleet. Our distributed test suites now run in seconds rather than twenty minutes."
+        </blockquote>
+        <div class="flex items-center justify-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-emerald-400">
+            ER
+          </div>
+          <div class="text-left">
+            <div class="text-sm font-semibold text-white">Elena Rostova</div>
+            <div class="text-xs text-zinc-400">VP of Platform Infrastructure at Datastream</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Access Form Section -->
+    <section id="access" class="py-24 px-6 border-t border-zinc-850 bg-zinc-950 text-center">
+      <div class="max-w-2xl mx-auto">
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-4">
+          Ready for deterministic execution?
+        </h2>
+        <p class="text-zinc-400 text-base leading-relaxed mb-8">
+          Join leading engineering teams using Kairo for hermetic system validation.
+        </p>
+
+        <form class="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto" onsubmit="event.preventDefault(); alert('Request received!');">
+          <label for="work-email" class="sr-only">Work Email</label>
+          <input 
+            id="work-email"
+            type="email" 
+            required 
+            placeholder="engineer@company.com"
+            class="w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-100 placeholder-zinc-500 text-sm focus:outline-none focus:border-emerald-500 transition-colors"
+          />
+          <button 
+            type="submit" 
+            class="btn-tactile w-full sm:w-auto px-6 py-3 rounded-lg bg-emerald-500 text-zinc-950 font-semibold text-sm hover:bg-emerald-400 shadow-tactile whitespace-nowrap"
+          >
+            Request Access
+          </button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-zinc-800/80 py-10 px-6 bg-zinc-950 text-xs text-zinc-400">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-zinc-300">Kairo Engine Inc.</span>
+        <span>-</span>
+        <span>Deterministic Infrastructure Systems</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="#" class="hover:text-zinc-300 transition-colors">Documentation</a>
+        <a href="#" class="hover:text-zinc-300 transition-colors">Security</a>
+        <a href="#" class="hover:text-zinc-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="http://localhost:3000/w/ae2f9c26-12a7-475d-80fd-28cc896f5711/widget.js?v=11" data-api-url="https://agentosweb-api.linkeaoficial2025.workers.dev/api" defer></script>
+
+</body>
+</html>

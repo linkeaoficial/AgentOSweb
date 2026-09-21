@@ -17,6 +17,7 @@ interface AgentRow {
   user_id: string;
   name: string;
   avatar_url: string | null;
+  bubble_logo_url: string | null;
   header_title: string;
   header_subtitle: string;
   welcome_message: string;
@@ -268,8 +269,13 @@ function matchFaq(agent: AgentRow, message: string): string | null {
 
 function domainAllowed(agent: AgentRow, origin: string): boolean {
   if (agent.allowed_domains === "*") return true;
-  const allowed = agent.allowed_domains.split(",").map((d) => d.trim().toLowerCase());
-  return allowed.some((domain) => origin.toLowerCase().includes(domain.toLowerCase()));
+  const allowed = agent.allowed_domains
+    .split(",")
+    .map((d) => d.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, ""));
+  const hostname = origin.toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+  return allowed.some(
+    (domain) => hostname === domain || hostname.endsWith("." + domain),
+  );
 }
 
 const EMERGENCY_REPLY =
@@ -473,6 +479,7 @@ async function handleAgent(request: Request, agentId: string, env: Env) {
       header_subtitle: agent.header_subtitle,
       welcome_message: agent.welcome_message,
       avatar_url: agent.avatar_url,
+      bubble_logo_url: agent.bubble_logo_url,
       primary_color: agent.primary_color,
       position: agent.position,
       default_theme: agent.default_theme,
@@ -502,6 +509,7 @@ async function handleAgentConfig(request: Request, agentId: string, env: Env) {
       header_subtitle: agent.header_subtitle,
       welcome_message: agent.welcome_message,
       avatar_url: agent.avatar_url,
+      bubble_logo_url: agent.bubble_logo_url,
       primary_color: agent.primary_color,
       position: agent.position,
       default_theme: agent.default_theme,
@@ -537,6 +545,7 @@ const EDITABLE_FIELDS: Record<string, { column: string; allowNull?: boolean; val
   position: { column: "position", validate: (v) => (v === "right" || v === "left" ? v : null) },
   default_theme: { column: "default_theme", validate: (v) => (v === "light" || v === "dark" || v === "auto" ? v : null) },
   avatar_url: { column: "avatar_url", allowNull: true, validate: (v) => (typeof v === "string" && v.length <= 500 ? v : null) },
+  bubble_logo_url: { column: "bubble_logo_url", allowNull: true, validate: (v) => (typeof v === "string" && v.length <= 500 ? v.trim() || null : null) },
   chat_model: { column: "chat_model", validate: (v) => (typeof v === "string" && v.length <= 200 ? v : null) },
   mode: {
     column: "mode",
@@ -611,10 +620,21 @@ async function handleAgentUpdate(request: Request, agentId: string, env: Env) {
   const existing = await env.DB.prepare("SELECT id FROM agents WHERE id = ?").bind(agentId).first<{ id: string }>();
   if (!existing) return json({ error: "Agente no existe" }, 404, origin);
 
-  let updates: [string, unknown][] = [];
   const body: unknown = await request.json().catch(() => ({}));
+  let updates: [string, unknown][] = [];
   if (body && typeof body === "object") {
     const b = body as Record<string, unknown>;
+    // Marca blanca: el logo de burbuja propio es exclusivo del plan Agency.
+    if ("bubble_logo_url" in b && b.bubble_logo_url != null) {
+      const owner = await env.DB.prepare(
+        "SELECT u.plan FROM users u JOIN agents a ON a.user_id = u.id WHERE a.id = ?"
+      )
+        .bind(agentId)
+        .first<{ plan: string | null }>();
+      if (owner?.plan !== "agency") {
+        return json({ error: "El logo de burbuja (marca blanca) es exclusivo del plan Agency" }, 403, origin);
+      }
+    }
     for (const key of Object.keys(EDITABLE_FIELDS)) {
       if (!(key in b)) continue;
       const def = EDITABLE_FIELDS[key];
@@ -656,6 +676,10 @@ async function handleAgentUpdate(request: Request, agentId: string, env: Env) {
 
 async function handleOverview(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
+  // Solo el dueño debe leer métricas de uso/cuota; el resto de la API es público a propósito.
+  if (!isOwnerAuthorized(request, env)) {
+    return json({ error: "No autorizado" }, 403, origin);
+  }
   const agent = await getAgent(agentId, env);
   if (!agent) return json({ error: "Agente no existe" }, 404, origin);
 
@@ -892,7 +916,14 @@ async function handleUserUpdate(request: Request, env: Env) {
   return json({ ok: true, plan: effectivePlan }, 200, origin);
 }
 
+async function resetMonthlyQuota(env: Env): Promise<void> {
+  await env.DB.prepare("UPDATE users SET messages_used = 0").run();
+}
+
 export default {
+  async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
+    await resetMonthlyQuota(env);
+  },
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "*";

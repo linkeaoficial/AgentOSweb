@@ -3,6 +3,7 @@ export interface AgentConfig {
   header_subtitle: string;
   welcome_message: string;
   avatar_url: string | null;
+  bubble_logo_url: string | null;
   primary_color: string;
   prompts: { label: string; msg: string }[];
   position?: string;
@@ -15,6 +16,7 @@ export const DEFAULT_CONFIG: AgentConfig = {
   welcome_message:
     "Soy el asistente virtual de AgentOSweb. ¿En qué te puedo colaborar hoy?",
   avatar_url: null,
+  bubble_logo_url: null,
   primary_color: "#3559ff",
   prompts: [
     { label: "¿Cómo instalar AgentOSweb en mi web?", msg: "¿Cómo instalar AgentOSweb en mi web?" },

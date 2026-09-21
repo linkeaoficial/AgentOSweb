@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS agents (
   user_id TEXT NOT NULL,                     -- Dueño de la cuenta
   name TEXT NOT NULL DEFAULT 'AgentOS Assistant',
   avatar_url TEXT,                             -- Avatar subido por el cliente → objeto en R2 (Bunker). NULL = logo por defecto incluido en el widget
+  bubble_logo_url TEXT,                        -- Logo propio de la burbuja flotante. Marca blanca (solo plan Agency). NULL = Icono_Chat de AgentOSweb
   header_title TEXT DEFAULT 'AgentOSweb',
   header_subtitle TEXT DEFAULT 'Asistente IA • En línea 24/7',
   welcome_message TEXT DEFAULT 'Soy tu asistente virtual de AgentOSweb. ¿En qué te puedo colaborar hoy?',
