@@ -4,6 +4,7 @@
 ---
 
 ## 📑 TABLA DE CONTENIDOS 🧭
+0. ✅ [Estado Real Implementado (lo que YA funciona)](#0-✅-estado-real-implementado-sep-2026--lo-que-ya-funciona-en-producción)
 1. 🎯 [Definición del Producto y Filosofía Lean](#1--definición-del-producto-y-filosofía-lean)
 2. 🏷️ [Identidad de Marca y Posicionamiento](#2-️-identidad-de-marca-y-posicionamiento)
 3. 🏗️ [Arquitectura 100% Cloudflare & Capas de Seguridad](#3-️-arquitectura-100-cloudflare--capas-de-seguridad)
@@ -18,6 +19,27 @@
 
 ---
 
+## 0. ✅ ESTADO REAL IMPLEMENTADO (sep-2026) — lo que YA funciona en producción
+
+> **Este documento es el blueprint/v2.3 (diseño original).** Muchas secciones quedaron desactualizadas frente a la realidad construida. Esta sección resume **como es HOY**; ante cualquier duda, mirá esta sección primero y después el código (`apps/`, `database/schema.sql`).
+
+### Lo que está DESPLEGADO y verificado en vivo
+- **Worker API en Cloudflare** (`apps/workers/src/index.ts`, single-file, `wrangler deploy`). URL prod: `https://agentosweb-api.linkeaoficial2025.workers.dev`. Endpoints:
+  - Públicos (widget): `GET /api/agent/:id` (config visual + prompts), `POST /api/chat` (chat + FAQ auto-respuesta), `GET /` (health).
+  - Protegidos (dashboard, gate `X-Owner-Token`): `GET /api/agent/:id/config`, `PUT /api/agent/:id`, `DELETE /api/agent/:id`, `GET|POST /api/agents`, `GET /api/overview/:id`, `PUT /api/user`. **Con `OWNER_TOKEN` activo desde 22-sep-2026: sin token → 403.**
+- **Motor IA administrada: Workers AI de Cloudflare** (dominante) + **BYOK** con Chat Completions multi-proveedor: workers-ai, openai, groq, deepseek, gemini, mistral, qwen, nvidia, openrouter, omnirouter, unorouter, cerebras, custom. *Los proveedores NOMBRE de "Groq Llama 3.3 / OpenAI GPT-4o Mini" de las secciones 1-3 son del blueprint; hoy predomina Workers AI.* Modelo managed default: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (const) o `openai/gpt-oss-120b` (var `DEFAULT_MODEL`); agentes nuevos nacen managed `@cf/meta/llama-3.1-8b-instruct-fast`.
+- **D1** (`agentosweb-db`): tablas `users` (con `agent_limit`), `agents` (con **`faqs` JSON, `chat_base_url`, `bubble_logo_url`**, además del blueprint), `leads`, `conversations`, `messages`, **`faq_hits`**. Índices compuestos. `schema.sql` es la fuente de verdad (ver §4 actualizado).
+- **KV** `AGENT_CACHE`: cache del agente (TTL 1h) + bloqueo de cupo (5 min); invalida al `PUT`.
+- **Cupos por plan** (`PLAN_DEFAULTS`): free 1 ag/20 msgs · starter 1/1500 · pro 3/6000 · agency 10/25000. `users.agent_limit`/`messages_limit` = override (NULL = plan). BYOK no consume cupo. Reset mensual vía cron. `/api/user` solo con token.
+- **Widget** (`apps/widget/src/index.ts` → `widget.js` ~1 archivo, Vanilla TS, sin frameworks): Shadow DOM, dual-view (portada FAQ + chat), tema claro/oscuro (`default_theme` desde config), botón flotante (`position`, `primary_color`, `bubble_logo_url` para Agency), FAQ auto-respuesta **tolerante** (ver FAQ matching abajo), historial de sesión (últimos 6), indicador de escritura, pacing 1.000 ms.
+- **Panel dashboard** (`apps/dashboard`, Next.js 15 + React 19): login opcional vía `DASHBOARD_PASSWORD` (hoy directo, login completo va AL FINAL), `Mis Agentes` multi-agente con selector/crear/renombrar/eliminar, editor de identidad/apariencia, Modo clave propia (BYOK) con catálogo de modelos y citado descifrado, base de conocimiento (scratchpad), Vista previa en vivo, Overview (conversaciones + FAQ hits), Planes & Facturación (plan + cupos), modo oscuro persistente.
+- **Seguridad (22-sep-2026):** `OWNER_TOKEN` + `ENCRYPTION_KEY` aplicados en el worker y dashboard `.env.local`. Doble puerta habilitada; cifrado de API keys en reposo. `domainAllowed` compara host exacto. **Login multi-cliente completo = pendiente final (ver pendientes).**
+
+### Bugfix/detalle reciente (22-sep-2026)
+- **FAQ auto-respuesta tolerante:** con FAQ de 4+ keywords, permite que falte 1 keyword (natural); 1-3 keywords siguen exactas. Verificado: "funciona el efecto cristal en safari" responde la FAQ fija, no la IA.
+
+---
+
 ## 1. 🎯 DEFINICIÓN DEL PRODUCTO Y FILOSOFÍA LEAN
 
 ### ¿Qué es AgentOSweb exactamente? 🤖💡
@@ -28,7 +50,7 @@ Permite a cualquier negocio transformar su atención web en menos de 2 minutos i
 ### 🚫 Pilares de la Filosofía Lean (MVP de Alto Margen):
 1. ⚡️ **Cero RAG Pesado / Cero Embeddings Costosos:** Sin bases vectoriales externas; el contexto del negocio se gestiona mediante un **Scratchpad de Conocimiento Directo** inyectado en el *System Prompt* y cacheado en Cloudflare KV (<10 ms).
 2. 🗄️ **Cero Dependencias Externas:** Eliminadas las latencias y sobrecostos de servicios externos; todo se ejecuta nativamente en **Cloudflare D1**.
-3. ☁️ **Cero Servidores / VPS:** Cómputo serverless en el borde (*Edge*) con **Cloudflare Workers** y modelos ultrarrápidos vía **Groq API** (Llama 3.3) y OpenAI (GPT-4o Mini).
+3. ☁️ **Cero Servidores / VPS:** Cómputo serverless en el borde (*Edge*) con **Cloudflare Workers** — IA administrada vía **Workers AI** y modo BYOK con modelos ultrarrápidos (Groq, OpenAI, DeepSeek, Gemini, etc.). *Actualmente NO se usa Groq administrado como motor principal.*
 4. 🔄 **Dual-View UX Fluido:** Navegación dividida entre una **Portada de Inicio (Home)** con preguntas interactivas y una **Ventana de Chat** con transición animada deslizante.
 5. ⚛️ **Dashboard de Nueva Generación:** Frontend administrativo construido con **Next.js 15 (App Router), React 19 y Tailwind CSS v4**, garantizando carga instantánea en Cloudflare Pages.
 
@@ -79,25 +101,32 @@ Permite a cualquier negocio transformar su atención web en menos de 2 minutos i
 ```text
 [ Visitante en Web Cliente ]
              │
-             ▼  (Carga <script src="[https://agentosweb.com/widget.js](https://agentosweb.com/widget.js)" data-agent-id="UUID"></script>)
-   [ Widget Shadow DOM ] ───► UI aislada (Avatar animado, portada FAQ, chat elástico)
+             ▼  (Carga <script src="http://localhost:3000/w/{agentId}/widget.js" o widget.js con data-agent-id + data-api-url)
+   [ Widget Shadow DOM ] ───► UI aislada (burbuja flotante, portada FAQ, chat elástico)
              │
-             ▼  (POST /api/chat con Origin/Referer)
+             ▼  (POST /api/chat con Origin)
  [ Cloudflare Workers API ]
              │
-             ├─── 1. Validación CORS & allowed_domains (Bloqueo de dominios no autorizados)
-             ├─── 2. Cache KV (System Prompt + Knowledge Base cargados en <10ms)
-             ├─── 3. Motor IA (Inferencia en Groq Llama 3.3 / OpenAI)
-             ├─── 4. Pacing Orgánico (Garantía de 1.000 ms con typing-indicator)
-             ├─── 5. ctx.waitUntil() ──┬──► Escritura no bloqueante en D1
-                                       └──► Disparo de Webhook (Telegram / WhatsApp)
+             ├─── 1. Validación CORS & allowed_domains (host exacto; bloqueo de dominios no autorizados)
+             ├─── 2. Cache KV (System Prompt + Knowledge Base del agente)
+             ├─── 3. FAQ auto-respuesta (respuesta fija sin IA, tolerante en FAQs de 4+ keywords)
+             ├─── 4. Motor IA (Workers AI administrado o BYOK según proveedor)
+             ├─── 5. Pacing Orgánico (Garantía de 1.000 ms con typing-indicator)
+             ├─── 6. ctx.waitUntil() ──┬──► Escritura no bloqueante en D1
+             │                         └──► Disparo de Webhook (Telegram / webhook_url)
 ```
+> ⚠️ La URL de instalación **cambió**: el panel genera `<script src="{base}/w/{agentId}/widget.js">` (rewrite en `next.config.ts` → sirve `widget.js`) y `data-api-url={worker}/api`. El `widget.js` directo a `agentosweb.com/widget.js` sigue siendo el plan, pero hoy la vía real es el rewrite `/w/:id/widget.js`. *Archivos:* `apps/dashboard/next.config.ts`, `apps/dashboard/src/components/dashboard/Views.tsx`, `apps/widget/src/index.ts`.
 
 ---
 
 ## 4. 🗄️ ESQUEMA DE BASE DE DATOS CLOUDFLARE D1 OPTIMIZADO
 
-*Archivo: `database/schema.sql`*
+*Archivo: `database/schema.sql`* (fuente de verdad — coincide con lo desplegado).
+
+> ⚠️ **Diferencias del esquema original respecto a lo desplegado (ver §0):**
+> - `agents` hoy además tiene `bubble_logo_url` (marca blanca, solo Agency), `chat_base_url` (proveedor "custom"), `faqs` (JSON: label, msg, answer) y `agent_limit` en `users`.
+> - Existe la tabla `faq_hits` (contador de veces que se respondió cada FAQ).
+> - Aunque `agents.mode` default del schema es `'byok'`, **los agentes NUEVOS nacen `'managed'`** (el worker los inserta con `mode='managed'`, `chat_provider='workers-ai'`); el managed usa Workers AI de Cloudflare, y `chat_provider` admite: workers-ai, openai, groq, deepseek, gemini, mistral, qwen, nvidia, openrouter, omnirouter, custom.
 
 ```sql
 -- ==========================================================
@@ -226,7 +255,7 @@ agentosweb/
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   ├── 📁 landing/                # Landing page pública + vitrina de features (Next.js 15)
+│   ├── 📁 landing/                # Landing page pública + vitrina de features (Next.js 15) — ⚠️ NO CREADA aún (backlog)
 │   │   ├── 📁 src/
 │   │   │   └── 📁 app/
 │   │   │       ├── layout.tsx     # SEO, branding y analytics
@@ -236,20 +265,16 @@ agentosweb/
 │   │
 │   ├── 📁 workers/                # API Edge Serverless (Cloudflare Workers)
 │   │   ├── 📁 src/
-│   │   │   ├── index.ts           # Enrutador, CORS y control de dominios
-│   │   │   ├── chat-handler.ts    # Orquestador: KV -> Inferencia -> Async Hooks
-│   │   │   ├── alerts.ts          # Despacho de alertas a Telegram / Webhooks
-│   │   │   └── 📁 providers/
-│   │   │       ├── groq.ts        # Motor ultrarrápido Groq
-│   │   │       └── openai.ts      # Motor OpenAI alternativo
+│   │   │   └── index.ts           # TODO el worker: enrutador, CORS, dominios, chat, FAQ, agentes, overview, cupos, cifrado
 │   │   ├── wrangler.toml
 │   │   └── package.json
 │   │
-│   └── 📁 widget/                 # Componente embebible para clientes
+│   └── 📁 widget/                 # Componente embebible para clientes (Vanilla TS, ~20KB, Shadow DOM)
 │       ├── 📁 src/
 │       │   ├── index.ts           # Shadow DOM, navegación dual y animaciones
+│       │   ├── fallback.ts        # Respuestas offline / modo degradado
 │       │   └── styles.css         # Estilos encapsulados anti-colisiones CSS
-│       ├── build.js               # Minificador a un único archivo `widget.js` (<20KB)
+│       ├── build.js               # Minificador → `dist/widget.js` y copia a apps/dashboard/public/widget.js
 │       └── package.json
 │
 ├── 📁 database/
@@ -300,6 +325,8 @@ El widget utiliza una **arquitectura de doble vista deslizante** dentro de un **
 ---
 
 ## 7. 🧠 LÓGICA DEL BACKEND, RESILIENCIA Y WEBHOOKS
+
+> ⚠️ El pseudocódigo de abajo es del blueprint (v2). La implementación real está en `apps/workers/src/index.ts` (single-file). Cumple: caché KV del agente, dominio exacto, historial por sesión (6 msgs), FAQ auto-respuesta primero, cupo por plan (managed) con bloqueo KV 5 min, inferencia multi-proveedor con retry, pacing 1.000 ms, escritura en D1 + webhooks en `waitUntil`. Ver §0.
 
 ### Flujo del Endpoint `POST /api/chat`:
 
@@ -414,6 +441,8 @@ export async function handleChatMessage(request: Request, env: any, ctx: Executi
 
 ## 8. 🎨 PANEL DE CONTROL EN NEXT.JS & TAILWIND CSS V4
 
+> ⚠️ **Actualización:** el panel real (`apps/dashboard`) usa **Next.js 15 (App Router) + React 19** y estilos CSS con **variables + `body.dark-mode`** (no Tailwind v4 orchestrated). El bloque Tailwind v4 de abajo es del blueprint; el código real vive en `apps/dashboard/src/app/globals.css` con tokens CSS (`--primary-color`, `--bg-surface`, `--border-color`, `--radius-brand`, `.btn-primary`, `.form-input`, etc.). El `widget.js` se sirve desde `public/` vía rewrite `/w/:id/widget.js` (para la vista previa, el build del widget lo copia a `public/widget.js`).
+
 El dashboard se despliega en **Cloudflare Pages** mediante el adaptador `@cloudflare/next-on-pages`, combinando **Next.js 15 (App Router)** con el motor de rendimiento ultra rápido de **Tailwind CSS v4 (Rust Oxide)**:
 
 ### ⚙️ Configuración Global de Tailwind CSS v4 (`src/app/globals.css`):
@@ -486,6 +515,8 @@ El dashboard se despliega en **Cloudflare Pages** mediante el adaptador `@cloudf
 ---
 
 ## 10. 🗺️ ROADMAP DE EJECUCIÓN RÁPIDA (4 SEMANAS)
+
+> ✅ **Cumplido (sep-2026).** Las semanas 1-3 y gran parte de la 4 están hechas y desplegadas (D1+KV worker, widget, dashboard, facturación manual). Ver **§0 ESTADO REAL**. Quedan como **backlog**: landing pública, leads, login multi-cliente + pago, rediseño visual de Planes & Facturación (ver `AGENTOSWEB_PENDIENTES.md`).
 
 * 🟢 **Semana 1: Infraestructura Perimetral y D1**
   * Desplegar base D1 (`schema.sql`) y configurar bindings de KV.

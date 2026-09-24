@@ -11,7 +11,7 @@ import AgentSwitcher, { type DashboardAgent } from "./AgentSwitcher";
 import DashboardFooter from "./Footer";
 import ConfirmModal from "./ConfirmModal";
 import { useToast } from "./notifications";
-import { IconLeads, IconAnalytics, IconKnowledge, IconSettings } from "./icons";
+import { IconLeads, IconAnalytics, IconSettings } from "./icons";
 import { API_BASE, AGENT_ID } from "./config";
 
 const TITLE_MAP: Record<string, string> = {
@@ -19,7 +19,6 @@ const TITLE_MAP: Record<string, string> = {
   "view-agents": "Mis Agentes",
   "view-leads": "Prospectos Capturados",
   "view-analytics": "Analíticas",
-  "view-knowledge": "Base de Conocimiento",
   "view-billing": "Planes & Facturación",
   "view-settings": "Configuración",
 };
@@ -31,17 +30,11 @@ const PLACEHOLDER_VIEWS: Record<string, { icon: ReactNode; title: string; descri
     description:
       "Aquí verás todos los contactos que tu agente IA ha capturado automáticamente: nombre, email, teléfono, notas de interés y opción de exportar todo a formato CSV.",
   },
-  "view-analytics": {
+"view-analytics": {
     icon: <IconAnalytics />,
     title: "Analíticas e Insights de Comportamiento",
     description:
       "Estadísticas detalladas sobre volumen de interacciones por hora, temas más consultados y rendimiento general del agente de IA.",
-  },
-  "view-knowledge": {
-    icon: <IconKnowledge />,
-    title: "Base de Conocimiento (Scratchpad KB)",
-    description:
-      "Área de texto directo conectada a Cloudflare KV para inyectar políticas de empresa, catálogos y datos del negocio sin bases vectoriales pesadas.",
   },
   "view-settings": {
     icon: <IconSettings />,
@@ -122,8 +115,8 @@ export default function Dashboard() {
   );
 
   const handleCreateAgent = useCallback(
-    (name: string) => {
-      fetch("/api/agents", {
+    (name: string): Promise<boolean> => {
+      return fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -135,13 +128,19 @@ export default function Dashboard() {
         })
         .then((id) => {
           toast.success("Agente creado. Ahora edítalo a tu gusto.");
-          return loadAgents().then(() => {
-            localStorage.setItem(AGENT_CACHE_KEY, id);
-            setCurrentAgentId(id);
-            setActiveView("view-agents");
-          });
+          return loadAgents()
+            .then(() => {
+              localStorage.setItem(AGENT_CACHE_KEY, id);
+              setCurrentAgentId(id);
+              setActiveView("view-agents");
+            })
+            .then(() => true)
+            .catch(() => false);
         })
-        .catch((e) => toast.error(e instanceof Error ? e.message : "Error al crear el agente"));
+        .catch((e) => {
+          toast.error(e instanceof Error ? e.message : "Error al crear el agente");
+          return false;
+        });
     },
     [toast, loadAgents]
   );

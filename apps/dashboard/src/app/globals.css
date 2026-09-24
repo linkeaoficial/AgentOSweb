@@ -26,16 +26,16 @@ body.dark-mode {
             --primary-color-dark: #13a0ff;
             --primary-gradient: linear-gradient(135deg, #3559ff 0%, #13a0ff 100%);
             
-            --bg-body: #08090d;                /* ðŸŒ‘ Casi negro con tinte azul profundo */
-            --bg-surface: #12141b;             /* ðŸŽ´ Tarjetas elevadas (un escalÃ³n) */
-            --bg-sidebar: #0e1016;             /* ðŸ§­ Sidebar (mÃ¡s profundo que tarjetas) */
-            --bg-subtle: #1c1f29;              /* ðŸ§© Inputs y elementos secundarios */
-            --surface-subtle: #171a23;
-            --surface-card: #1c1f29;
-            --border-color: #232633;           /* âž– Bordes sutiles azulados */
-            --text-main: #e6ebf2;              /* ðŸ“ Texto brillante */
-            --text-muted: #7d8596;             /* ðŸ“ SubtÃ­tulos */
-            --card-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);  /* ðŸŒ‘ Sombra profunda */
+            --bg-body: #09090b;                /* Fondo zinc neutro (zinc-950) */
+            --bg-surface: #18181b;             /* Tarjetas elevadas (zinc-900) */
+            --bg-sidebar: #101013;             /* Sidebar (más profundo que tarjetas) */
+            --bg-subtle: #202024;              /* Inputs y elementos secundarios (zinc-850) */
+            --surface-subtle: #1c1c20;
+            --surface-card: #202024;
+            --border-color: #2e2e33;           /* Bordes neutros */
+            --text-main: #f4f4f5;              /* Texto principal (zinc-100) */
+            --text-muted: #a1a1aa;             /* Subtítulos (zinc-400) */
+            --card-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);  /* Sombra profunda neutra */
         }
 
                 * {
@@ -274,9 +274,9 @@ body.dark-mode .nav-backdrop {
         }
 
         body.dark-mode .sidebar.collapsed .nav-item::after {
-            background-color: #1c2128;
-            color: #f8fafc;
-            border: 1px solid #333942;
+            background-color: #202024;
+            color: #f4f4f5;
+            border: 1px solid #3f3f46;
         }
 
         /* Mostrar tooltip al pasar el cursor Ãºnicamente si estÃ¡ colapsado */
@@ -551,16 +551,6 @@ body.dark-mode .nav-backdrop {
             border-color: var(--primary-color);
         }
 
-        .metric-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: var(--primary-gradient);
-        }
-
                 .metric-header {
             display: flex;
             align-items: center;
@@ -704,18 +694,18 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ðŸ’» Bloque de cÃ³digo estilo editor */
-        .code-display {
+.code-display {
             margin: 0;
-            padding: 12px 14px;
+            padding: 8px 12px;
             background-color: var(--bg-surface);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
             font-size: 12px;
-            line-height: 1.7;
+            line-height: 1.45;
             color: var(--text-main);
-            white-space: pre;                /* ðŸŽ¯ Respeta saltos y espacios EXACTOS */
-            overflow-x: auto;                /* ðŸ›¡ï¸ Scroll solo si hace falta */
+            white-space: pre;                /* 🎯 Respeta saltos y espacios EXACTOS */
+            overflow-x: auto;                /* 🛡️ Scroll solo si hace falta */
             overflow-y: hidden;
             min-width: 0;
             max-width: 100%;
@@ -748,9 +738,9 @@ body.dark-mode .nav-backdrop {
             background-color: #c5c5c5;
             border-radius: 3px;
         }
-        body.dark-mode .code-display::-webkit-scrollbar-thumb { background-color: #5f6673; }
+        body.dark-mode .code-display::-webkit-scrollbar-thumb { background-color: #3f3f46; }
         .code-display { scrollbar-width: thin; scrollbar-color: #c5c5c5 transparent; }
-        body.dark-mode .code-display { scrollbar-width: thin; scrollbar-color: #5f6673 transparent; }
+        body.dark-mode .code-display { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }
 
         /* ðŸ–¥ï¸ðŸ“± Control de visibilidad PC vs MÃ³vil */
         .code-mobile { display: none; }        /* Oculto por defecto (mÃ³vil) */
@@ -778,8 +768,8 @@ body.dark-mode .nav-backdrop {
             .script-box {
                 flex-direction: row;
                 align-items: center;
-                padding: 16px 18px;
-                gap: 12px;
+                padding: 12px 14px;
+                gap: 10px;
             }
 
             /* ðŸŽ¯ El cÃ³digo ocupa el espacio disponible y hace scroll si hace falta */
@@ -905,18 +895,7 @@ padding: 22px 26px;
             background-color: rgba(255, 255, 255, 0.04);
         }
 
-        /* âœ¨ Acento luminoso lateral izquierdo */
-        .install-progress-banner::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: var(--primary-gradient);
-        }
-
-        /* ðŸŽ¯ Cabecera del banner */
+        /* 🎯 Cabecera del banner */
         .install-progress-header {
             display: flex;
             align-items: center;
@@ -1237,8 +1216,8 @@ padding: 22px 26px;
         }
 
         body.dark-mode .faq-list::-webkit-scrollbar-thumb {
-            background-color: #5f6673;
-            border: 2px solid #0f172a;
+            background-color: #3f3f46;
+            border: 2px solid #09090b;
         }
 
                 .faq-item {
@@ -1402,22 +1381,22 @@ padding: 22px 26px;
            ðŸŒ™ SCROLLBAR EN MODO OSCURO â€” Azulada Premium
            ======================================================== */
         body.dark-mode ::-webkit-scrollbar-track {
-            background: #0f172a;              /* ðŸŽ¯ Fondo profundo */
+            background: #09090b;              /* Fondo profundo */
         }
 
         body.dark-mode ::-webkit-scrollbar-thumb {
-            background: #5f6673;
-            border: 2px solid #0f172a;
+            background: #3f3f46;
+            border: 2px solid #09090b;
             border-radius: 10px;
         }
 
         body.dark-mode ::-webkit-scrollbar-thumb:hover {
-            background: #7d8590;
+            background: #52525b;
         }
 
         /* ðŸ”¥ Firefox dark mode */
         body.dark-mode * {
-            scrollbar-color: #5f6673 #0f172a;
+            scrollbar-color: #3f3f46 #09090b;
         }
 
         /* ========================================================
@@ -1443,12 +1422,12 @@ padding: 22px 26px;
 
         /* ðŸŒ™ Modo oscuro para el content-wrapper */
         body.dark-mode main.content-wrapper::-webkit-scrollbar-thumb {
-            background: #5f6673;
-            border-color: #0f172a;
+            background: #3f3f46;
+            border-color: #09090b;
         }
 
         body.dark-mode main.content-wrapper::-webkit-scrollbar-thumb:hover {
-            background: #7d8590;
+            background: #52525b;
         }
 
         /* ðŸž Toast estilo dark graphite con borde sutil */
@@ -1482,9 +1461,9 @@ padding: 22px 26px;
         }
 
         body.dark-mode .toast {
-            background-color: #1c2128;
-            border-color: #444c56;
-            color: #cdd9e5;
+            background-color: #202024;
+            border-color: #3f3f46;
+            color: #e4e4e7;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         }
 
@@ -1533,6 +1512,8 @@ padding: 22px 26px;
            ======================================================== */
         .dashboard-footer {
             margin-top: auto;
+            position: sticky;
+            bottom: 0;
             border-top: 1px solid var(--border-color);
             background-color: var(--bg-surface);
             padding: 18px 32px;
@@ -1543,6 +1524,7 @@ padding: 22px 26px;
             color: var(--text-muted);
             flex-shrink: 0;
             transition: background-color 0.25s ease, border-color 0.25s ease;
+            z-index: 20;
         }
 
         .dashboard-footer strong {
@@ -1907,7 +1889,6 @@ padding: 22px 26px;
 
         .user-menu-item:hover {
             background-color: var(--bg-subtle);
-            color: var(--primary-color);
         }
 
         body.dark-mode .user-menu-item:hover {
@@ -1915,7 +1896,7 @@ padding: 22px 26px;
         }
 
         .user-menu-item:hover svg {
-            color: var(--primary-color);
+            color: var(--text-muted);
         }
 
         .user-menu-divider {
@@ -2335,6 +2316,13 @@ padding: 22px 26px;
             border: 1px solid var(--border-color);
         }
 
+        .status-pill.sm {
+            padding: 2px 8px;
+            font-size: 10.5px;
+            font-weight: 600;
+            vertical-align: 2px;
+        }
+
         .agents-layout {
             display: grid;
             grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
@@ -2362,6 +2350,20 @@ padding: 22px 26px;
             font-weight: 600;
             color: var(--text-muted);
             letter-spacing: -0.1px;
+        }
+
+        .byok-dormant {
+            opacity: 0.55;
+            pointer-events: none;
+            filter: grayscale(0.4);
+        }
+
+        .byok-no-key {
+            color: var(--warning-color, #f59e0b);
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px dashed rgba(245, 158, 11, 0.35);
+            border-radius: 10px;
+            padding: 8px 12px;
         }
 
         .form-input,
@@ -2817,8 +2819,8 @@ padding: 22px 26px;
         }
 
         body.dark-mode .faq-editor::-webkit-scrollbar-thumb {
-            background-color: #5f6673;
-            border: 2px solid #0f172a;
+            background-color: #3f3f46;
+            border: 2px solid #09090b;
         }
 
         .faq-editor-item {
@@ -3385,7 +3387,7 @@ padding: 22px 26px;
 
         .wv-window.is-dark .wv-chat,
         .wv-window.is-dark .wv-prompts {
-            scrollbar-color: #5f6673 #1c2128;
+            scrollbar-color: #3f3f46 #18181b;
         }
 
         .wv-window.is-light .wv-chat,
@@ -3395,7 +3397,7 @@ padding: 22px 26px;
 
         .wv-window.is-dark .wv-chat::-webkit-scrollbar-track,
         .wv-window.is-dark .wv-prompts::-webkit-scrollbar-track {
-            background: #1c2128;
+            background: #18181b;
         }
 
         .wv-window.is-light .wv-chat::-webkit-scrollbar-track,
@@ -3405,8 +3407,8 @@ padding: 22px 26px;
 
         .wv-window.is-dark .wv-chat::-webkit-scrollbar-thumb,
         .wv-window.is-dark .wv-prompts::-webkit-scrollbar-thumb {
-            background-color: #5f6673;
-            border: 2px solid #1c2128;
+            background-color: #3f3f46;
+            border: 2px solid #18181b;
         }
 
         .wv-window.is-light .wv-chat::-webkit-scrollbar-thumb,
@@ -3443,7 +3445,6 @@ padding: 22px 26px;
 
         .wv-welcome h4 {
             margin: 0 0 6px 0;
-            padding-left: 4px;
             font-size: 16.5px;
             font-weight: 630;
             letter-spacing: -0.2px;
@@ -3451,26 +3452,40 @@ padding: 22px 26px;
 
         .wv-welcome p {
             margin: 0;
-            padding-left: 4px;
             font-size: 13.5px;
             line-height: 1.5;
             max-height: 72px;
             overflow-y: auto;
             scrollbar-width: thin;
-            scrollbar-color: #c5c5c5 transparent;
+            scrollbar-color: #c5c5c5 var(--wv-bg);
         }
 
         .wv-welcome p::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
+            height: 8px;
         }
 
         .wv-welcome p::-webkit-scrollbar-track {
-            background: transparent;
+            background: var(--wv-bg);
         }
 
         .wv-welcome p::-webkit-scrollbar-thumb {
             background-color: #c5c5c5;
-            border-radius: 3px;
+            border-radius: 4px;
+            border: 2px solid var(--wv-bg);
+        }
+
+        .wv-window.is-dark .wv-welcome p {
+            scrollbar-color: #3f3f46 #18181b;
+        }
+
+        .wv-window.is-dark .wv-welcome p::-webkit-scrollbar-track {
+            background: #18181b;
+        }
+
+        .wv-window.is-dark .wv-welcome p::-webkit-scrollbar-thumb {
+            background-color: #3f3f46;
+            border: 2px solid #18181b;
         }
 
         .wv-start {

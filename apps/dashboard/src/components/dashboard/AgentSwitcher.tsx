@@ -12,7 +12,7 @@ interface AgentSwitcherProps {
   agents: DashboardAgent[];
   current: string;
   onSelect: (id: string) => void;
-  onCreate: (name: string) => void;
+  onCreate: (name: string) => Promise<boolean>;
 }
 
 export default function AgentSwitcher({ agents, current, onSelect, onCreate }: AgentSwitcherProps) {
@@ -57,7 +57,7 @@ export default function AgentSwitcher({ agents, current, onSelect, onCreate }: A
     };
   }, [open, creating]);
 
-  const submit = () => {
+  const submit = async () => {
     const clean = name.trim();
     if (!clean) return;
     if (clean.length > 60) {
@@ -70,11 +70,16 @@ export default function AgentSwitcher({ agents, current, onSelect, onCreate }: A
     }
     setBusy(true);
     setError("");
-    onCreate(clean);
-    setName("");
-    setCreating(false);
-    setOpen(false);
+    const ok = await onCreate(clean);
     setBusy(false);
+    if (ok) {
+      setName("");
+      setCreating(false);
+      setOpen(false);
+    } else {
+      setError("No se pudo crear el agente. Intenta de nuevo.");
+      setCreating(true);
+    }
   };
 
   return (

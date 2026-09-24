@@ -232,8 +232,13 @@ function createWidget(script: HTMLScriptElement) {
     }
   }
 
+  let chatWasAtBottom = true;
+  const wasChatAtBottom = () =>
+    chatBody.scrollTop + chatBody.clientHeight >= chatBody.scrollHeight - 8;
+
   function switchTab(tab: "home" | "chat") {
     if (tab === "home") {
+      chatWasAtBottom = wasChatAtBottom();
       homeTab.classList.add("active");
       homeTab.setAttribute("aria-selected", "true");
       chatTab.classList.remove("active");
@@ -252,6 +257,7 @@ function createWidget(script: HTMLScriptElement) {
       homeBody.classList.add("hidden-view");
       chatFooter.style.display = "flex";
       updateHeader("chat");
+      if (chatWasAtBottom) chatBody.scrollTop = chatBody.scrollHeight;
       if (!hasGreeted) botGreeting();
       if (!messageInput.value.trim()) typePlaceholderEffect(100);
     }

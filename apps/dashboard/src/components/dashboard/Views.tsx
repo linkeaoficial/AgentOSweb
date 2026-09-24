@@ -149,9 +149,8 @@ export function OverviewView({ onCopy, data, loadError, agentId }: OverviewProps
         <div className="panel-card">
           <h3>Código de Instalación para tu Sitio Web</h3>
           <p className="subtitle">
-            Copia y pega este fragmento antes del cierre de tu etiqueta <code>&lt;/body&gt;</code>. Cada agente tiene su
-            propio enlace con el ID dentro; se genera automáticamente y funciona en cualquier web.
-          </p>
+  Pégalo antes de <code>&lt;/body&gt;</code> y listo. Funciona en cualquier web.
+</p>
 
           <div className="script-box">
             <span id="script-code" className="sr-only">
@@ -186,9 +185,6 @@ export function OverviewView({ onCopy, data, loadError, agentId }: OverviewProps
                 </span>
               ))}
             </div>
-            <p className="compatibility-note">
-              Un solo fragmento sin dependencias. En WordPress se pega en el tema; en apps, en el HTML raíz.
-            </p>
           </div>
         </div>
 
@@ -230,13 +226,6 @@ export function OverviewView({ onCopy, data, loadError, agentId }: OverviewProps
               <h4>Instalación en 3 pasos</h4>
               <span>Solo toma 2 minutos · Sin conocimientos técnicos</span>
             </div>
-          </div>
-          <div className="install-progress-time">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <span>~2 min</span>
           </div>
         </div>
 

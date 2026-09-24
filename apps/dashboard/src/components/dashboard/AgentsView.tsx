@@ -32,6 +32,8 @@ interface AgentConfig {
   chat_model: string;
   chat_base_url: string | null;
   has_chat_api_key: boolean;
+  byok_provider: string | null;
+  byok_model: string | null;
   faqs: FaqDraft[];
 }
 
@@ -101,6 +103,13 @@ const BYOK_PROVIDERS: Record<string, { label: string; models: { id: string; name
       { id: "moonshotai/kimi-k3", name: "Kimi K3 (nuevo · gratis)" },
       { id: "minimaxai/minimax-m3", name: "MiniMax M3 (nuevo · gratis)" },
       { id: "google/gemma-4-31b-it", name: "Google Gemma 4 31B (gratis)" },
+    ],
+  },
+  cerebras: {
+    label: "Cerebras (WSE)",
+    models: [
+      { id: "gpt-oss-120b", name: "GPT-OSS 120B (ultrarrápido · pago)" },
+      { id: "qwen-3.8-27b", name: "Qwen 3.8 27B (rápido y eficiente · pago)" },
     ],
   },
   deepseek: {
@@ -216,9 +225,32 @@ const BYOK_PROVIDERS: Record<string, { label: string; models: { id: string; name
       { id: "grok-4-3", name: "Grok 4.3" },
     ],
   },
+  unorouter: {
+    label: "UnoRouter",
+    models: [
+      { id: "deepseek-v4-flash:free", name: "DeepSeek V4 Flash (gratis · 1M contexto)" },
+      { id: "deepseek-v4-pro:free", name: "DeepSeek V4 Pro (gratis · 1M contexto)" },
+      { id: "gpt-5.5:free", name: "OpenAI GPT-5.5 (gratis · 1M contexto)" },
+      { id: "gpt-5.4:free", name: "OpenAI GPT-5.4 (gratis · 1M contexto)" },
+      { id: "glm-5.2:free", name: "Z.ai GLM 5.2 (gratis · 1M contexto)" },
+      { id: "glm-4.5-flash:free", name: "Z.ai GLM 4.5 Flash (gratis · rápido)" },
+      { id: "gemma-4-31b-it:free", name: "Google Gemma 4 31B (gratis)" },
+      { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash (barato · $0.06/M in)" },
+      { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro (flagship · $0.90/M in)" },
+      { id: "gpt-5.5", name: "OpenAI GPT-5.5 (equilibrado · $0.19/M in)" },
+      { id: "gpt-5.4", name: "OpenAI GPT-5.4 (profesional · $1.80/M in)" },
+      { id: "gemini-3.5-flash", name: "Google Gemini 3.5 Flash ($0.19/M in)" },
+      { id: "glm-5.2", name: "Z.ai GLM 5.2 (1M contexto · $1.60/M in)" },
+      { id: "kimi-k2.6", name: "Moonshot Kimi K2.6 (1M contexto · $1.27/M in)" },
+      { id: "minimax-m2.7", name: "MiniMax M2.7 (nuevo · $0.82/M in)" },
+      { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5 (rápido · $1.20/M in)" },
+      { id: "claude-sonnet-5", name: "Claude Sonnet 5 (calidad · $1.44/M in)" },
+      { id: "claude-opus-4-8", name: "Claude Opus 4.8 (máxima calidad)" },
+    ],
+  },
   custom: { label: "Otro (URL personalizada)", models: [] },
 };
-const BYOK_PROVIDER_IDS = ["deepseek", "openai", "groq", "nvidia", "gemini", "mistral", "qwen", "openrouter", "onnirouter", "custom"];
+const BYOK_PROVIDER_IDS = ["deepseek", "openai", "groq", "nvidia", "gemini", "mistral", "qwen", "openrouter", "onnirouter", "unorouter", "cerebras", "custom"];
 
 const DEFAULT_BYOK_MODEL: Record<string, string> = {
   openai: "gpt-5.4-mini",
@@ -230,6 +262,8 @@ const DEFAULT_BYOK_MODEL: Record<string, string> = {
   qwen: "qwen-plus",
   openrouter: "openai/gpt-5.6-luna",
   onnirouter: "gpt-5-4-mini",
+  unorouter: "deepseek-v4-flash:free",
+  cerebras: "gpt-oss-120b",
   custom: "",
 };
 
@@ -459,15 +493,15 @@ function WidgetMock({
   const end = cfg.primary_color.toLowerCase() === "#3559ff" ? "#13a0ff" : shadeColor(cfg.primary_color, 28);
   const grad = `linear-gradient(135deg, ${start}, ${end})`;
   const gradVertical = `linear-gradient(to bottom, ${start}, ${end})`;
-  const containerBgc = dark ? "#1c2128" : "#ffffff";
-  const cardBgc = dark ? "rgba(30,41,59,0.6)" : "#ffffff";
-  const cardBorder = dark ? "#334155" : "#e2e8f0";
-  const textMain = dark ? "#f8fafc" : "#0f172a";
-  const textSub = dark ? "#94a3b8" : "#64748b";
-  const chatText = dark ? "#cdd9e5" : "#333333";
-  const borderColor = dark ? "#333942" : "#dddddd";
-  const inputBgc = dark ? "#1e293b" : "#f1f5f9";
-  const scene = dark ? "linear-gradient(180deg,#0b0d12,#0f1117)" : "linear-gradient(180deg,#eef2f7,#f8fafc)";
+  const containerBgc = dark ? "#18181b" : "#ffffff";
+  const cardBgc = dark ? "rgba(24,24,27,0.85)" : "#ffffff";
+  const cardBorder = dark ? "#3f3f46" : "#e2e8f0";
+  const textMain = dark ? "#f4f4f5" : "#0f172a";
+  const textSub = dark ? "#a1a1aa" : "#64748b";
+  const chatText = dark ? "#e4e4e7" : "#333333";
+  const borderColor = dark ? "#2e2e33" : "#dddddd";
+  const inputBgc = dark ? "#202024" : "#f1f5f9";
+  const scene = dark ? "linear-gradient(180deg,#111114,#09090b)" : "linear-gradient(180deg,#eef2f7,#f8fafc)";
   const isChat = tab === "chat";
 
   useEffect(() => {
@@ -572,10 +606,18 @@ function WidgetMock({
   const headerSubtitle = isChat ? (cfg.is_active === 1 ? "Activo hoy " + formatToday() : "En pausa") : cfg.header_subtitle;
 
   const switchTab = (next: "home" | "chat") => {
+    const el = chatScrollRef.current;
+    const wasAtBottom = el ? el.scrollTop + el.clientHeight >= el.scrollHeight - 8 : true;
     setTab(next);
-    if (next === "chat" && !greeted.current) {
-      greeted.current = true;
-      setMessages((m) => [...m, { text: cfg.welcome_message, sender: "bot" }]);
+    if (next === "chat") {
+      if (!greeted.current) {
+        greeted.current = true;
+        setMessages((m) => [...m, { text: cfg.welcome_message, sender: "bot" }]);
+      }
+      if (wasAtBottom) {
+        const target = chatScrollRef.current;
+        if (target) target.scrollTop = target.scrollHeight;
+      }
     }
   };
 
@@ -779,7 +821,7 @@ function WidgetMock({
           </div>
 
           {isChat && (
-            <div className="wv-footer" style={{ background: dark ? "#0f172a" : "#ffffff", borderTopColor: dark ? "#334155" : "#e2e8f0" }}>
+            <div className="wv-footer" style={{ background: dark ? "#101013" : "#ffffff", borderTopColor: dark ? "#2e2e33" : "#e2e8f0" }}>
               <div className="wv-input" style={{ background: inputBgc, borderColor: focused ? start : borderColor }}>
                 {micOk && (
                   <button
@@ -826,7 +868,7 @@ function WidgetMock({
         className="wv-position-note"
         style={{
           color: textSub,
-          background: dark ? "rgba(8, 9, 13, 0.6)" : "rgba(255, 255, 255, 0.55)",
+          background: dark ? "rgba(9, 9, 11, 0.6)" : "rgba(255, 255, 255, 0.55)",
           border: dark ? "1px solid rgba(255, 255, 255, 0.08)" : "1px solid rgba(15, 23, 42, 0.06)",
         }}
       >
@@ -870,6 +912,7 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [keyRemove, setKeyRemove] = useState(false);
+  const byokMemRef = useRef<{ provider: string; model: string } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [agentDeleteOpen, setAgentDeleteOpen] = useState(false);
   const toast = useToast();
@@ -877,6 +920,9 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
   const load = useCallback(() => {
     setLoading(true);
     setError(false);
+    setApiKeyInput("");
+    setKeyRemove(false);
+    setShowApiKey(false);
     fetch(`/api/agent/${agentId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
       .then((d: AgentConfig) => {
@@ -928,12 +974,27 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
     setDraft((d) => {
       if (!d) return d;
       if (mode === "managed") {
+        // Guardar la memoria de sesión ANTES de pisar chat_provider: si el usuario
+        // editó el proveedor/modelo pero aún no publicó, lo recuperamos al volver.
+        if (d.mode === "byok") byokMemRef.current = { provider: d.chat_provider, model: d.chat_model };
         return { ...d, mode: "managed", chat_provider: "workers-ai", chat_model: MANAGED_DEFAULT };
       }
-      const provider = d.chat_provider === "workers-ai" ? "deepseek" : d.chat_provider;
+      // Prioridad: memoria de sesión (lo que se editó sin publicar) > memoria persistida en DB.
+      const mem = d.mode === "managed" ? byokMemRef.current : null;
+      const persisted = d.byok_provider && d.byok_provider !== "workers-ai" ? d.byok_provider : null;
+      const memProvider = mem && BYOK_PROVIDERS[mem.provider] ? mem.provider : null;
+      const preview = memProvider ?? persisted ?? (d.chat_provider !== "workers-ai" ? d.chat_provider : null);
+      const provider = preview && BYOK_PROVIDERS[preview] ? preview : "deepseek";
       const models = BYOK_PROVIDERS[provider]?.models ?? [];
-      const keep = models.some((m) => m.id === d.chat_model);
-      return { ...d, mode: "byok", chat_provider: provider, chat_model: keep ? d.chat_model : DEFAULT_BYOK_MODEL[provider] ?? "" };
+      const memModel = mem && models.some((m) => m.id === mem.model) ? mem.model : null;
+      const savedModel = d.byok_model && models.some((m) => m.id === d.byok_model) ? d.byok_model : null;
+      const keepModel = memModel ?? savedModel ?? (models.some((m) => m.id === d.chat_model) ? d.chat_model : null);
+      return {
+        ...d,
+        mode: "byok",
+        chat_provider: provider,
+        chat_model: keepModel ?? DEFAULT_BYOK_MODEL[provider] ?? "",
+      };
     });
     setFormError(null);
     setKeyRemove(false);
@@ -990,7 +1051,11 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
       return;
     }
 
-    if (draft.mode === "byok" && draft.chat_provider === "custom" && !(draft.chat_base_url ?? "").trim()) {
+    const customWithKey =
+      draft.mode === "byok" &&
+      draft.chat_provider === "custom" &&
+      (apiKeyInput.trim() !== "" || (draft.has_chat_api_key && !keyRemove));
+    if (customWithKey && !(draft.chat_base_url ?? "").trim()) {
       setFormError("El proveedor por URL personalizada necesita su URL base.");
       return;
     }
@@ -1022,6 +1087,13 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
     if (key) body.chat_api_key = key;
     else if (keyRemove) body.chat_api_key = null;
 
+    // Memoria BYOK: se actualiza solo al guardar en modo BYOK. En Administrada se
+    // omite del body para conservar el proveedor/modelo previo y poder restaurarlo.
+    if (draft.mode === "byok") {
+      body.byok_provider = draft.chat_provider;
+      body.byok_model = draft.chat_model;
+    }
+
     setSaving(true);
     setFormError(null);
     try {
@@ -1035,6 +1107,10 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
         throw new Error((data as { error?: string }).error || "No se pudo guardar");
       }
       const next = key || keyRemove ? { ...draft, has_chat_api_key: !!key } : draft;
+      if (draft.mode === "byok") {
+        next.byok_provider = draft.chat_provider;
+        next.byok_model = draft.chat_model;
+      }
       setDraft(next);
       setOriginal(JSON.stringify(next));
       setApiKeyInput("");
@@ -1130,7 +1206,15 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
             {draft.is_active === 1 ? "Activo" : "Pausado"}
           </span>
           {dirty && (
-            <button className="btn-ghost" onClick={() => setDraft(JSON.parse(original) as AgentConfig)}>
+            <button
+              className="btn-ghost"
+              onClick={() => {
+                setDraft(JSON.parse(original) as AgentConfig);
+                setApiKeyInput("");
+                setKeyRemove(false);
+                setShowApiKey(false);
+              }}
+            >
               Descartar
             </button>
           )}
@@ -1486,7 +1570,13 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
 
             {draft.mode === "byok" ? (
               <>
-                <div className="form-row" style={{ marginTop: 18 }}>
+                {keyRemove && (
+                  <div className="form-hint byok-no-key" style={{ marginTop: 14 }}>
+                    Sin API Key este agente responderá con Workers AI (modelos incluidos en tu plan). El proveedor y
+                    modelo se vuelven a aplicar cuando pegues una clave.
+                  </div>
+                )}
+                <div className={`form-row ${keyRemove ? "byok-dormant" : ""}`} style={{ marginTop: 18 }}>
                   <div className="form-group">
                     <label className="form-label">Proveedor</label>
                     <Dropdown
@@ -1537,7 +1627,7 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
                   <label className="form-label" htmlFor="cfg-apikey">
                     API Key{" "}
                     {draft.has_chat_api_key && (
-                      <span className="status-pill neutral" style={{ marginLeft: 6 }}>
+                      <span className="status-pill neutral sm" style={{ marginLeft: 6 }}>
                         cargada
                       </span>
                     )}
@@ -1568,17 +1658,31 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
                       {showApiKey ? EYE_OFF_ICON : EYE_ICON}
                     </button>
                   </div>
-                  {draft.has_chat_api_key && apiKeyInput === "" && (
+                  {draft.has_chat_api_key && apiKeyInput === "" && !keyRemove && (
                     <button
                       type="button"
                       className="api-key-remove"
                       onClick={() => {
                         setKeyRemove(true);
-                        setDraft((d) => (d ? { ...d, has_chat_api_key: false } : d));
+                        setDraft((d) =>
+                          d
+                            ? {
+                                ...d,
+                                has_chat_api_key: false,
+                                chat_base_url: d.chat_provider === "custom" ? "" : d.chat_base_url,
+                              }
+                            : d
+                        );
+                        toast.info("API Key marcada para eliminar. Publica cambios para aplicarlo.");
                       }}
                     >
                       Quitar API Key
                     </button>
+                  )}
+                  {keyRemove && (
+                    <span className="form-hint" style={{ color: "var(--danger-color, #ef4444)" }}>
+                      Esta clave se eliminará al publicar los cambios.
+                    </span>
                   )}
                   <span className="form-hint">
                     Se almacena en tu agente y nunca la devolvemos al navegador. Sin key, el agente usa Workers AI
@@ -1597,6 +1701,12 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
                 <span className="form-hint">
                   Incluido en tu plan. Llama 8B: rápido y económico · Llama 70B: mayor calidad.
                 </span>
+                {draft.has_chat_api_key && (
+                  <span className="form-hint byok-no-key" style={{ marginTop: 10 }}>
+                    Tu API Key BYOK sigue guardada en este agente pero queda inactiva en Administrada. Vuelve a
+                    &laquo;Tu API Key (BYOK)&raquo; para usarla. {keyRemove ? "Se eliminará al publicar los cambios." : ""}
+                  </span>
+                )}
               </div>
             )}
           </div>

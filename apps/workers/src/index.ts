@@ -31,6 +31,8 @@ interface AgentRow {
   chat_model: string;
   chat_api_key: string | null;
   chat_base_url: string | null;
+  byok_provider: string | null;
+  byok_model: string | null;
   max_tokens: number;
   allowed_domains: string;
   rate_limit_per_minute: number;
@@ -46,6 +48,7 @@ const DEFAULT_MODEL_FAST = "@cf/meta/llama-3.1-8b-instruct-fast";
 const PROVIDER_BASE_URLS: Record<string, string> = {
   openai: "https://api.openai.com/v1",
   groq: "https://api.groq.com/openai/v1",
+  cerebras: "https://api.cerebras.ai/v1",
   deepseek: "https://api.deepseek.com",
   gemini: "https://generativelanguage.googleapis.com/v1beta/openai",
   mistral: "https://api.mistral.ai/v1",
@@ -53,10 +56,11 @@ const PROVIDER_BASE_URLS: Record<string, string> = {
   nvidia: "https://integrate.api.nvidia.com/v1",
   openrouter: "https://openrouter.ai/api/v1",
   onnirouter: "https://omnirouter.li/v1",
+  unorouter: "https://api.unorouter.com/v1",
 };
 
 function isWorkersAI(agent: AgentRow) {
-  return agent.chat_provider === "workers-ai" || !agent.chat_api_key;
+  return agent.mode === "managed" || agent.chat_provider === "workers-ai" || !agent.chat_api_key;
 }
 
 // 🔐 Cifrado simétrico (AES-256-GCM) para claves de API en reposo.
@@ -107,7 +111,15 @@ async function decryptSecret(stored: string | null, env: Env): Promise<string | 
 
 function isOwnerAuthorized(request: Request, env: Env): boolean {
   if (!env.OWNER_TOKEN) return true; // token no configurado (dev): sin restricción
-  return request.headers.get("X-Owner-Token") === env.OWNER_TOKEN;
+  const provided = request.headers.get("X-Owner-Token");
+  if (!provided) return false;
+  // Comparación en tiempo constante (misma longitud + XOR); Workers no expone timingSafeEqual.
+  if (provided.length !== env.OWNER_TOKEN.length) return false;
+  const a = new TextEncoder().encode(provided);
+  const b = new TextEncoder().encode(env.OWNER_TOKEN);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
 }
 
 async function infer(agent: AgentRow, payload: { role: string; content: string }[], env: Env): Promise<string> {
@@ -238,33 +250,164 @@ function faqKeywords(s: string): string[] {
 
 function matchFaq(agent: AgentRow, message: string): string | null {
   const needleStem = faqKeywords(message);
+  // Se evalúa el msg del chip y su label (el cliente suele teclear el texto visible,
+  // que puede no coincidir con el prompt interno). Gana la FAQ con más aciertos;
+  // con empate manda la primera en orden.
+  const bestPerFaq = new Map<string, number>();
+  for (const f of getFaqs(agent)) {
+    for (const phrase of new Set([f.msg, f.label || f.msg])) {
+      const kws = faqKeywords(phrase);
+      // FAQ sin keywords útiles (p. ej. una emoji): solo matchea si coincide tal cual
+      if (kws.length === 0) {
+        if (normalizeText(message) === normalizeText(phrase)) {
+          bestPerFaq.set(f.answer, Math.max(bestPerFaq.get(f.answer) ?? 0, 1));
+        }
+        continue;
+      }
+      const hits = kws.filter((kw) => needleStem.includes(kw)).length;
+      // ponytail: chip de 1 sola keyword ("hola") solo responde cuando el mensaje ES esa
+      // palabra; si no, un saludo largo responde la FAQ genérica y queda chimbo.
+      if (kws.length === 1) {
+        if (needleStem.length === 1 && needleStem[0] === kws[0]) {
+          bestPerFaq.set(f.answer, Math.max(bestPerFaq.get(f.answer) ?? 0, hits));
+        }
+        continue;
+      }
+      // Multi-keyword: exige todas en FAQs cortas (2-3 keywords) para no cruzar temas;
+      // en FAQs largas (4+) tolera fallar UNA (los clientes no repiten la frase del chip).
+      const minHits = kws.length <= 3 ? kws.length : kws.length - 1;
+      if (hits >= minHits) {
+        bestPerFaq.set(f.answer, Math.max(bestPerFaq.get(f.answer) ?? 0, hits));
+      }
+    }
+  }
   let best: string | null = null;
   let bestHits = 0;
-  for (const f of getFaqs(agent)) {
-    const kws = faqKeywords(f.msg);
-    // FAQ sin keywords útiles (p. ej. "hola" es keyword, pero una emoji no):
-    // solo matchea si el texto coincide tal cual
-    if (kws.length === 0) {
-      if (normalizeText(message) === normalizeText(f.msg)) return f.answer;
-      continue;
-    }
-    const hits = kws.filter((kw) => needleStem.includes(kw)).length;
-    // ponytail: chip de 1 sola keyword ("hola") solo responde cuando el mensaje ES esa
-    // palabra; si no, un saludo largo responde la FAQ genérica y queda chimbo.
-    if (kws.length === 1) {
-      if (needleStem.length === 1 && needleStem[0] === kws[0]) {
-        best = f.answer;
-        bestHits = hits;
-      }
-      continue;
-    }
-    // Multi-keyword: exige TODAS las keywords (match exacto de tema, no cruza temas)
-    if (hits === kws.length && hits > bestHits) {
-      best = f.answer;
+  for (const [answer, hits] of bestPerFaq) {
+    if (hits > bestHits) {
+      best = answer;
       bestHits = hits;
     }
   }
   return best;
+}
+
+// ── Matching semántico de FAQs (fallback) ──────────────────────────────────────
+// El matcher por keywords no cubre sinónimos/paráfrasis; este comparo por
+// significado usando embeddings de Workers AI (multilingüe). Solo se usa cuando
+// el matcher léxico no encuentra nada: no reemplaza, complementa.
+const EMBEDDING_MODEL = "@cf/baai/bge-m3";
+const FAQ_SEM_THRESHOLD = 0.72; // coseno: arriba => responde esa FAQ
+const FAQ_EMBED_BATCH = 16;
+
+interface FaqVec {
+  answer: string;
+  label: string;
+  vLabel: number[];
+  vMsg: number[];
+}
+
+// Los embeddings de Workers AI pueden venir como `data: [vec, vec, ...]` o como
+// `data: Float32Array` plano con `shape: [rows, dim]`; se normaliza a number[][].
+function normalizeEmbeddings(res: { shape?: number[]; data: number[] }): number[][] {
+  const raw = res.data;
+  if (Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0])) return raw as unknown as number[][];
+  const dim = res.shape?.[1] ?? 0;
+  if (!dim || raw.length < dim) return [];
+  const out: number[][] = [];
+  for (let j = 0; j < raw.length; j += dim) out.push(raw.slice(j, j + dim));
+  return out;
+}
+
+async function embedOne(text: string, env: Env): Promise<number[]> {
+  const res = (await env.AI.run(EMBEDDING_MODEL, { text: [text] })) as { shape?: number[]; data: number[] };
+  return normalizeEmbeddings(res)[0] ?? [];
+}
+
+async function getFaqVectors(agent: AgentRow, env: Env): Promise<FaqVec[] | null> {
+  const faqs = getFaqs(agent);
+  if (faqs.length === 0) return null;
+  const key = `faqvec:${agent.id}`;
+  const cached = await env.AGENT_CACHE.get(key).catch(() => null);
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {}
+  }
+  try {
+    const texts = faqs.flatMap((f) => [f.label, f.msg]);
+    const all: number[][] = [];
+    for (let i = 0; i < texts.length; i += FAQ_EMBED_BATCH) {
+      const res = (await env.AI.run(EMBEDDING_MODEL, { text: texts.slice(i, i + FAQ_EMBED_BATCH) })) as {
+        shape?: number[];
+        data: number[];
+      };
+      const vectors = normalizeEmbeddings(res);
+      if (vectors.length === 0) throw new Error("Embeddings vacíos");
+      all.push(...vectors);
+    }
+    if (all.length < faqs.length * 2) throw new Error("Embeddings incompletos");
+    const rows: FaqVec[] = faqs.map((f, i) => ({ answer: f.answer, label: f.label, vLabel: all[i * 2], vMsg: all[i * 2 + 1] }));
+    await env.AGENT_CACHE.put(key, JSON.stringify(rows), { expirationTtl: 3600 }).catch(() => {});
+    return rows;
+  } catch {
+    return null; // embedding no disponible: el matcher léxico sigue siendo el que manda
+  }
+}
+
+function cosineSim(a: number[], b: number[]): number {
+  let dot = 0,
+    na = 0,
+    nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
+}
+
+// Solo se invoca cuando matchFaq devolvió null. Devuelve el answer si hay una FAQ
+// suficientemente similar (label o msg), comparando lo más parecido. Además de
+// superar el umbral absoluto, la mejor debe ganarle por un margen a la segunda:
+// si dos FAQs quedan casi empatadas, mejor cae a la IA que responder la equivocada.
+const FAQ_SEM_MARGIN = 0.06;
+async function matchFaqSemantic(agent: AgentRow, message: string, env: Env): Promise<string | null> {
+  try {
+    const rows = await getFaqVectors(agent, env);
+    if (!rows || rows.length === 0) return null;
+    const msgVec = await embedOne(message, env);
+    if (msgVec.length === 0) return null;
+    let best: FaqVec | null = null;
+    let bestSim = 0;
+    let secondSim = 0;
+    for (const row of rows) {
+      const sim = Math.max(cosineSim(msgVec, row.vLabel), cosineSim(msgVec, row.vMsg));
+      if (sim > bestSim) {
+        secondSim = bestSim;
+        bestSim = sim;
+        best = row;
+      } else if (sim > secondSim) {
+        secondSim = sim;
+      }
+    }
+    return best && bestSim >= FAQ_SEM_THRESHOLD && bestSim - secondSim >= FAQ_SEM_MARGIN ? best.answer : null;
+  } catch {
+    return null;
+  }
+}
+
+function recordFaqHit(agent: AgentRow, faqReply: string, env: Env, ctx: ExecutionContext) {
+  const matched = getFaqs(agent).find((f) => f.answer === faqReply);
+  const label = matched?.label ?? (faqReply.length > 60 ? faqReply.slice(0, 60) : faqReply);
+  ctx.waitUntil(
+    env.DB.prepare(
+      "INSERT INTO faq_hits (agent_id, faq_label, hits) VALUES (?, ?, 1) ON CONFLICT(agent_id, faq_label) DO UPDATE SET hits = hits + 1"
+    )
+      .bind(agent.id, label)
+      .run()
+      .catch(() => {})
+  );
 }
 
 function domainAllowed(agent: AgentRow, origin: string): boolean {
@@ -376,25 +519,16 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
     { role: "user", content: String(body.message).slice(0, 1500) },
   ];
 
-  const faqReply = matchFaq(agent, String(body.message));
+  const faqReply = matchFaq(agent, String(body.message)) || (await matchFaqSemantic(agent, String(body.message), env));
   if (faqReply) {
-    // Respuesta fija: no satura la base — solo cuenta el hit del contador
-    const matched = getFaqs(agent).find((f) => f.answer === faqReply);
-    const label = matched?.label ?? (faqReply.length > 60 ? faqReply.slice(0, 60) : faqReply);
-    ctx.waitUntil(
-      env.DB.prepare(
-        "INSERT INTO faq_hits (agent_id, faq_label, hits) VALUES (?, ?, 1) ON CONFLICT(agent_id, faq_label) DO UPDATE SET hits = hits + 1"
-      )
-        .bind(agent.id, label)
-        .run()
-        .catch(() => {})
-    );
+    recordFaqHit(agent, faqReply, env, ctx);
     return json({ reply: faqReply }, 200, origin);
   }
 
   // 🎯 Control de cupo: solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado)
   const CUPO_REPLY =
     "Tu plan alcanzó el límite mensual de mensajes de IA administrada. Contáctanos para subir tu plan o cambia a BYOK (tu API Key) y continúa sin límite.";
+  let managedLimit: number | null = null; // cupo efectivo del usuario si IA administrada
   if (isWorkersAI(agent)) {
     // KV evita releer D1 en cada intento: 5 min una vez agotado
     const blocked = await env.AGENT_CACHE.get(`quota:${agent.user_id}`);
@@ -402,9 +536,13 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
     const userInfo = await env.DB.prepare("SELECT messages_used, messages_limit, plan FROM users WHERE id = ?")
       .bind(agent.user_id)
       .first<{ messages_used: number; messages_limit: number | null; plan: string | null }>();
-    if (userInfo && userInfo.messages_used >= effectiveMessagesLimit(userInfo)) {
-      await env.AGENT_CACHE.put(`quota:${agent.user_id}`, "1", { expirationTtl: 300 });
-      return json({ reply: CUPO_REPLY }, 200, origin);
+    if (userInfo) {
+      const limit = effectiveMessagesLimit(userInfo);
+      managedLimit = limit;
+      if (userInfo.messages_used >= limit) {
+        await env.AGENT_CACHE.put(`quota:${agent.user_id}`, "1", { expirationTtl: 300 });
+        return json({ reply: CUPO_REPLY }, 200, origin);
+      }
     }
   }
 
@@ -451,8 +589,14 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
           ),
         ]);
 // 🎯 Solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado)
-        if (isWorkersAI(agent)) {
-          await env.DB.prepare("UPDATE users SET messages_used = messages_used + 1 WHERE id = ?").bind(agent.user_id).run();
+        if (isWorkersAI(agent) && managedLimit != null) {
+          // Incremento atómico: no suma si ya se alcanzó el límite (evita pasarse en ráfagas).
+          await env.DB.prepare(
+            `UPDATE users SET messages_used = messages_used + 1
+             WHERE id = ? AND messages_used < ?`
+          )
+            .bind(agent.user_id, managedLimit)
+            .run();
         }
 
         const lower = message.toLowerCase();
@@ -524,6 +668,8 @@ async function handleAgentConfig(request: Request, agentId: string, env: Env) {
       chat_model: agent.chat_model,
       has_chat_api_key: agent.chat_api_key ? true : false,
       chat_base_url: agent.chat_base_url,
+      byok_provider: agent.byok_provider,
+      byok_model: agent.byok_model,
       faqs: getFaqs(agent),
     },
     200,
@@ -555,7 +701,7 @@ const EDITABLE_FIELDS: Record<string, { column: string; allowNull?: boolean; val
     column: "chat_provider",
     validate: (v) =>
       typeof v === "string" &&
-      ["workers-ai", "openai", "groq", "deepseek", "gemini", "mistral", "qwen", "nvidia", "openrouter", "onnirouter", "custom"].includes(v)
+      ["workers-ai", "cerebras", "openai", "groq", "deepseek", "gemini", "mistral", "qwen", "nvidia", "openrouter", "onnirouter", "unorouter", "custom"].includes(v)
         ? v
         : null,
   },
@@ -563,6 +709,16 @@ const EDITABLE_FIELDS: Record<string, { column: string; allowNull?: boolean; val
     column: "chat_api_key",
     allowNull: true,
     validate: (v) => (typeof v === "string" && v.length <= 500 ? v.trim() || null : null),
+  },
+  byok_provider: {
+    column: "byok_provider",
+    allowNull: true,
+    validate: (v) => (v === null || (typeof v === "string" && v.length <= 60) ? (typeof v === "string" && v.trim() ? v.trim() : null) : null),
+  },
+  byok_model: {
+    column: "byok_model",
+    allowNull: true,
+    validate: (v) => (v === null || (typeof v === "string" && v.length <= 200) ? (typeof v === "string" && v.trim() ? v.trim() : null) : null),
   },
   chat_base_url: {
     column: "chat_base_url",
@@ -664,6 +820,12 @@ async function handleAgentUpdate(request: Request, agentId: string, env: Env) {
     await env.DB.prepare(`UPDATE agents SET ${setClause} WHERE id = ?`)
       .bind(...updates.map(([, v]) => v), agentId)
       .run();
+  }
+
+  // Las FAQs cambiaron: los embeddings cacheados quedan obsoletos, se reconstruyen
+  // con el siguiente intento de matching semántico.
+  if (updates.some(([col]) => col === "faqs")) {
+    await env.AGENT_CACHE.delete(`faqvec:${agentId}`);
   }
 
   // 🔑 Invalidar la cache KV (TTL 1h) — el próximo chat lee la config nueva de D1

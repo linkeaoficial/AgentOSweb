@@ -7,7 +7,6 @@ import {
   IconAgent,
   IconLeads,
   IconAnalytics,
-  IconKnowledge,
   IconBilling,
   IconSettings,
   IconBell,
@@ -28,7 +27,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "view-agents", label: "Mis Agentes", tooltip: "Mis Agentes", icon: <IconAgent /> },
   { id: "view-leads", label: "Prospectos", tooltip: "Prospectos Capturados", icon: <IconLeads /> },
   { id: "view-analytics", label: "Analíticas", tooltip: "Analíticas", icon: <IconAnalytics /> },
-  { id: "view-knowledge", label: "Base de Conocimiento", tooltip: "Base de Conocimiento", icon: <IconKnowledge /> },
   { id: "view-billing", label: "Planes & Facturación", tooltip: "Planes & Facturación", icon: <IconBilling /> },
   { id: "view-settings", label: "Configuración", tooltip: "Configuración", icon: <IconSettings /> },
 ];
