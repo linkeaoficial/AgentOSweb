@@ -10,6 +10,12 @@ export interface Env {
   OWNER_TOKEN?: string;     // Secreto del dueño: el dashboard lo envía para escribir/leer config
   ENCRYPTION_KEY?: string;  // Clave AES-GCM (texto) para cifrar chat_api_key en reposo
   OWNER_USER_ID?: string;   // Dueño multi-agente; si falta, se deduce del primer agente existente
+  AUTH_SECRET?: string;     // Mejor Auth: firma de sesiones/tokens. REQUERIDO en producción.
+  AUTH_BASE_URL?: string;   // Base URL pública del panel (para redirecciones OAuth). Default: el worker.
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  APPLE_CLIENT_ID?: string;
+  APPLE_CLIENT_SECRET?: string;
 }
 
 interface AgentRow {
@@ -1427,6 +1433,14 @@ export default {
 
     if (url.pathname === "/" && request.method === "GET") {
       return json({ ok: true, service: "agentosweb-api" });
+    }
+
+    // 🔐 Autenticación (Mejor Auth, Fase 2): rutas /api/auth/* gestionan registro,
+    // login, sesión y OAuth. El dashboard proxya estas rutas server-side.
+    if (url.pathname.startsWith("/api/auth/")) {
+      const { createAuth, ensureAuthMigrations } = await import("./auth");
+      await ensureAuthMigrations(env);
+      return createAuth(env).handler(request);
     }
 
     // Multi-agente: listar y crear (antes del matcher /api/agent/:id)

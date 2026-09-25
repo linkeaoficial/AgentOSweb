@@ -12,5 +12,8 @@
     "@cloudflare/workers-types": "^4",
     "typescript": "^5",
     "wrangler": "^4"
+  },
+  "dependencies": {
+    "better-auth": "^1.7.6"
   }
 }

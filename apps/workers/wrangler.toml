@@ -25,6 +25,7 @@ binding = "AI"
 [vars]
 ENVIRONMENT = "production"
 DEFAULT_MODEL = "openai/gpt-oss-120b"
+# AUTH_BASE_URL = "http://localhost:3000"  # Borrar el comentario si el panel corre en otro host
 
 # 🔒 Secretos (npx wrangler secret put <KEY>):
 # - GROQ_MANAGED_KEY
