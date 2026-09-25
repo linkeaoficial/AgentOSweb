@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { IconCheck, IconBolt } from "./icons";
+import { IconCheck, IconBolt, IconWhatsApp } from "./icons";
 import { useToast } from "./notifications";
 
 export interface PlanDefault {
@@ -31,12 +31,17 @@ const PLAN_INFO: { id: string; name: string; byok: number | null; managed: numbe
   { id: "agency", name: "Agency", byok: 149, managed: 249, accent: "#fbbf24", features: ["Marca blanca total", "Dominios ilimitados", "Soporte prioritario"] },
 ];
 
+// Número de WhatsApp para coordinar pagos (formato internacional, sin "+" ni espacios).
+// TODO: reemplazar por el número real del negocio.
+const BILLING_WHATSAPP = "5491122334455";
+
 export default function BillingView({ owner, planDefaults, agentsCount, onSaved }: BillingViewProps) {
   const toast = useToast();
   const [selectedPlan, setSelectedPlan] = useState<string>("free");
   const [agentLimit, setAgentLimit] = useState<number>(1);
   const [messagesLimit, setMessagesLimit] = useState<number>(20);
   const [saving, setSaving] = useState(false);
+  const [payModalOpen, setPayModalOpen] = useState(false);
 
   useEffect(() => {
     if (!owner) return;
@@ -93,6 +98,20 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
       setSaving(false);
     }
   }, [selectedPlan, agentLimit, messagesLimit, toast, onSaved]);
+
+  const handleSaveClick = useCallback(() => {
+    const isPaid = (PLAN_INFO.find((p) => p.id === selectedPlan)?.managed ?? 0) > 0;
+    if (isPaid) {
+      setPayModalOpen(true);
+      return;
+    }
+    void save();
+  }, [selectedPlan, save]);
+
+  const selected = PLAN_INFO.find((p) => p.id === selectedPlan);
+  const whatsappText = encodeURIComponent(
+    `Hola! Quiero dar de alta el plan ${selected?.name ?? selectedPlan} de AgentOSweb ($${selected?.managed ?? 0}/mes, IA administrada). ¿Cómo coordinamos el pago?`
+  );
 
   const used = owner?.messages_used ?? 0;
   const limit = owner?.messages_limit ?? planDefaults[owner?.plan ?? ""]?.messages ?? 0;
@@ -243,7 +262,7 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
             </div>
 
             <div className="plan-actions">
-              <button className="btn-primary" onClick={save} disabled={saving || !dirty} aria-busy={saving}>
+              <button className="btn-primary" onClick={handleSaveClick} disabled={saving || !dirty} aria-busy={saving}>
                 {saving ? (
                   <>
                     <span className="btn-spinner" />
@@ -252,7 +271,9 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                 ) : (
                   <>
                     <IconBolt />
-                    Guardar plan y cupos
+                    {(PLAN_INFO.find((p) => p.id === selectedPlan)?.managed ?? 0) > 0
+                      ? `Contratar plan ${PLAN_INFO.find((p) => p.id === selectedPlan)?.name}`
+                      : "Guardar plan y cupos"}
                   </>
                 )}
               </button>
@@ -261,6 +282,50 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
           </div>
         </div>
       </div>
+
+      {payModalOpen && selected && (
+        <div className="modal-backdrop open" onClick={() => setPayModalOpen(false)}>
+          <div className="pay-modal" role="dialog" aria-modal="true" aria-label={`Coordinar pago del plan ${selected.name}`} onClick={(e) => e.stopPropagation()}>
+            <div className="pay-modal-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M2 8h20" />
+              </svg>
+            </div>
+            <h2>Coordinar pago</h2>
+            <p>
+              El plan <strong>{selected.name}</strong> requiere una coordinación de pago. Enviás la solicitud por
+              WhatsApp y te la confirmamos a la brevedad.
+            </p>
+            <div className="pay-summary">
+              <div className="pay-summary-row">
+                <span>Plan</span>
+                <strong>{selected.name}</strong>
+              </div>
+              <div className="pay-summary-row">
+                <span>Costo</span>
+                <strong>${selected.managed}/mes</strong>
+              </div>
+              <div className="pay-summary-row">
+                <span>Cupos</span>
+                <strong>{planDefaults[selected.id]?.agents ?? 1} agentes · {(planDefaults[selected.id]?.messages ?? 0).toLocaleString()} msgs/mes</strong>
+              </div>
+            </div>
+            <a
+              className="pay-whatsapp-btn"
+              href={`https://wa.me/${BILLING_WHATSAPP}?text=${whatsappText}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <IconWhatsApp />
+              Coordinar por WhatsApp
+            </a>
+            <button type="button" className="pay-apply-btn" onClick={() => { setPayModalOpen(false); void save(); }} disabled={saving}>
+              Ya coordiné · Aplicar plan ahora
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
