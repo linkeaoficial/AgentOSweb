@@ -35,6 +35,8 @@ interface AgentConfig {
   byok_provider: string | null;
   byok_model: string | null;
   faqs: FaqDraft[];
+  lead_capture: boolean;
+  lead_fields: string[];
 }
 
 interface AgentsViewProps {
@@ -267,7 +269,7 @@ const DEFAULT_BYOK_MODEL: Record<string, string> = {
   custom: "",
 };
 
-function shadeColor(hex: string, percent: number): string {
+export function shadeColor(hex: string, percent: number): string {
   const n = parseInt(hex.slice(1), 16);
   const mix = (shift: number) => {
     const v = (n >> shift) & 255;
@@ -278,7 +280,7 @@ function shadeColor(hex: string, percent: number): string {
   return "#" + ((1 << 24) | (mix(16) << 16) | (mix(8) << 8) | mix(0)).toString(16).slice(1);
 }
 
-function hexToRgba(hex: string, alpha: number): string {
+export function hexToRgba(hex: string, alpha: number): string {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
@@ -926,8 +928,15 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
     fetch(`/api/agent/${agentId}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
       .then((d: AgentConfig) => {
-        setDraft(d);
-        setOriginal(JSON.stringify(d));
+        const normalized = {
+          ...d,
+          lead_capture: d.lead_capture !== false,
+          lead_fields: Array.isArray(d.lead_fields)
+            ? d.lead_fields
+            : String(d.lead_fields ?? "email,phone").split(",").map((f) => f.trim()).filter(Boolean),
+        };
+        setDraft(normalized);
+        setOriginal(JSON.stringify(normalized));
         setLoading(false);
         onActiveChange?.(d.is_active === 1);
       })
@@ -1080,6 +1089,8 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
       chat_provider: draft.chat_provider,
       chat_model: draft.chat_model,
       chat_base_url: draft.chat_base_url ? draft.chat_base_url.trim() : null,
+      lead_capture: draft.lead_capture,
+      lead_fields: draft.lead_fields,
       faqs: faqs.map((f) => ({ label: f.label.trim(), msg: f.label.trim(), answer: f.answer.trim() })),
     } as Record<string, unknown>;
 
@@ -1128,7 +1139,7 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
       if (prevActive !== draft.is_active) {
         toast.success(draft.is_active === 1 ? "Agente activado · cambios guardados" : "Agente pausado · cambios guardados");
       } else {
-        toast.success("Cambios guardados correctamente");
+        toast.success("Cambios guardados · El widget los muestra en menos de 1 minuto");
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Error de red al guardar";
@@ -1776,6 +1787,55 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
                 <span className="slider" />
               </label>
             </div>
+
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="switch-row">
+                <div>
+                  <span className="switch-label">Capturar prospectos</span>
+                  <span className="form-hint">
+                    Apagado, el agente solo responde y no extrae ningún dato.
+                  </span>
+                </div>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={draft.lead_capture}
+                    onChange={(e) => set("lead_capture", e.target.checked)}
+                  />
+                  <span className="slider" />
+                </label>
+              </div>
+
+              {draft.lead_capture && (
+                <div className="lead-fields">
+                  {(
+                    [
+                      { id: "name", label: "Nombre" },
+                      { id: "email", label: "Email" },
+                      { id: "phone", label: "Teléfono" },
+                    ] as const
+                  ).map((f) => {
+                    const checked = draft.lead_fields.includes(f.id);
+                    return (
+                      <label key={f.id} className="lead-field-chip">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...draft.lead_fields, f.id]
+                              : draft.lead_fields.filter((x) => x !== f.id);
+                            set("lead_fields", next);
+                          }}
+                        />
+                        <span>{f.label}</span>
+                      </label>
+                    );
+                  })}
+                  </div>
+              )}
+              {draft.lead_capture && <CapturePromptHint fields={draft.lead_fields} />}
+            </div>
           </div>
         </div>
 
@@ -1820,5 +1880,27 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
         onConfirm={confirmDeleteAgent}
       />
     </section>
+  );
+}
+
+const FIELD_LABELS: Record<string, string> = { name: "nombre", email: "email", phone: "teléfono" };
+
+function CapturePromptHint({ fields }: { fields: string[] }) {
+  const labelList = fields.map((f) => FIELD_LABELS[f] ?? f);
+  return (
+    <div className="capture-hint">
+      <span className="capture-hint-head">Cómo funciona la captura de prospectos</span>
+      <p className="form-hint" style={{ marginTop: 6, lineHeight: 1.6 }}>
+        <strong>No necesitás escribir nada en el prompt</strong> (el que está arriba): es automático.
+        Cuando el visitante muestra interés (menciona precio, comprar, cotizar, escribe su correo en el
+        chat...), el sistema muestra un <strong>formulario dentro del chat</strong> con los campos que
+        elegiste acá ({labelList.join(", ")}).
+      </p>
+      <p className="form-hint" style={{ margin: "4px 0 0", lineHeight: 1.6 }}>
+        <strong>Si no hay interés, el formulario no aparece</strong> y el visitante puede seguir
+        chateando normal. Y si igual escribe su {labelList.join(" o ")} por mensaje directo, se guarda
+        sin formulario.
+      </p>
+    </div>
   );
 }

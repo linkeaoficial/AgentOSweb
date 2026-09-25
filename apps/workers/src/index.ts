@@ -38,6 +38,8 @@ interface AgentRow {
   rate_limit_per_minute: number;
   is_active: number;
   faqs: string | null;
+  lead_capture: number;
+  lead_fields: string;
 }
 
 const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
@@ -163,7 +165,7 @@ function corsHeaders(origin: string) {
   return {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "POST, GET, PUT, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, GET, PUT, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Owner-Token",
   };
 }
@@ -175,6 +177,46 @@ function json(data: unknown, status = 200, origin = "*") {
 // ponytail: rate limit en memoria (por instancia). WebSocket/colo-uniforme se requiere un Durable Object; agregar solo si hay abuso real.
 const rateBuckets = new Map<string, { count: number; windowStart: number }>();
 const RATE_WINDOW_MS = 60_000;
+
+// 🎯 Captura automática de prospectos: extrae nombre/email/teléfono del mensaje y lo guarda en `leads`.
+// El dueño controla qué capturar por agente (`lead_capture` = on/off, `lead_fields` = 'name,email,phone').
+// ponytail: regex heurística (falsos positivos con cadenas numéricas tipo fechas); migrar a
+// extracción con IA dentro del LLM si el ruido molesta.
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+const PHONE_RE = /(?:\+?\d[\s().-]?){6,}\d/;
+const NAME_RE = /(?:me llamo|mi nombre es|nombre es|soy)\s+([A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:\s+[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+){0,2})/i;
+
+async function captureLead(agent: AgentRow, sessionId: string, message: string, env: Env) {
+  if (agent.lead_capture === 0) return; // solo responde: la captura está apagada para este agente
+  const fields = (agent.lead_fields || "email,phone").split(",").map((f) => f.trim());
+
+  const email = fields.includes("email") ? message.match(EMAIL_RE)?.[0]?.toLowerCase() || null : null;
+  const phone = fields.includes("phone") ? message.match(PHONE_RE)?.[0]?.trim() || null : null;
+  const name = fields.includes("name") ? message.match(NAME_RE)?.[1]?.trim() || null : null;
+  if (!email && !phone && !name) return;
+  // Dedupe por email (o teléfono si no hay email) para el mismo agente
+  const dupKey = email ?? phone;
+  if (dupKey) {
+    const dup = await env.DB.prepare(
+      email
+        ? "SELECT id FROM leads WHERE agent_id = ? AND email = ?"
+        : "SELECT id FROM leads WHERE agent_id = ? AND phone = ?"
+    )
+      .bind(agent.id, dupKey)
+      .first<{ id: string }>();
+    if (dup) return;
+  }
+  try {
+    await env.DB.prepare(
+      `INSERT INTO leads (id, agent_id, name, email, phone, notes, interest, session_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(crypto.randomUUID(), agent.id, name, email, phone, null, message.slice(0, 300), sessionId)
+      .run();
+  } catch {
+    // Captura best-effort: si falla, el chat sigue normal
+  }
+}
 
 function isRateLimited(key: string, limit: number): boolean {
   const now = Date.now();
@@ -424,6 +466,29 @@ function domainAllowed(agent: AgentRow, origin: string): boolean {
 const EMERGENCY_REPLY =
   "Disculpa, actualmente experimento alta demanda. Por favor, reformula tu consulta o contacta a soporte.";
 
+// Interés de compra/contacto: palabras que disparan el webhook y el formulario embebido.
+function hasInterest(text: string): boolean {
+  const lower = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return (
+    lower.includes("@") ||
+    lower.includes("precio") ||
+    lower.includes("precios") ||
+    lower.includes("comprar") ||
+    lower.includes("comprando") ||
+    lower.includes("contratar") ||
+    lower.includes("presupuesto") ||
+    lower.includes("cotiza") ||
+    lower.includes("cotizacion") ||
+    lower.includes("vender") ||
+    lower.includes("adquirir") ||
+    lower.includes("cuanto cuesta") ||
+    lower.includes("cuanto vale") ||
+    lower.includes("costo") ||
+    lower.includes("pago") ||
+    lower.includes("planes")
+  );
+}
+
 async function sendWebhook(env: Env, userId: string, text: string) {
   try {
     const user = await env.DB.prepare("SELECT telegram_chat_id, webhook_url FROM users WHERE id = ?")
@@ -481,6 +546,22 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
     return json({ error: "Demasiadas solicitudes. Intenta en un minuto." }, 429, origin);
   }
 
+  // Form embebido: se ofrece una vez por sesión cuando hay interés y captura activa.
+  const wantsForm =
+    agent.lead_capture === 1 &&
+    hasInterest(body.message) &&
+    (await (async () => {
+      const id = await env.DB
+        .prepare("SELECT id FROM leads WHERE agent_id = ? AND session_id = ?")
+        .bind(agent.id, body.session_id || "anon")
+        .first<{ id: string }>()
+        .catch(() => null);
+      return !id;
+    })());
+  const formPayload = wantsForm
+    ? { form: { fields: (agent.lead_fields || "email,phone").split(",").map((f) => f.trim()).filter(Boolean) } }
+    : {};
+
   const safeHistory: { role: string; content: string }[] = [];
 
   // 📜 Contexto conversacional: últimos 6 mensajes de la sesión
@@ -522,7 +603,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
   const faqReply = matchFaq(agent, String(body.message)) || (await matchFaqSemantic(agent, String(body.message), env));
   if (faqReply) {
     recordFaqHit(agent, faqReply, env, ctx);
-    return json({ reply: faqReply }, 200, origin);
+    return json({ reply: faqReply, ...formPayload }, 200, origin);
   }
 
   // 🎯 Control de cupo: solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado)
@@ -599,17 +680,19 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
             .run();
         }
 
-        const lower = message.toLowerCase();
-        if (lower.includes("@") || lower.includes("precio") || lower.includes("comprar")) {
+        if (hasInterest(message)) {
           await sendWebhook(env, agent.user_id, `🚨 Nuevo interés en tu web:\n"${message}"`);
         }
+
+        // 🎯 Captura de prospectos: email/teléfono detectados se registran en la bandeja
+        await captureLead(agent, sessionId, message, env);
       } catch {
         // Persistencia best-effort
       }
     })()
   );
 
-  return json({ reply: botReply }, 200, origin);
+  return json({ reply: botReply, ...formPayload }, 200, origin);
 }
 
 async function handleAgent(request: Request, agentId: string, env: Env) {
@@ -617,7 +700,7 @@ async function handleAgent(request: Request, agentId: string, env: Env) {
   const agent = await getAgent(agentId, env);
   if (!agent) return json({ error: "Agente no existe" }, 404, origin);
 
-  return json(
+  const res = json(
     {
       header_title: agent.header_title,
       header_subtitle: agent.header_subtitle,
@@ -632,6 +715,11 @@ async function handleAgent(request: Request, agentId: string, env: Env) {
     200,
     origin
   );
+  // Config pública del widget, inmutable hasta que el dueño la edita: se sirve desde
+  // el edge de Cloudflare (1 min + stale-while-revalidate) para no golpear D1 en cada
+  // carga de página de cada visitante. El dashboard usa /config (sin cache).
+  res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=3600");
+  return res;
 }
 
 // Config completa y editable SOLO para el dashboard. Lee D1 directo (sin cache)
@@ -670,6 +758,8 @@ async function handleAgentConfig(request: Request, agentId: string, env: Env) {
       chat_base_url: agent.chat_base_url,
       byok_provider: agent.byok_provider,
       byok_model: agent.byok_model,
+      lead_capture: agent.lead_capture === 0 ? false : true,
+      lead_fields: agent.lead_fields || "email,phone",
       faqs: getFaqs(agent),
     },
     200,
@@ -737,6 +827,19 @@ const EDITABLE_FIELDS: Record<string, { column: string; allowNull?: boolean; val
   is_active: {
     column: "is_active",
     validate: (v) => (typeof v === "boolean" ? (v ? 1 : 0) : v === 0 || v === 1 ? v : null),
+  },
+  lead_capture: {
+    column: "lead_capture",
+    validate: (v) => (typeof v === "boolean" ? (v ? 1 : 0) : v === 0 || v === 1 ? v : null),
+  },
+  lead_fields: {
+    column: "lead_fields",
+    validate: (v) =>
+      Array.isArray(v) &&
+      v.length > 0 &&
+      v.every((f) => f === "name" || f === "email" || f === "phone")
+        ? [...new Set(v as string[])].join(",")
+        : null,
   },
 };
 
@@ -884,6 +987,220 @@ async function handleOverview(request: Request, agentId: string, env: Env) {
     200,
     origin
   );
+}
+
+// ── Prospectos (leads): listar y actualizar estado ─────────────────────────────
+const LEAD_STATUSES = ["Nuevo", "Contactado", "Calificado", "Convertido", "Archivado"];
+
+async function handleLeadList(request: Request, agentId: string, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  // Solo el dueño lee la bandeja: la captura es automática pero privada.
+  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const url = new URL(request.url);
+  const q = (url.searchParams.get("q") || "").trim().slice(0, 100);
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  const pageSize = Math.min(100000, Math.max(1, parseInt(url.searchParams.get("page_size") || "10", 10) || 10));
+
+  const where = ["agent_id = ?"];
+  const binds: unknown[] = [agentId];
+  if (q) {
+    where.push("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR notes LIKE ? OR interest LIKE ? OR status LIKE ?)");
+    const like = `%${q}%`;
+    binds.push(like, like, like, like, like, like);
+  }
+
+  const totalRow = await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM leads WHERE ${where.join(" AND ")}`
+  )
+    .bind(...binds)
+    .first<{ c: number }>();
+  const total = Number(totalRow?.c) || 0;
+
+  const { results } = await env.DB.prepare(
+    `SELECT l.id, l.name, l.email, l.phone, l.notes, l.interest, l.session_id, l.status, l.created_at,
+            (SELECT m.created_at FROM messages m
+             JOIN conversations c ON c.id = m.conversation_id
+             WHERE c.agent_id = l.agent_id AND c.session_id = l.session_id
+             ORDER BY m.created_at DESC LIMIT 1) AS last_activity
+     FROM leads l WHERE ${where.join(" AND ")} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`
+  )
+    .bind(...binds, pageSize, (page - 1) * pageSize)
+    .all<{ id: string; name: string | null; email: string | null; phone: string | null; notes: string | null; interest: string | null; session_id: string | null; status: string; created_at: string; last_activity: string | null }>();
+
+  const byStatus = await env.DB.prepare(
+    "SELECT status, COUNT(*) AS c FROM leads WHERE agent_id = ? GROUP BY status"
+  )
+    .bind(agentId)
+    .all<{ status: string; c: number }>();
+  const countOf = (status: string) => byStatus.results?.find((r) => r.status === status)?.c ?? 0;
+
+  return json(
+    {
+      leads: results ?? [],
+      total,
+      stats: {
+        nuevo: countOf("Nuevo"),
+        contactado: countOf("Contactado"),
+        calificado: countOf("Calificado"),
+        convertido: countOf("Convertido"),
+        archivado: countOf("Archivado"),
+      },
+    },
+    200,
+    origin
+  );
+}
+
+async function handleLeadStatus(request: Request, leadId: string, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const body = (await request.json().catch(() => ({}))) as { status?: unknown; notes?: unknown };
+  const sets: string[] = [];
+  const binds: unknown[] = [];
+  if (body.status !== undefined) {
+    const status = body.status;
+    if (typeof status !== "string" || !LEAD_STATUSES.includes(status)) {
+      return json({ error: `Estado inválido. Válidos: ${LEAD_STATUSES.join(", ")}` }, 400, origin);
+    }
+    sets.push("status = ?");
+    binds.push(status);
+  }
+  if (body.notes !== undefined) {
+    const notes = body.notes;
+    if (notes !== null && typeof notes !== "string") {
+      return json({ error: "Nota inválida. Debe ser texto." }, 400, origin);
+    }
+    sets.push("notes = ?");
+    binds.push(notes);
+  }
+  if (sets.length === 0) return json({ error: "Nada para actualizar." }, 400, origin);
+  binds.push(leadId);
+  await env.DB.prepare(`UPDATE leads SET ${sets.join(", ")} WHERE id = ?`).bind(...binds).run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleLeadDelete(request: Request, leadId: string, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  await env.DB.prepare("DELETE FROM leads WHERE id = ?").bind(leadId).run();
+  return json({ ok: true }, 200, origin);
+}
+
+async function handleLeadHistory(request: Request, agentId: string, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const sessionId = new URL(request.url).searchParams.get("session_id") || "anon";
+  const convo = await env.DB.prepare(
+    "SELECT id FROM conversations WHERE agent_id = ? AND session_id = ?"
+  )
+    .bind(agentId, sessionId)
+    .first<{ id: string }>();
+  if (!convo) return json({ messages: [], last_activity: null }, 200, origin);
+  const { results } = await env.DB.prepare(
+    "SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC"
+  )
+    .bind(convo.id)
+    .all<{ role: "user" | "assistant"; content: string; created_at: string }>();
+  return json(
+    { messages: results ?? [], last_activity: results?.[results.length - 1]?.created_at ?? null },
+    200,
+    origin
+  );
+}
+
+async function handleLeadBulk(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const body = (await request.json().catch(() => ({}))) as { ids?: unknown; action?: unknown; status?: unknown };
+  const ids = Array.isArray(body.ids) ? body.ids.filter((x): x is string => typeof x === "string") : [];
+  if (ids.length === 0 || ids.length > 100) {
+    return json({ error: "ids inválidos (máx. 100)" }, 400, origin);
+  }
+  const placeholders = ids.map(() => "?").join(",");
+  if (body.action === "delete") {
+    await env.DB.prepare(`DELETE FROM leads WHERE id IN (${placeholders})`).bind(...ids).run();
+    return json({ ok: true, deleted: ids.length }, 200, origin);
+  }
+  if (body.action === "status") {
+    const status = body.status;
+    if (typeof status !== "string" || !LEAD_STATUSES.includes(status)) {
+      return json({ error: `Estado inválido. Válidos: ${LEAD_STATUSES.join(", ")}` }, 400, origin);
+    }
+    await env.DB.prepare(`UPDATE leads SET status = ? WHERE id IN (${placeholders})`).bind(status, ...ids).run();
+    return json({ ok: true, status }, 200, origin);
+  }
+  return json({ error: "Acción inválida. Válidas: delete, status" }, 400, origin);
+}
+
+// Público (lo llama el widget): registra el lead del formulario embebido.
+async function handleLeadForm(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const body = (await request.json().catch(() => ({}))) as {
+    agent_id?: string;
+    session_id?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    interest?: string;
+    message?: string;
+  };
+  if (!body.agent_id || typeof body.session_id !== "string") {
+    return json({ error: "agent_id y session_id son obligatorios" }, 400, origin);
+  }
+  const agent = await getAgent(body.agent_id, env);
+  if (!agent) return json({ error: "Agente no existe" }, 404, origin);
+  if (agent.lead_capture === 0) return json({ error: "Captura desactivada" }, 409, origin);
+  if (env.ENVIRONMENT !== "development" && !domainAllowed(agent, origin)) {
+    return json({ error: "Dominio no autorizado" }, 403, origin);
+  }
+  const clientKey = `${body.agent_id}:form:${request.headers.get("CF-Connecting-IP") || "unknown"}`;
+  if (isRateLimited(clientKey, 10)) {
+    return json({ error: "Demasiadas solicitudes. Intenta en un minuto." }, 429, origin);
+  }
+
+  const fields = (agent.lead_fields || "email,phone").split(",").map((f) => f.trim());
+  const clean = (v?: string) => (typeof v === "string" ? v.trim().slice(0, 120) : "");
+  const name = fields.includes("name") ? clean(body.name) : "";
+  const email = fields.includes("email") ? clean(body.email).toLowerCase() : "";
+  const phone = fields.includes("phone") ? clean(body.phone) : "";
+  if (!email && !phone) return json({ error: "Email o teléfono son obligatorios" }, 400, origin);
+  if (email && !EMAIL_RE.test(email)) return json({ error: "Email inválido" }, 400, origin);
+
+  const dupKey = email || phone;
+  const dup = await env.DB.prepare(
+    email
+      ? "SELECT id FROM leads WHERE agent_id = ? AND email = ?"
+      : "SELECT id FROM leads WHERE agent_id = ? AND phone = ?"
+  )
+    .bind(agent.id, dupKey)
+    .first<{ id: string }>();
+  if (dup) return json({ ok: true, duplicate: true }, 200, origin);
+
+  try {
+    await env.DB.prepare(
+      `INSERT INTO leads (id, agent_id, name, email, phone, notes, interest, session_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        crypto.randomUUID(),
+        agent.id,
+        name || null,
+        email || null,
+        phone || null,
+        null, // notes: reservada para la nota interna del dueño
+        (body.interest || body.message || "").trim().slice(0, 300) || "📋 Contacto capturado por formulario",
+        body.session_id
+      )
+      .run();
+    try {
+      await sendWebhook(env, agent.user_id, `📋 Nuevo contacto por formulario:\n${name} ${email} ${phone}`.trim());
+    } catch {
+      /* best-effort */
+    }
+  } catch {
+    return json({ error: "No se pudo guardar el contacto" }, 500, origin);
+  }
+  return json({ ok: true }, 201, origin);
 }
 
 // ── Multi-agente: listar y crear ────────────────────────────────────────────────
@@ -1134,6 +1451,29 @@ export default {
     const overviewMatch = url.pathname.match(/^\/api\/overview\/([^/]+)$/);
     if (overviewMatch && request.method === "GET") {
       return handleOverview(request, overviewMatch[1], env);
+    }
+
+    const leadsMatch = url.pathname.match(/^\/api\/leads\/([^/]+)$/);
+    if (url.pathname === "/api/leads" && request.method === "POST") {
+      return handleLeadForm(request, env);
+    }
+    if (url.pathname === "/api/leads/bulk" && request.method === "POST") {
+      return handleLeadBulk(request, env);
+    }
+    const historyMatch = url.pathname.match(/^\/api\/leads\/([^/]+)\/history$/);
+    if (historyMatch && request.method === "GET") {
+      return handleLeadHistory(request, historyMatch[1], env);
+    }
+    if (leadsMatch) {
+      if (request.method === "GET") {
+        return handleLeadList(request, leadsMatch[1], env);
+      }
+      if (request.method === "PATCH") {
+        return handleLeadStatus(request, leadsMatch[1], env);
+      }
+      if (request.method === "DELETE") {
+        return handleLeadDelete(request, leadsMatch[1], env);
+      }
     }
 
     return json({ error: "Not found" }, 404);

@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS agents (
   -- 🛡️ Seguridad y Control de Abuso
   allowed_domains TEXT DEFAULT '*',          -- Dominios autorizados separados por coma
   rate_limit_per_minute INTEGER DEFAULT 20,
+  lead_capture INTEGER DEFAULT 1,            -- 1 = captura prospectos (email/tel/nombre), 0 = solo responde
+  lead_fields TEXT NOT NULL DEFAULT 'email,phone', -- Campos a capturar: 'email', 'phone', 'name' (coma)
 
   is_active INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -63,7 +65,10 @@ CREATE TABLE IF NOT EXISTS leads (
   name TEXT,
   email TEXT,
   phone TEXT,
-  notes TEXT,                                -- Resumen de interés extraído por la IA
+  notes TEXT,                                -- Nota interna del dueño (la edita en el panel)
+  interest TEXT,                             -- Mensaje de interés real del visitante (captura automática o form
+  session_id TEXT,                           -- Sesión donde se capturó (para vincular la conversación)
+  status TEXT NOT NULL DEFAULT 'Nuevo',      -- Nuevo > Contactado > Calificado > Convertido > Archivado
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
 );
@@ -118,3 +123,10 @@ CREATE INDEX IF NOT EXISTS idx_messages_history ON messages(conversation_id, cre
 
 -- Para exportar prospectos ordenados por fecha en <5ms:
 CREATE INDEX IF NOT EXISTS idx_leads_dashboard ON leads(agent_id, created_at DESC);
+
+-- Dedupe puntual de leads en el hot path (por mensaje de chat y por formulario:
+-- `WHERE agent_id = ? AND email = ?`, `AND phone = ?`, `AND session_id = ?`).
+-- Sin estos, cada mensaje con contacto escanea todas las leads del agente.
+CREATE INDEX IF NOT EXISTS idx_leads_email   ON leads(agent_id, email);
+CREATE INDEX IF NOT EXISTS idx_leads_phone   ON leads(agent_id, phone);
+CREATE INDEX IF NOT EXISTS idx_leads_session ON leads(agent_id, session_id);

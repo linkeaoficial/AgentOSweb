@@ -84,8 +84,15 @@
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.3s ease-in-out;
+  /* arranca invisible para no mostrar el azul por defecto mientras carga la
+     config; `.fab-visible` se agrega cuando ya se conoce el color de marca */
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out,
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease-in-out;
+}
+
+.floating-action-button.fab-visible {
+  opacity: 1;
 }
 
 .floating-action-button::before {
@@ -1028,4 +1035,77 @@
   .floating-action-button.chat-open-mobile {
     display: none !important;
   }
+}
+/* ------------------ Formulario embebido (captura de contacto) ------------------ */
+.lead-form-card {
+  margin: 8px 0 4px;
+  width: 100%;
+  max-width: 300px;
+  background: var(--container-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lead-form-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--chat-text-color);
+  line-height: 1.3;
+}
+.lead-form-sub {
+  font-size: 11.5px;
+  color: var(--light-text-color);
+  line-height: 1.35;
+  margin: 2px 0 0;
+}
+.lead-form-field {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--container-bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--chat-text-color);
+  outline: none;
+  font-family: inherit;
+  resize: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.lead-form-message {
+  min-height: 52px;
+  margin-top: 8px;
+}
+.lead-form-field::placeholder { color: var(--placeholder-color); }
+.lead-form-field:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px var(--primary-tint);
+}
+.lead-form-send {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+.lead-form-send:hover { opacity: 0.9; }
+.lead-form-send:active { transform: scale(0.98); }
+.lead-form-send:disabled { opacity: 0.6; cursor: default; }
+.lead-form-note {
+  font-size: 11px;
+  color: var(--light-text-color);
+  text-align: center;
+  line-height: 1.4;
 }

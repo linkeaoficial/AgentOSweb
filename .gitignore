@@ -24,6 +24,8 @@ dist/
 # Logs
 *.log
 npm-debug.log*
+.srvlog.txt
+.srvdbg.txt
 
 # OS
 .DS_Store

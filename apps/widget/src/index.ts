@@ -143,6 +143,14 @@ function createWidget(script: HTMLScriptElement) {
   let cfg: AgentConfig = DEFAULT_CONFIG;
   let hasGreeted = false;
   let isAnimating = false;
+  let sessionFormShown = false;
+
+  // El globo no se muestra hasta conocer el color de marca: evita el flash azul
+  // por defecto en la primera visita. Se revela con la config en cache (r�pido)
+  // o con la que trae el fetch; si ninguno llega a tiempo, sale con fallback.
+  function showFab() {
+    toggleBtn.classList.add("fab-visible");
+  }
   const conversation: { text: string; sender: "bot" | "user" }[] = [];
   const sessionKey = `agentosweb-session-${agentId}`;
   const sessionId =
@@ -325,6 +333,111 @@ function createWidget(script: HTMLScriptElement) {
     return row;
   }
 
+  const FIELD_SPEC: Record<string, { label: string; placeholder: string; type: string }> = {
+    name: { label: "Nombre", placeholder: "Tu nombre", type: "text" },
+    email: { label: "Email", placeholder: "tucorreo@ejemplo.com", type: "email" },
+    phone: { label: "Teléfono", placeholder: "11 2345 6789", type: "tel" },
+  };
+
+  function renderLeadForm(fields: string[]) {
+    const row = document.createElement("div");
+    row.className = "chat-message bot";
+    const content = document.createElement("div");
+    content.className = "message-content";
+    const icon = document.createElement("div");
+    icon.className = "message-icon";
+    icon.innerHTML = getAnimatedAvatarHtml();
+    row.appendChild(icon);
+    const label = document.createElement("span");
+    label.className = "message-sender";
+    label.textContent = cfg.header_title;
+    content.appendChild(label);
+
+    const card = document.createElement("div");
+    card.className = "lead-form-card";
+    const title = document.createElement("div");
+    title.className = "lead-form-title";
+    title.textContent = "¿Dejamos tus datos? 💬";
+    const sub = document.createElement("div");
+    sub.className = "lead-form-sub";
+    sub.textContent =
+      "Parece que te interesa el servicio. Dejá tu contacto y te respondemos a la brevedad:";
+    card.appendChild(title);
+    card.appendChild(sub);
+
+    const inputs = new Map<string, HTMLInputElement>();
+    const specs = fields.map((f) => FIELD_SPEC[f]).filter(Boolean);
+    if (specs.length === 0) return;
+    for (const spec of specs) {
+      const fieldId = fields.find((f) => FIELD_SPEC[f] === spec)!;
+      const el = document.createElement("input");
+      el.type = spec.type;
+      el.className = "lead-form-field";
+      el.placeholder = spec.placeholder;
+      el.setAttribute("aria-label", spec.label);
+      inputs.set(fieldId, el);
+      card.appendChild(el);
+    }
+
+    const msg = document.createElement("textarea");
+    msg.className = "lead-form-field lead-form-message";
+    msg.placeholder = "¿Sobre qué te gustaría hablar? (opcional)";
+    msg.setAttribute("aria-label", "Mensaje");
+    msg.rows = 2;
+    card.appendChild(msg);
+
+    const send = document.createElement("button");
+    send.type = "button";
+    send.className = "lead-form-send";
+    send.textContent = "Enviar mis datos";
+    card.appendChild(send);
+    const note = document.createElement("div");
+    note.className = "lead-form-note";
+    note.textContent = "Podés seguir chateando mientras tanto.";
+    card.appendChild(note);
+
+    send.addEventListener("click", async () => {
+      const payload: Record<string, string> = { agent_id: agentId, session_id: sessionId };
+      const typed = msg.value.trim();
+      if (typed) {
+        payload.interest = typed;
+      } else {
+        const lastUser = [...conversation].reverse().find((m) => m.sender === "user");
+        if (lastUser) payload.interest = lastUser.text;
+      }
+      for (const [k, el] of inputs) payload[k] = el.value.trim();
+      send.disabled = true;
+      send.textContent = "Enviando…";
+      try {
+        const res = await fetch(`${apiBase}/leads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok && res.status !== 201) {
+          const err = (await res.json().catch(() => ({})) as { error?: string }).error;
+          throw new Error(err || "No guardamos tus datos. Intentá de nuevo.");
+        }
+        card.replaceChildren();
+        title.textContent = "¡Gracias! ✨";
+        sub.textContent = "Ya recibimos tus datos. Te vamos a responder pronto.";
+        card.appendChild(title);
+        card.appendChild(sub);
+        note.textContent = "";
+        card.after(note);
+      } catch (e) {
+        send.disabled = false;
+        send.textContent = "Enviar mis datos";
+        note.textContent = e instanceof Error ? e.message : "Hubo un error, intentá de nuevo.";
+      }
+    });
+
+    content.appendChild(card);
+    row.appendChild(content);
+    chatBody.appendChild(row);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
   function botGreeting() {
     renderMessage(cfg.welcome_message, "bot");
     hasGreeted = true;
@@ -379,8 +492,9 @@ function createWidget(script: HTMLScriptElement) {
     const typing = new Promise<HTMLElement>((r) => setTimeout(() => r(renderMessage("", "bot", true)), 400));
     const minDelay = new Promise((r) => setTimeout(r, 1000));
     let botReply = "";
+    let form: { fields: string[] } | undefined;
 
-    const callApi = async (): Promise<string | null> => {
+    const callApi = async (): Promise<{ reply: string | null; form?: { fields: string[] } }> => {
       const res = await fetch(`${apiBase}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -391,20 +505,25 @@ function createWidget(script: HTMLScriptElement) {
         }),
       });
       // 404 = agente pausado o eliminado: cortar sin fallback local
-      if (res.status === 404) return null;
+      if (res.status === 404) return { reply: null };
       if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = (await res.json()) as { reply?: string };
-      return data.reply || "¡Recibido! ¿En qué más te puedo colaborar?";
+      const data = (await res.json()) as { reply?: string; form?: { fields: string[] } };
+      return {
+        reply: data.reply || "¡Recibido! ¿En qué más te puedo colaborar?",
+        form: Array.isArray(data.form?.fields) && data.form.fields.length > 0 ? data.form : undefined,
+      };
     };
 
     try {
       try {
-        const reply = await callApi();
-        botReply = reply === null ? PAUSED_REPLY : reply;
+        const data = await callApi();
+        botReply = data.reply === null ? PAUSED_REPLY : data.reply;
+        form = data.form;
       } catch {
         await new Promise((r) => setTimeout(r, 1500));
-        const reply = await callApi();
-        botReply = reply === null ? PAUSED_REPLY : reply;
+        const data = await callApi();
+        botReply = data.reply === null ? PAUSED_REPLY : data.reply;
+        form = data.form;
       }
       await minDelay;
     } catch {
@@ -415,6 +534,10 @@ function createWidget(script: HTMLScriptElement) {
     (await typing).remove();
     conversation.push({ text: botReply, sender: "bot" });
     renderMessage(botReply, "bot");
+    if (form && !sessionFormShown) {
+      sessionFormShown = true;
+      renderLeadForm(form.fields);
+    }
   }
 
   function updateSendIdle() {
@@ -509,7 +632,12 @@ function createWidget(script: HTMLScriptElement) {
   }
   if (cachedBrand && typeof cachedBrand === "object" && cachedBrand.primary_color) {
     applyConfig(cachedBrand);
+    showFab();
   }
+
+  // Fallback: si el fetch de config tarda (red lenta), mostrar el globo con los
+  // colores por defecto antes que nada; as� el widget nunca queda invisible.
+  const revealFallback = window.setTimeout(showFab, 2500);
 
   const savedTheme = localStorage.getItem(THEME_KEY);
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -575,6 +703,8 @@ function createWidget(script: HTMLScriptElement) {
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error("config"))))
     .then((c: Partial<AgentConfig>) => {
       applyConfig(c);
+      window.clearTimeout(revealFallback);
+      showFab();
       try {
         localStorage.setItem(BRAND_KEY + "_" + agentId, JSON.stringify({ primary_color: c.primary_color }));
       } catch {

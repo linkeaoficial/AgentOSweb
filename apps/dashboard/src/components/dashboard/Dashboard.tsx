@@ -7,11 +7,12 @@ import Topbar from "./Topbar";
 import { OverviewView, UnderConstructionView, getScript, type OverviewData } from "./Views";
 import AgentsView from "./AgentsView";
 import BillingView, { type PlanDefault } from "./BillingView";
+import LeadsView from "./LeadsView";
 import AgentSwitcher, { type DashboardAgent } from "./AgentSwitcher";
 import DashboardFooter from "./Footer";
 import ConfirmModal from "./ConfirmModal";
 import { useToast } from "./notifications";
-import { IconLeads, IconAnalytics, IconSettings } from "./icons";
+import { IconAnalytics, IconSettings } from "./icons";
 import { API_BASE, AGENT_ID } from "./config";
 
 const TITLE_MAP: Record<string, string> = {
@@ -24,13 +25,7 @@ const TITLE_MAP: Record<string, string> = {
 };
 
 const PLACEHOLDER_VIEWS: Record<string, { icon: ReactNode; title: string; description: string }> = {
-  "view-leads": {
-    icon: <IconLeads />,
-    title: "Prospectos Capturados",
-    description:
-      "Aquí verás todos los contactos que tu agente IA ha capturado automáticamente: nombre, email, teléfono, notas de interés y opción de exportar todo a formato CSV.",
-  },
-"view-analytics": {
+  "view-analytics": {
     icon: <IconAnalytics />,
     title: "Analíticas e Insights de Comportamiento",
     description:
@@ -303,6 +298,8 @@ export default function Dashboard() {
             />
           ) : activeView === "view-billing" ? (
             <BillingView owner={owner} planDefaults={planDefaults} agentsCount={agents.length} onSaved={handleAgentsChanged} />
+          ) : activeView === "view-leads" ? (
+            <LeadsView key={currentAgentId} agentId={currentAgentId} />
           ) : (
             <UnderConstructionView id={activeView} {...PLACEHOLDER_VIEWS[activeView]} />
           )
