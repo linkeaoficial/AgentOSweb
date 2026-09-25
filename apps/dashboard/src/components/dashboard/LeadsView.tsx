@@ -41,6 +41,19 @@ function formatDateTime(iso: string): string {
   );
 }
 
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatRelTime(a: string, b: string): string {
+  const da = new Date(a);
+  const db = new Date(b);
+  if (isNaN(da.getTime()) || isNaN(db.getTime())) return formatDateTime(b);
+  if (da.toDateString() === db.toDateString()) return formatTime(b);
+  return formatDate(b) + " · " + formatTime(b);
+}
+
 function pageNumbers(current: number, total: number): number[] {
   const window = 1;
   const pages: number[] = [];
@@ -360,7 +373,10 @@ function LeadDrawer({
           <div className="lead-drawer-avatar">{initials(lead)}</div>
           <div className="lead-drawer-title">
             <h2>{lead.name || "Prospecto sin nombre"}</h2>
-            <span>{formatDateTime(lead.created_at)}{lead.last_activity ? ` · última actividad ${formatDateTime(lead.last_activity)}` : ""}</span>
+            <span>
+              {formatDate(lead.created_at)} · {formatTime(lead.created_at)}
+              {lead.last_activity ? ` · últ. act. ${formatRelTime(lead.created_at, lead.last_activity)}` : ""}
+            </span>
           </div>
           <button type="button" className="lead-drawer-close" onClick={onClose} aria-label="Cerrar detalle" title="Cerrar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -373,7 +389,6 @@ function LeadDrawer({
         <div className="lead-drawer-body">
           <div className="lead-drawer-row">
             <StatusSelect lead={lead} onStatus={onStatus} busy={false} />
-            {lead.session_id && <span className="lead-drawer-session" title={lead.session_id}>Sesión: {lead.session_id.slice(0, 8)}</span>}
           </div>
 
           <section className="lead-drawer-sec">
@@ -717,6 +732,22 @@ function ConversationOverlay({ agentId, lead, onClose }: { agentId: string; lead
   );
 }
 
+function SortArrow({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
+  if (!active) {
+    return (
+      <svg className="lead-th-sort-arrow is-muted" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m7 15 5 5 5-5" />
+        <path d="m7 9 5-5 5 5" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="lead-th-sort-arrow" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      {dir === "asc" ? <path d="m18 15-6-6-6 6" /> : <path d="m6 9 6 6 6-6" />}
+    </svg>
+  );
+}
+
 function initials(lead: Lead): string {
   return (lead.name || "?").trim().split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 }
@@ -729,6 +760,9 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"created_at" | "name" | "status">("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [busyStatus, setBusyStatus] = useState<string | null>(null);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -754,9 +788,12 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
   const load = useCallback(() => {
     const qs = new URLSearchParams();
     if (query.trim()) qs.set("q", query.trim());
+    if (statusFilter) qs.set("status", statusFilter);
+    qs.set("sort_by", sortBy);
+    qs.set("sort_dir", sortDir);
     qs.set("page", String(page));
     qs.set("page_size", String(PAGE_SIZE));
-    const cacheKey = `${agentId}|${query.trim()}|${page}`;
+    const cacheKey = `${agentId}|${query.trim()}|${statusFilter}|${sortBy}|${sortDir}|${page}`;
     const ctx: LeadCtx = { setLeads, setTotal, setLeadsStats, setLoadError };
     const cached = leadListCache.get(cacheKey);
     if (cached && Date.now() - cached.at < LEAD_TTL) {
@@ -779,7 +816,7 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentId, query, page]);
+  }, [agentId, query, statusFilter, sortBy, sortDir, page]);
 
   useEffect(() => {
     setLoading(true);
@@ -787,7 +824,18 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
     const t = setTimeout(load, query.trim() ? 300 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, page, agentId]);
+  }, [query, statusFilter, sortBy, sortDir, page, agentId]);
+
+  const toggleSort = (col: "created_at" | "name" | "status") => {
+    setPage(1);
+    setSortBy(col);
+    setSortDir((dir) => (sortBy === col && dir === "desc" ? "asc" : "desc"));
+  };
+
+  const handleStatusFilter = (s: string) => {
+    setPage(1);
+    setStatusFilter(s);
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageNumber = Math.min(page, totalPages);
@@ -984,16 +1032,39 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
                   aria-label="Seleccionar todos los de esta página"
                 />
               </th>
-              <th>Nombre</th>
+              <th>
+                <button type="button" className="lead-th-sort" onClick={() => toggleSort("name")} aria-label="Ordenar por nombre">
+                  Nombre
+                  <SortArrow active={sortBy === "name"} dir={sortDir} />
+                </button>
+              </th>
               <th>Contacto</th>
               <th>Mensaje</th>
-              <th>Estado</th>
-              <th className="leads-actions-col">Acciones</th>
+              <th>
+                <button type="button" className="lead-th-sort" onClick={() => toggleSort("status")} aria-label="Ordenar por estado">
+                  Estado
+                  <SortArrow active={sortBy === "status"} dir={sortDir} />
+                </button>
+              </th>
+              <th className="leads-actions-col">
+                <button type="button" className="lead-th-sort" onClick={() => toggleSort("created_at")} aria-label="Ordenar por fecha">
+                  Capturado
+                  <SortArrow active={sortBy === "created_at"} dir={sortDir} />
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
             {pageLeads.map((l) => (
-              <tr key={l.id} className={selection.has(l.id) ? "is-selected" : ""}>
+              <tr
+                key={l.id}
+                className={`leads-row${selection.has(l.id) ? " is-selected" : ""}`}
+                onClick={(e) => {
+                  const t = e.target as HTMLElement;
+                  if (t.closest("button, a, input, select")) return;
+                  setViewLead(l);
+                }}
+              >
                 <td className="leads-check-col">
                   <input
                     type="checkbox"
@@ -1005,9 +1076,11 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
                 </td>
                 <td>
                   <div className="leads-name-cell">
-                    {l.name && <span className="leads-name">{l.name}</span>}
-                    <span className="leads-date">{formatDate(l.created_at)}</span>
-                    {l.last_activity && <span className="leads-date leads-date-sub">última: {formatDate(l.last_activity)}</span>}
+                    <span className="leads-avatar">{initials(l)}</span>
+                    <div className="leads-name-info">
+                      {l.name && <span className="leads-name">{l.name}</span>}
+                      <span className="leads-date">{formatDate(l.created_at)}</span>
+                    </div>
                   </div>
                 </td>
                 <td className="leads-contact-cell"><ContactChip lead={l} /></td>
@@ -1057,6 +1130,29 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
               <span className="btn-shimmer-label">Exportar CSV</span>
             </button>
           </div>
+        </div>
+        <div className="leads-status-filter" role="tablist" aria-label="Filtrar por estado">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={statusFilter === ""}
+            className={`lead-filter-pill${statusFilter === "" ? " is-active" : ""}`}
+            onClick={() => handleStatusFilter("")}
+          >
+            Todos
+          </button>
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === s}
+              className={`lead-filter-pill${statusFilter === s ? " is-active" : ""}`}
+              onClick={() => handleStatusFilter(s)}
+            >
+              {s}
+            </button>
+          ))}
         </div>
         {!loading && !loadError && (
           <div className="leads-kpis">

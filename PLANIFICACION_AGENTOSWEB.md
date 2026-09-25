@@ -20,6 +20,13 @@
 ---
 
 ## 0. ✅ ESTADO REAL IMPLEMENTADO (sep-2026) — lo que YA funciona en producción
+⚠️ Esta sección está desactualizada frente al trabajo del 24-25-sep-2026. La fuente viva del backlog está en `AGENTOSWEB_PENDIENTES.md`; el código real es `apps/` + `database/schema.sql` (+ migraciones `database/*.sql`).
+
+### Estado del 24-25-sep-2026: el producto ya captura y gestiona prospectos de punta a punta
+- **Bandeja de Prospectos profesional** (24-sep-2026, ~90/100 vs competencia): captura automática por regex (email/teléfono/nombre) controlada por agente (`lead_capture` + `lead_fields`), formulario embebido en el chat al detectar interés, `interest` separado de `notes`, búsqueda + paginación server-side (debounce 300ms), sort por columnas, filtro por estado (pills), avatar + fecha en la fila, filas clickeables, KPIs, bulk select/acciones con FAB pegada a pantalla, export CSV (respeta filtro), drawer lateral con nota editable + historial de conversación (overlay tipo widget, sin flash, con cache y export .txt), alertas a Telegram/webhook. *El detalle completo está en `AGENTOSWEB_PENDIENTES.md`.*
+- Queda en backlog real: login multi-cliente + pago (requiere rediseño de Planes & Facturación), landing pública, botón "Probar modelo", auditoría periódica de modelos, fase 2 (kanban, atributos custom, webhooks, scoring).
+
+### Lo que está DESPLEGADO y verificado en vivo
 
 > **Este documento es el blueprint/v2.3 (diseño original).** Muchas secciones quedaron desactualizadas frente a la realidad construida. Esta sección resume **como es HOY**; ante cualquier duda, mirá esta sección primero y después el código (`apps/`, `database/schema.sql`).
 

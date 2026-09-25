@@ -1366,22 +1366,23 @@ padding: 22px 26px;
             overflow-wrap: anywhere;
         }
 
-        .leads-kpi-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            flex-shrink: 0;
-            border-radius: 9px;
-            background: var(--bg-subtle);
-            color: var(--primary-color);
-        }
+.leads-kpi-head .leads-kpi-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background-color: var(--bg-subtle);
+    color: var(--primary-color);
+    text-align: center;
+}
 
-        .leads-kpi-icon svg {
-            width: 18px;
-            height: 18px;
-        }
+.leads-kpi-head .leads-kpi-icon svg {
+    width: 18px;
+    height: 18px;
+}
 
         .leads-kpi-value {
             display: block;
@@ -1404,6 +1405,52 @@ padding: 22px 26px;
             max-height: 520px;
             overflow-y: auto;
         }
+
+        .leads-status-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0 0 8px 4px;
+        }
+
+        .lead-filter-pill {
+            appearance: none;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .lead-filter-pill:hover { color: var(--text-main); border-color: var(--text-muted); }
+        .lead-filter-pill.is-active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #fff;
+        }
+
+        .lead-th-sort {
+            appearance: none;
+            background: none;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0;
+            font: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: inherit;
+            cursor: pointer;
+        }
+        .lead-th-sort:hover { color: var(--primary-color); }
+
+        .lead-th-sort-arrow.is-muted { opacity: 0.35; }
 
         .leads-table {
             width: 100%;
@@ -1432,14 +1479,38 @@ padding: 22px 26px;
             border-bottom: 1px solid var(--border-color);
             vertical-align: middle;
         }
+        .leads-table tbody tr { cursor: pointer; }
         .leads-table tbody tr:last-child td { border-bottom: none; }
         .leads-table tbody tr:hover { background: var(--bg-subtle); }
 
         .leads-name-cell {
             display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            max-width: 220px;
+        }
+
+        .leads-avatar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-gradient-end, #13a0ff));
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .leads-name-info {
+            display: flex;
             flex-direction: column;
             gap: 3px;
-            max-width: 180px;
+            min-width: 0;
         }
 
         .leads-name { font-size: 13px; font-weight: 600; color: var(--text-main); }
@@ -1450,6 +1521,9 @@ padding: 22px 26px;
             font-size: 11.5px;
         }
         .leads-date-sub {
+            display: block;
+            color: var(--text-muted);
+            white-space: nowrap;
             font-size: 10.5px;
             opacity: 0.75;
         }

@@ -1000,6 +1000,15 @@ async function handleLeadList(request: Request, agentId: string, env: Env) {
   const q = (url.searchParams.get("q") || "").trim().slice(0, 100);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
   const pageSize = Math.min(100000, Math.max(1, parseInt(url.searchParams.get("page_size") || "10", 10) || 10));
+  const statusFilter = (url.searchParams.get("status") || "").trim();
+  // whitelist: el orden nunca interpola input del usuario directo
+  const SORT_COLS: Record<string, string> = {
+    name: "l.name",
+    created_at: "l.created_at",
+    status: "l.status",
+  };
+  const sortBy = SORT_COLS[url.searchParams.get("sort_by") || "created_at"] || "l.created_at";
+  const sortDir = url.searchParams.get("sort_dir") === "asc" ? "ASC" : "DESC";
 
   const where = ["agent_id = ?"];
   const binds: unknown[] = [agentId];
@@ -1007,6 +1016,10 @@ async function handleLeadList(request: Request, agentId: string, env: Env) {
     where.push("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR notes LIKE ? OR interest LIKE ? OR status LIKE ?)");
     const like = `%${q}%`;
     binds.push(like, like, like, like, like, like);
+  }
+  if (LEAD_STATUSES.includes(statusFilter as (typeof LEAD_STATUSES)[number])) {
+    where.push("status = ?");
+    binds.push(statusFilter);
   }
 
   const totalRow = await env.DB.prepare(
@@ -1022,7 +1035,7 @@ async function handleLeadList(request: Request, agentId: string, env: Env) {
              JOIN conversations c ON c.id = m.conversation_id
              WHERE c.agent_id = l.agent_id AND c.session_id = l.session_id
              ORDER BY m.created_at DESC LIMIT 1) AS last_activity
-     FROM leads l WHERE ${where.join(" AND ")} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`
+     FROM leads l WHERE ${where.join(" AND ")} ORDER BY ${sortBy} ${sortDir}, l.created_at DESC LIMIT ? OFFSET ?`
   )
     .bind(...binds, pageSize, (page - 1) * pageSize)
     .all<{ id: string; name: string | null; email: string | null; phone: string | null; notes: string | null; interest: string | null; session_id: string | null; status: string; created_at: string; last_activity: string | null }>();
@@ -1165,6 +1178,7 @@ async function handleLeadForm(request: Request, env: Env) {
   const phone = fields.includes("phone") ? clean(body.phone) : "";
   if (!email && !phone) return json({ error: "Email o teléfono son obligatorios" }, 400, origin);
   if (email && !EMAIL_RE.test(email)) return json({ error: "Email inválido" }, 400, origin);
+  if (phone && phone.replace(/\D/g, "").length < 6) return json({ error: "Teléfono inválido" }, 400, origin);
 
   const dupKey = email || phone;
   const dup = await env.DB.prepare(

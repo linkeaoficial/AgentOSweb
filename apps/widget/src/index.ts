@@ -157,7 +157,10 @@ function createWidget(script: HTMLScriptElement) {
     (() => {
       const saved = localStorage.getItem(sessionKey);
       if (saved) return saved;
-      const fresh = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+      const fresh =
+        "agentosweb-" +
+        Date.now().toString().slice(0, 13) +
+        String(Math.floor(Math.random() * 90) + 10);
       localStorage.setItem(sessionKey, fresh);
       return fresh;
     })();
@@ -361,13 +364,14 @@ function createWidget(script: HTMLScriptElement) {
     const sub = document.createElement("div");
     sub.className = "lead-form-sub";
     sub.textContent =
-      "Parece que te interesa el servicio. Dejá tu contacto y te respondemos a la brevedad:";
+      "Parece que te interesa lo que ofrecemos. Dejá tu contacto y te respondemos a la brevedad:";
     card.appendChild(title);
     card.appendChild(sub);
 
     const inputs = new Map<string, HTMLInputElement>();
     const specs = fields.map((f) => FIELD_SPEC[f]).filter(Boolean);
     if (specs.length === 0) return;
+    const fieldEls: HTMLInputElement[] = [];
     for (const spec of specs) {
       const fieldId = fields.find((f) => FIELD_SPEC[f] === spec)!;
       const el = document.createElement("input");
@@ -376,6 +380,7 @@ function createWidget(script: HTMLScriptElement) {
       el.placeholder = spec.placeholder;
       el.setAttribute("aria-label", spec.label);
       inputs.set(fieldId, el);
+      fieldEls.push(el);
       card.appendChild(el);
     }
 
@@ -396,7 +401,40 @@ function createWidget(script: HTMLScriptElement) {
     note.textContent = "Podés seguir chateando mientras tanto.";
     card.appendChild(note);
 
+    fieldEls.forEach((el, i) =>
+      el.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        const next = fieldEls[i + 1] ?? msg;
+        next.focus();
+      })
+    );
+    msg.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send.click();
+      }
+    });
+
     send.addEventListener("click", async () => {
+      const emailEl = inputs.get("email");
+      if (emailEl) {
+        const v = emailEl.value.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) {
+          note.textContent = "Ese correo no parece válido. Revisalo para que podamos responderte.";
+          emailEl.focus();
+          return;
+        }
+      }
+      const phoneEl = inputs.get("phone");
+      if (phoneEl) {
+        const v = phoneEl.value.trim().replace(/\D/g, "");
+        if (v.length < 6) {
+          note.textContent = "Ese teléfono no parece válido. Revisalo para que podamos responderte.";
+          phoneEl.focus();
+          return;
+        }
+      }
       const payload: Record<string, string> = { agent_id: agentId, session_id: sessionId };
       const typed = msg.value.trim();
       if (typed) {
@@ -419,11 +457,11 @@ function createWidget(script: HTMLScriptElement) {
           throw new Error(err || "No guardamos tus datos. Intentá de nuevo.");
         }
         card.replaceChildren();
-        title.textContent = "¡Gracias! ✨";
+        title.textContent = "¡Gracias!";
         sub.textContent = "Ya recibimos tus datos. Te vamos a responder pronto.";
         card.appendChild(title);
         card.appendChild(sub);
-        note.textContent = "";
+        note.textContent = "Podés seguir chateando mientras tanto.";
         card.after(note);
       } catch (e) {
         send.disabled = false;
