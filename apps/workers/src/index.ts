@@ -130,6 +130,52 @@ function isOwnerAuthorized(request: Request, env: Env): boolean {
   return diff === 0;
 }
 
+// ── Fase 2C: identidad multi-tenant ────────────────────────────────────────────
+// Cada request autenticado resuelve a un `{ userId, role, superadmin }`.
+// - SUPERADMIN (transición): `X-Owner-Token` válido → actúa como el dueño actual.
+// - Sesión Better Auth: la cookie `aow_auth.session_token` (reenviada por el proxy
+//   del dashboard) → `user.id`. Rol: `admin`/`cliente` desde la columna `role`.
+// La primera sesión de un email que existía en la tabla legacy `users` (dueño viejo)
+// reclama su data: mueve sus agentes al id de Better Auth y lo promueve a admin.
+interface ResolvedUser {
+  id: string;
+  role: "admin" | "cliente";
+  superadmin: boolean;
+}
+
+async function claimLegacyOwner(env: Env, su: { id: string; email: string; name?: string | null }): Promise<void> {
+  const legacy = await env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(su.email).first<{ id: string }>();
+  if (legacy && legacy.id !== su.id) {
+    // ¿Ya está reclamado? Si el id ya tiene agentes propios, no repetir el reclamo.
+    const already = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ? LIMIT 1").bind(su.id).first();
+    if (!already) {
+      await env.DB.batch([
+        env.DB.prepare("UPDATE agents SET user_id = ? WHERE user_id = ?").bind(su.id, legacy.id),
+        env.DB.prepare("UPDATE users SET id = ?, name = COALESCE(NULLIF(?, ''), name) WHERE id = ?").bind(su.id, su.name ?? "", legacy.id),
+      ]);
+      // El dueño legacy pasa a ser admin: puede editar planes (Fase 2D).
+      await env.DB.prepare("UPDATE user SET role = 'admin' WHERE id = ?").bind(su.id).run();
+    }
+    return;
+  }
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO users (id, email, name, plan) VALUES (?, ?, ?, 'free')"
+  ).bind(su.id, su.email, su.name ?? null).run();
+}
+
+async function resolveUser(request: Request, env: Env): Promise<ResolvedUser | null> {
+  if (isOwnerAuthorized(request, env)) {
+    const ownerId = await resolveOwnerId(env);
+    if (ownerId) return { id: ownerId, role: "admin", superadmin: true };
+    return null;
+  }
+  const { getSessionUser } = await import("./auth");
+  const su = await getSessionUser(env, request);
+  if (!su) return null;
+  await claimLegacyOwner(env, su);
+  return { id: su.id, role: su.role === "admin" ? "admin" : "cliente", superadmin: false };
+}
+
 async function infer(agent: AgentRow, payload: { role: string; content: string }[], env: Env): Promise<string> {
   if (isWorkersAI(agent)) {
     const model = agent.chat_model.startsWith("@cf/") ? agent.chat_model : DEFAULT_MODEL;
@@ -733,10 +779,11 @@ async function handleAgent(request: Request, agentId: string, env: Env) {
 // (getAgent devuelve null si is_active !== 1). NUNCA expone chat_api_key.
 async function handleAgentConfig(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) {
-    return json({ error: "No autorizado" }, 403, origin);
-  }
-  const agent = await env.DB.prepare("SELECT * FROM agents WHERE id = ?").bind(agentId).first<AgentRow>();
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  const agent = await env.DB.prepare("SELECT * FROM agents WHERE id = ? AND user_id = ?")
+    .bind(agentId, user.id)
+    .first<AgentRow>();
   if (!agent) return json({ error: "Agente no existe" }, 404, origin);
 
   return json(
@@ -876,13 +923,14 @@ function validateFaqs(v: unknown): string | null {
 
 async function handleAgentUpdate(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) {
-    return json({ error: "No autorizado" }, 403, origin);
-  }
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
 
   // Puede dejarse vacío el body para invalidar SOLO la cache (`PUT` con {}).
   // Cuando hay campo `faqs`: valida estructura + re-cachea con los datos nuevos.
-  const existing = await env.DB.prepare("SELECT id FROM agents WHERE id = ?").bind(agentId).first<{ id: string }>();
+  const existing = await env.DB.prepare("SELECT id FROM agents WHERE id = ? AND user_id = ?")
+    .bind(agentId, user.id)
+    .first<{ id: string }>();
   if (!existing) return json({ error: "Agente no existe" }, 404, origin);
 
   const body: unknown = await request.json().catch(() => ({}));
@@ -947,11 +995,12 @@ async function handleAgentUpdate(request: Request, agentId: string, env: Env) {
 
 async function handleOverview(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  // Solo el dueño debe leer métricas de uso/cuota; el resto de la API es público a propósito.
-  if (!isOwnerAuthorized(request, env)) {
-    return json({ error: "No autorizado" }, 403, origin);
-  }
-  const agent = await getAgent(agentId, env);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  // Solo el dueño de cada agente lee sus métricas; el resto de la API es público a propósito.
+  const agent = await env.DB.prepare("SELECT * FROM agents WHERE id = ? AND user_id = ?")
+    .bind(agentId, user.id)
+    .first<AgentRow>();
   if (!agent) return json({ error: "Agente no existe" }, 404, origin);
 
   const [convos, msgs, recentRes, faqHitsRes] = await env.DB.batch([
@@ -976,7 +1025,7 @@ async function handleOverview(request: Request, agentId: string, env: Env) {
     (faqHitsRes.results as { faq_label: string; hits: number }[] | undefined)?.map((h) => [h.faq_label, h.hits])
   );
 
-  const user = await env.DB.prepare("SELECT messages_limit, messages_used, plan FROM users WHERE id = ?")
+  const quota = await env.DB.prepare("SELECT messages_limit, messages_used, plan FROM users WHERE id = ?")
     .bind(agent.user_id)
     .first<{ messages_limit: number | null; messages_used: number; plan: string | null }>();
 
@@ -985,8 +1034,8 @@ async function handleOverview(request: Request, agentId: string, env: Env) {
       id: agent.id,
       conversations_total: Number(convosTotal),
       messages_total: Number(msgsTotal),
-      messages_used: Number(user?.messages_used) || 0,
-      messages_limit: effectiveMessagesLimit(user),
+      messages_used: Number(quota?.messages_used) || 0,
+      messages_limit: effectiveMessagesLimit(quota),
       recent,
       faqs: getFaqs(agent).map((f) => ({ label: f.label, hits: hitsByLabel.get(f.label) || 0 })),
     },
@@ -1000,8 +1049,12 @@ const LEAD_STATUSES = ["Nuevo", "Contactado", "Calificado", "Convertido", "Archi
 
 async function handleLeadList(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  // Solo el dueño lee la bandeja: la captura es automática pero privada.
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  const owned = await env.DB.prepare("SELECT id FROM agents WHERE id = ? AND user_id = ?")
+    .bind(agentId, user.id)
+    .first<{ id: string }>();
+  if (!owned) return json({ error: "Agente no existe" }, 403, origin);
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") || "").trim().slice(0, 100);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
@@ -1072,7 +1125,8 @@ async function handleLeadList(request: Request, agentId: string, env: Env) {
 
 async function handleLeadStatus(request: Request, leadId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
   const body = (await request.json().catch(() => ({}))) as { status?: unknown; notes?: unknown };
   const sets: string[] = [];
   const binds: unknown[] = [];
@@ -1093,21 +1147,32 @@ async function handleLeadStatus(request: Request, leadId: string, env: Env) {
     binds.push(notes);
   }
   if (sets.length === 0) return json({ error: "Nada para actualizar." }, 400, origin);
-  binds.push(leadId);
-  await env.DB.prepare(`UPDATE leads SET ${sets.join(", ")} WHERE id = ?`).bind(...binds).run();
+  binds.push(leadId, user.id);
+  await env.DB.prepare(
+    `UPDATE leads SET ${sets.join(", ")} WHERE id = ?
+     AND agent_id IN (SELECT id FROM agents WHERE user_id = ?)`
+  ).bind(...binds).run();
   return json({ ok: true }, 200, origin);
 }
 
 async function handleLeadDelete(request: Request, leadId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
-  await env.DB.prepare("DELETE FROM leads WHERE id = ?").bind(leadId).run();
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  await env.DB.prepare(
+    "DELETE FROM leads WHERE id = ? AND agent_id IN (SELECT id FROM agents WHERE user_id = ?)"
+  ).bind(leadId, user.id).run();
   return json({ ok: true }, 200, origin);
 }
 
 async function handleLeadHistory(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  const owned = await env.DB.prepare("SELECT id FROM agents WHERE id = ? AND user_id = ?")
+    .bind(agentId, user.id)
+    .first<{ id: string }>();
+  if (!owned) return json({ error: "Agente no existe" }, 403, origin);
   const sessionId = new URL(request.url).searchParams.get("session_id") || "anon";
   const convo = await env.DB.prepare(
     "SELECT id FROM conversations WHERE agent_id = ? AND session_id = ?"
@@ -1129,7 +1194,8 @@ async function handleLeadHistory(request: Request, agentId: string, env: Env) {
 
 async function handleLeadBulk(request: Request, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
   const body = (await request.json().catch(() => ({}))) as { ids?: unknown; action?: unknown; status?: unknown };
   const ids = Array.isArray(body.ids) ? body.ids.filter((x): x is string => typeof x === "string") : [];
   if (ids.length === 0 || ids.length > 100) {
@@ -1137,7 +1203,10 @@ async function handleLeadBulk(request: Request, env: Env) {
   }
   const placeholders = ids.map(() => "?").join(",");
   if (body.action === "delete") {
-    await env.DB.prepare(`DELETE FROM leads WHERE id IN (${placeholders})`).bind(...ids).run();
+    await env.DB.prepare(
+      `DELETE FROM leads WHERE id IN (${placeholders})
+       AND agent_id IN (SELECT id FROM agents WHERE user_id = ?)`
+    ).bind(...ids, user.id).run();
     return json({ ok: true, deleted: ids.length }, 200, origin);
   }
   if (body.action === "status") {
@@ -1145,7 +1214,10 @@ async function handleLeadBulk(request: Request, env: Env) {
     if (typeof status !== "string" || !LEAD_STATUSES.includes(status)) {
       return json({ error: `Estado inválido. Válidos: ${LEAD_STATUSES.join(", ")}` }, 400, origin);
     }
-    await env.DB.prepare(`UPDATE leads SET status = ? WHERE id IN (${placeholders})`).bind(status, ...ids).run();
+    await env.DB.prepare(
+      `UPDATE leads SET status = ? WHERE id IN (${placeholders})
+       AND agent_id IN (SELECT id FROM agents WHERE user_id = ?)`
+    ).bind(status, ...ids, user.id).run();
     return json({ ok: true, status }, 200, origin);
   }
   return json({ error: "Acción inválida. Válidas: delete, status" }, 400, origin);
@@ -1257,27 +1329,25 @@ async function resolveOwnerId(env: Env): Promise<string | null> {
 
 async function handleAgentList(request: Request, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
-
-  const ownerId = await resolveOwnerId(env);
-  if (!ownerId) return json({ error: "Falta usuario dueño" }, 503, origin);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
 
   const { results } = await env.DB.prepare(
     "SELECT id, name, is_active FROM agents WHERE user_id = ? ORDER BY created_at ASC"
-  ).bind(ownerId).all();
+  ).bind(user.id).all();
 
-  const user = await env.DB.prepare(
+  const owner = await env.DB.prepare(
     "SELECT name, plan, agent_limit, messages_limit, messages_used FROM users WHERE id = ?"
-  ).bind(ownerId).first<OwnerRow>();
+  ).bind(user.id).first<OwnerRow>();
 
   return json(
     {
       owner: {
-        name: user?.name ?? null,
-        plan: user?.plan ?? null,
-agent_limit: effectiveAgentLimit(user),
-        messages_limit: effectiveMessagesLimit(user),
-        messages_used: Number(user?.messages_used) || 0,
+        name: owner?.name ?? null,
+        plan: owner?.plan ?? null,
+        agent_limit: effectiveAgentLimit(owner),
+        messages_limit: effectiveMessagesLimit(owner),
+        messages_used: Number(owner?.messages_used) || 0,
       },
       plan_defaults: PLAN_DEFAULTS,
       agents: results ?? [],
@@ -1289,10 +1359,8 @@ agent_limit: effectiveAgentLimit(user),
 
 async function handleAgentCreate(request: Request, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
-
-  const ownerId = await resolveOwnerId(env);
-  if (!ownerId) return json({ error: "Falta usuario dueño" }, 503, origin);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
 
   const body = await request.json().catch(() => ({}));
   const name = typeof (body as Record<string, unknown>)?.name === "string"
@@ -1301,15 +1369,15 @@ async function handleAgentCreate(request: Request, env: Env) {
   if (!name || name.length > 60) return json({ error: "Campo inválido: name" }, 400, origin);
 
   const duplicate = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ? AND LOWER(name) = LOWER(?)")
-    .bind(ownerId, name)
+    .bind(user.id, name)
     .first<{ id: string }>();
   if (duplicate) return json({ error: `Ya tienes un agente llamado "${name}". Elige otro nombre.` }, 409, origin);
 
-  const user = await env.DB.prepare("SELECT plan, agent_limit FROM users WHERE id = ?")
-    .bind(ownerId)
+  const owner = await env.DB.prepare("SELECT plan, agent_limit FROM users WHERE id = ?")
+    .bind(user.id)
     .first<{ plan: string | null; agent_limit: number | null }>();
-  const limit = effectiveAgentLimit(user);
-  const countRow = await env.DB.prepare("SELECT COUNT(*) AS total FROM agents WHERE user_id = ?").bind(ownerId).first<{ total: number }>();
+  const limit = effectiveAgentLimit(owner);
+  const countRow = await env.DB.prepare("SELECT COUNT(*) AS total FROM agents WHERE user_id = ?").bind(user.id).first<{ total: number }>();
   if ((Number(countRow?.total) || 0) >= limit) {
     return json({ error: `Alcanzaste el límite de tu plan (${limit} agente${limit === 1 ? "" : "s"}). Sube de plan para crear más.` }, 402, origin);
   }
@@ -1319,7 +1387,7 @@ async function handleAgentCreate(request: Request, env: Env) {
   const defaultWelcome = `Soy el asistente virtual de ${name}. ¿En qué te puedo colaborar hoy?`;
   await env.DB.prepare(
     "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model) VALUES (?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?)"
-  ).bind(id, ownerId, name, name, defaultPrompt, defaultWelcome, DEFAULT_MODEL_FAST).run();
+  ).bind(id, user.id, name, name, defaultPrompt, defaultWelcome, DEFAULT_MODEL_FAST).run();
 
   return json({ ok: true, id }, 200, origin);
 }
@@ -1327,17 +1395,15 @@ async function handleAgentCreate(request: Request, env: Env) {
 // Eliminar un agente y sus datos relacionados. No permite quedarse sin agentes.
 async function handleAgentDelete(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
-
-  const ownerId = await resolveOwnerId(env);
-  if (!ownerId) return json({ error: "Falta usuario dueño" }, 503, origin);
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
 
   const agent = await env.DB.prepare("SELECT id FROM agents WHERE id = ? AND user_id = ?")
-    .bind(agentId, ownerId)
+    .bind(agentId, user.id)
     .first<{ id: string }>();
   if (!agent) return json({ error: "Agente no existe" }, 404, origin);
 
-  const countRow = await env.DB.prepare("SELECT COUNT(*) AS total FROM agents WHERE user_id = ?").bind(ownerId).first<{ total: number }>();
+  const countRow = await env.DB.prepare("SELECT COUNT(*) AS total FROM agents WHERE user_id = ?").bind(user.id).first<{ total: number }>();
   if ((Number(countRow?.total) || 0) <= 1) {
     return json({ error: "No puedes eliminar tu único agente. Crea otro antes de borrar este." }, 400, origin);
   }
@@ -1347,7 +1413,7 @@ async function handleAgentDelete(request: Request, agentId: string, env: Env) {
     env.DB.prepare("DELETE FROM conversations WHERE agent_id = ?").bind(agentId),
     env.DB.prepare("DELETE FROM leads WHERE agent_id = ?").bind(agentId),
     env.DB.prepare("DELETE FROM faq_hits WHERE agent_id = ?").bind(agentId),
-    env.DB.prepare("DELETE FROM agents WHERE id = ? AND user_id = ?").bind(agentId, ownerId),
+    env.DB.prepare("DELETE FROM agents WHERE id = ? AND user_id = ?").bind(agentId, user.id),
   ]);
 
   return json({ ok: true }, 200, origin);
@@ -1357,10 +1423,12 @@ async function handleAgentDelete(request: Request, agentId: string, env: Env) {
 // defecto (salvo que el mismo request traiga un override explícito).
 async function handleUserUpdate(request: Request, env: Env) {
   const origin = request.headers.get("Origin") || "*";
-  if (!isOwnerAuthorized(request, env)) return json({ error: "No autorizado" }, 403, origin);
-
-  const ownerId = await resolveOwnerId(env);
-  if (!ownerId) return json({ error: "Falta usuario dueño" }, 503, origin);
+  // Solo admin/superadmin (Fase 2D): el cliente no edita su propio plan/cupos.
+  const user = await resolveUser(request, env);
+  if (!user || !(user.superadmin || user.role === "admin")) {
+    return json({ error: "No autorizado" }, 403, origin);
+  }
+  const ownerId = user.id;
 
   const body = await request.json().catch(() => ({}));
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;

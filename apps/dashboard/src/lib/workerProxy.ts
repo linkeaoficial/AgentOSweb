@@ -4,7 +4,9 @@ import { verifySessionToken, authConfigured, SESSION_COOKIE } from "@/lib/sessio
 
 export const runtime = "nodejs";
 
-// El navegador NUNCA conoce el token de dueño: este proxy lo inyecta server-side.
+// El navegador NUNCA conoce el token de dueño. Fase 2C: ahora se reenvía la cookie
+// de sesión `aow_auth.session_token` → el worker resuelve `user_id` con Better Auth.
+// El token solo se inyecta como superadmin si no hay sesión (transición / scripts).
 const WORKER_API = process.env.WORKER_API_BASE ?? "https://agentosweb-api.linkeaoficial2025.workers.dev/api";
 
 export async function forwardToWorker(path: string, init?: RequestInit) {
@@ -15,11 +17,17 @@ export async function forwardToWorker(path: string, init?: RequestInit) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
   }
+  const store = await cookies();
+  const sessionCookie = store.get("aow_auth.session_token")?.value;
   const res = await fetch(`${WORKER_API}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(process.env.OWNER_TOKEN ? { "X-Owner-Token": process.env.OWNER_TOKEN } : {}),
+      ...(sessionCookie
+        ? { Cookie: `aow_auth.session_token=${sessionCookie}` }
+        : process.env.OWNER_TOKEN
+          ? { "X-Owner-Token": process.env.OWNER_TOKEN }
+          : {}),
       ...(init?.headers ?? {}),
     },
   });

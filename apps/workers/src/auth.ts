@@ -69,3 +69,26 @@ export async function ensureAuthMigrations(env: AuthEnv): Promise<void> {
   await migrations.runMigrations();
   migrationsDone = true;
 }
+
+export interface SessionUser {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+  role?: string | null;
+}
+
+// Sesión de Better Auth resuelta desde las cookies del request (el dashboard
+// reenvía `aow_auth.session_token` server-side). Devuelve null si no hay sesión.
+export async function getSessionUser(env: AuthEnv, request: Request): Promise<SessionUser | null> {
+  const auth = createAuth(env);
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session?.user) return null;
+  return {
+    id: session.user.id,
+    email: session.user.email,
+    name: session.user.name ?? null,
+    image: (session.user as { image?: string | null }).image ?? null,
+    role: (session.user as { role?: string | null }).role ?? null,
+  };
+}
