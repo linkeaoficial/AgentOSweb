@@ -327,7 +327,7 @@ export default function Dashboard() {
           </svg>
         }
         onClose={() => setShowLogout(false)}
-        onConfirm={async () => { await new Promise((r) => setTimeout(r, 400)); await fetch("/api/logout", { method: "POST" }).catch(() => {}); window.location.reload(); }}
+        onConfirm={async () => { await new Promise((r) => setTimeout(r, 400)); await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {}); window.location.replace("/login"); }}
       />
     </>
   );
