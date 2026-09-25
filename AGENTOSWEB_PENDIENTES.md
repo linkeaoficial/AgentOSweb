@@ -7,6 +7,27 @@
 
 ## 🔒 Pendientes de Seguridad (prioridad máxima)
 
+### 🚪 RUTA OFICIAL: Login multi-cliente (FASE 2 — decisión 25-sep-2026, plan aprobado)
+> **Decisión:** Better Auth (estándar de la industria, open-source, TypeScript, nativo Edge/D1) + **D1** como store + login social **Google/Apple** + email/password con hash scrypt. **Sin** Cloudflare Access (ese es para equipo interno, no clientes B2B/B2C), **sin** Clerk/Auth0 (costo por usuario), **sin** pasarela de pago en esta fase (sigue manual). Todo corre en Cloudflare: $0.
+> - **Dónde viven los datos:** D1 de Cloudflare (email, nombre, hash scrypt — nunca texto plano, sesiones, tokens OAuth Google/Apple). Idéntico desde Workers o Pages (binding D1 no cambia).
+> - **Qué es "externo":** solo la federación de identidad Google/Apple (el flujo "continuar con Gmail" verifica quién sos en Google — así lo hacen Vercel/Linear/Notion). El registro de la cuenta queda en tu D1.
+> - **Seguridad:** Better Auth es lib auditada estándar; se suma a lo ya desplegado (timing-safe `OWNER_TOKEN`, AES-256-GCM en reposo, HMAC de sesión, rate limit, validación worker).
+
+- [ ] **FASE 2A — Mejor camino y estructura (diseñar antes de codear).**
+  - La madre del parto NO es el login UI: es que los endpoints del worker pasen de `isOwnerAuthorized` (un solo `OWNER_TOKEN` global) a **sesión → `user_id` de cada cliente**. El login se construye en paralelo, pero la puerta del worker es la migración real.
+  - *Estructura:* `auth.ts` (config Better Auth) en `apps/dashboard/src/lib`, route handler `/api/auth/*` en el propio Next.js, middleware en `src/middleware.ts` que redirige a `/login` sin DB si no hay cookie. Tablas de usuarios/sesiones de Better Auth en D1.
+  - *Mantener durante la transición:* `OWNER_TOKEN` como **superadmin** (nivel admin interno, sin romper las verificaciones 22-25-sep-2026). Roles: `admin` (vos) + `cliente`.
+- [ ] **FASE 2B — Login split-screen profesional con NUEVO branding (los 3 menús actuales: Dashboard, Mis Agentes, Prospectos).**
+  - **Izquierda (55%):** branding — logo, value prop ("Convierte a los visitantes de tu web en clientes en 2 minutos"), mockup del widget o testimoniales. Degradado azul→cian del `.btn-shimmer`, **sin glassmorphism/neón** (regla de marca del panel).
+  - **Derecha (45%):** tarjeta `--card-shadow` + tokens del panel (`--primary-color #3559ff`, `--bg-surface`, `--radius-brand 18px`): email + password con validación, botones **"Continuar con Google"** y **"Continuar con Apple"**, toggle ingresar/registrarse, "olvidé mi contraseña".
+  - Dark mode con `body.dark-mode`; accesibilidad: contrast ≥4.5:1, focus-visible, `prefers-reduced-motion`, targets ≥44px.
+- [ ] **FASE 2C — Migración worker multi-tenant.** Reemplazar gate `X-Owner-Token` global por sesión→`user_id` en `handleAgentConfig`, `handleAgentUpdate`, `handleAgents`, `handleLeadList/Status/Delete`, `handleOverview`, `handleUserUpdate`. `OWNER_TOKEN` queda como superadmin.
+- [ ] **FASE 2D — Planes & Facturación (dejado de admin interno a cliente).** El cliente **solicita** el cambio de plan (o paga manual) y el admin lo aplica; `PUT /api/user` restringe a rol admin. Va junto con el rediseño 🎨 ya documentado abajo.
+- [ ] **FASE 2E — Endurecer:** throttle en intentos de login (solo email/password), rate limit por IP en `/api/auth/*`, cookies `HttpOnly + SameSite=Lax + Secure`, rotación de sesión al cambiar contraseña, estado de 2FA/Passkeys anotado como opcional futuro (Better Auth lo da sin replanteo).
+
+### Bloqueo colateral (sin pago externo, decisión 25-sep-2026)
+- Pago sigue **manual** (= hoy). Stripe anotado a futuro: cuando haya volumen real; Better Auth no lo bloquea.
+
 - [x] **API Keys cifradas en la base — HECHO Y DESPLEGADO (22-sep-2026)**: AES-256-GCM (`crypto.subtle`) con prefijo `e1:`. Claves viejas sin prefijo se conservan (retrocompatible). Se descifran solo al inferir. `ENCRYPTION_KEY` seteadas vía `wrangler secret bulk` en el worker. *Archivo:* `apps/workers/src/index.ts`
 - [x] **Doble puerta del dashboard — HECHO Y DESPLEGADO (22-sep-2026)**:
   1. Worker valida header `X-Owner-Token` (secreto `OWNER_TOKEN`) en `PUT/GET config`, `/api/agents`, `PUT /api/user`, `/overview` y `DELETE`.
