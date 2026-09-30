@@ -1,7 +1,11 @@
-export default function DashboardFooter() {
+export default function DashboardFooter({ planLabel, agentsLabel }: { planLabel: string; agentsLabel: string }) {
   return (
     <footer className="dashboard-footer">
       <div className="footer-left">
+        <span className="footer-plan">
+          Plan <strong>{planLabel}</strong> · {agentsLabel}
+        </span>
+        <span className="footer-separator">•</span>
         <span>
           &copy; <span id="current-year">{new Date().getFullYear()}</span> <strong>AgentOSweb</strong>. Todos los derechos reservados.
         </span>

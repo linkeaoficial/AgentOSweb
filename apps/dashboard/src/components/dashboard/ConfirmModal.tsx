@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import ModalShell from "./ModalShell";
 
 interface ConfirmModalProps {
   open: boolean;
@@ -23,15 +24,6 @@ export default function ConfirmModal({ open, title, description, confirmLabel, l
     if (!open) setTyped("");
   }, [open]);
 
-  useEffect(() => {
-    if (!open || pending) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open, pending, onClose]);
-
   const phraseOk = !confirmPhrase || typed === confirmPhrase;
 
   const handleConfirm = async () => {
@@ -45,37 +37,35 @@ export default function ConfirmModal({ open, title, description, confirmLabel, l
   };
 
   return (
-    <div className={`modal-backdrop ${open ? "open" : ""}`} onClick={pending ? undefined : onClose} aria-hidden={!open}>
-      <div className="logout-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-        <div className="logout-modal-icon">{icon}</div>
-        <h2>{title}</h2>
-        <p>{description}</p>
-        {confirmPhrase && (
-          <>
-            <label className="logout-modal-phrase" htmlFor="confirm-phrase-input">
-              Escribe <strong>{confirmPhrase}</strong> para confirmar
-            </label>
-            <input
-              id="confirm-phrase-input"
-              className="form-input logout-modal-input"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              placeholder={confirmPhrase}
-              autoComplete="off"
-              autoFocus
-              disabled={pending}
-            />
-          </>
-        )}
-        <div className="logout-modal-actions">
-          <button type="button" onClick={onClose} disabled={pending}>
-            Cancelar
-          </button>
-          <button type="button" className="logout-confirm" onClick={handleConfirm} disabled={pending || !phraseOk} aria-busy={pending}>
-            {pending ? <span className="logout-spinner" role="status" aria-label={loadingText} /> : confirmLabel}
-          </button>
-        </div>
+    <ModalShell open={open} onClose={pending ? () => {} : onClose} ariaLabel={title} dismissOnBackdrop={!pending}>
+      <div className="logout-modal-icon">{icon}</div>
+      <h2>{title}</h2>
+      <p>{description}</p>
+      {confirmPhrase && (
+        <>
+          <label className="logout-modal-phrase" htmlFor="confirm-phrase-input">
+            Escribe <strong>{confirmPhrase}</strong> para confirmar
+          </label>
+          <input
+            id="confirm-phrase-input"
+            className="form-input logout-modal-input"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={confirmPhrase}
+            autoComplete="off"
+            autoFocus
+            disabled={pending}
+          />
+        </>
+      )}
+      <div className="logout-modal-actions">
+        <button type="button" onClick={onClose} disabled={pending}>
+          Cancelar
+        </button>
+        <button type="button" className="logout-confirm" onClick={handleConfirm} disabled={pending || !phraseOk} aria-busy={pending}>
+          {pending ? <span className="logout-spinner" role="status" aria-label={loadingText} /> : confirmLabel}
+        </button>
       </div>
-    </div>
+    </ModalShell>
   );
 }

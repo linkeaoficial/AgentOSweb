@@ -6,6 +6,18 @@
             --primary-box-shadow: rgba(53, 89, 255, 0.35);
             --primary-box-shadow-glow: rgba(19, 160, 255, 0.45);
 
+            /* === Intensidad del "vidrio" de los modales ===
+               Estos dos numeros son el UNICO lugar que hay que tocar para cambiar
+               el efecto en todo el panel: antes cada overlay y cada tarjeta
+               traia su propio blur fijo (6px el fondo, 12px saturate(140%) la
+               tarjeta), y eso hacia que al abrir un modal se apilaran dos
+               vidrios y se viera mucho mas traslucido de lo que se busca.
+               --modal-blur: cuanto se difumina FONDO al abrir algo.
+               --card-blur:  cuanto se difumina la PROPIA tarjeta.
+               0 = sin difuminado, solo el tinte oscuro de encima. */
+            --modal-blur: 0px;
+            --card-blur: 0px;
+
             /* Modo Claro (Default) */
             --bg-body: #f8fafc;
             --bg-surface: #ffffff;
@@ -373,6 +385,10 @@ body.dark-mode .nav-backdrop {
             font-size: 13px;
         }
 
+        .user-info {
+            min-width: 0;
+        }
+
         .user-info h4 {
             font-size: 13px;
             font-weight: 600;
@@ -381,6 +397,9 @@ body.dark-mode .nav-backdrop {
         .user-info p {
             font-size: 11px;
             color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         /* ========================================================
@@ -1554,6 +1573,19 @@ padding: 22px 26px;
             border-color: var(--primary-color);
             color: var(--primary-color);
         }
+
+        /* El correo/ telefono puede ser largo: lo que se recorta es el texto,
+           no el boton (svg fijo + texto). */
+        .contact-chip {
+            min-width: 0;
+        }
+
+        .contact-chip-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .leads-contact-stack {
             display: flex;
             flex-direction: column;
@@ -1793,8 +1825,8 @@ padding: 22px 26px;
             inset: 0;
             z-index: 200;
             background-color: rgba(15, 23, 42, 0.5);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(var(--modal-blur));
+            -webkit-backdrop-filter: blur(var(--modal-blur));
             animation: drawerFade 0.2s ease-out;
         }
         body.dark-mode .lead-drawer-overlay {
@@ -1881,6 +1913,107 @@ padding: 22px 26px;
             justify-content: space-between;
             gap: 10px;
             flex-wrap: wrap;
+        }
+        /* Detalle de cuenta (Clientes). Reutiliza el chrome del drawer de
+           Prospectos; estas reglas son solo las piezas propias: cuotas,
+           fecha de vencimiento y lista de agentes. */
+        .acct-meter {
+            margin: 10px 0 0;
+        }
+        .acct-meter-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .acct-meter-head strong {
+            color: var(--text-main);
+            font-size: 12.5px;
+        }
+        .acct-meter-track {
+            height: 7px;
+            border-radius: 999px;
+            background: var(--bg-subtle);
+            overflow: hidden;
+        }
+        .acct-meter-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.25s ease;
+        }
+        .acct-expiry {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .acct-expiry .form-input {
+            flex: 1;
+            min-width: 0;
+        }
+        .acct-expiry-status {
+            margin-top: 8px;
+        }
+        .acct-renew {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .acct-expiry {
+            margin-top: 10px;
+        }
+        .acct-pill {
+            display: inline-block;
+            font-size: 11.5px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: rgba(22, 163, 74, 0.14);
+            color: #16a34a;
+        }
+        .acct-pill[data-level="warn"] {
+            background: rgba(217, 119, 6, 0.14);
+            color: #d97706;
+        }
+        .acct-pill[data-level="bad"] {
+            background: rgba(220, 38, 38, 0.14);
+            color: #dc2626;
+        }
+        .acct-hint {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin: 8px 0 0;
+        }
+        .acct-error-detail {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            color: #dc2626;
+            background: rgba(220, 38, 38, 0.07);
+            border: 1px solid rgba(220, 38, 38, 0.25);
+            border-radius: 8px;
+            padding: 9px 11px;
+            margin: 0 0 12px;
+            word-break: break-word;
+        }
+        .acct-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .acct-list li {
+            font-size: 13px;
+            padding: 7px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .acct-list li:last-child {
+            border-bottom: none;
+        }
+        .acct-mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11.5px;
+            color: var(--text-muted);
         }
         .lead-drawer-session {
             font-size: 11.5px;
@@ -1995,8 +2128,8 @@ padding: 22px 26px;
             inset: 0;
             z-index: 210;
             background-color: rgba(15, 23, 42, 0.5);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(var(--modal-blur));
+            -webkit-backdrop-filter: blur(var(--modal-blur));
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2496,6 +2629,13 @@ padding: 22px 26px;
             font-weight: 600;
         }
 
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         .footer-right {
             display: flex;
             align-items: center;
@@ -2527,6 +2667,10 @@ padding: 22px 26px;
                 padding: 16px 20px;
             }
 
+            .footer-left {
+                justify-content: center;
+            }
+
             .footer-right {
                 flex-wrap: wrap;
                 justify-content: center;
@@ -2549,6 +2693,10 @@ padding: 22px 26px;
                 flex-direction: column;
                 overflow: hidden;
                 overflow-x: hidden;
+                /* 100vh en móvil incluye el área detrás de la barra del navegador:
+                   el layout queda más alto que la pantalla y el footer se va fuera
+                   de vista. dvh mide el viewport visible real. */
+                height: 100dvh;
             }
 
             /* ðŸ›¡ï¸ Aplicar overflow SOLO al contenido, NO al sidebar (para no clipar el dropdown) */
@@ -2659,6 +2807,15 @@ padding: 22px 26px;
                 flex-direction: column;
                 gap: 6px;
                 z-index: 110;
+                /* El panel cuelga absoluto de una tira de 64px y body tiene
+                   overflow:hidden, así que en pantallas bajas se cortaba sin
+                   forma de llegar al final. Ocupa TODA la altura disponible
+                   (no solo max-height) y scrollea si el contenido no entra. */
+                height: calc(100dvh - 64px);
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                z-index: 110;
                 isolation: isolate;      /* ðŸŽ¯ Nueva capa de apilamiento independiente */
                 will-change: opacity, transform;
                 /* ðŸŽ¬ Estado cerrado (oculto con transiciÃ³n) */
@@ -2702,8 +2859,231 @@ padding: 22px 26px;
                 gap: 16px;
             }
 
+            /* Tabla de Clientes en móvil. Con 6 columnas no entra en 360px, y el
+               scroll horizontal NO sirve: un ancestro con overflow recorta el
+               desplegable del plan (position:absolute dentro de un scroller).
+               Por eso cada fila se convierte en una tarjeta con sus etiquetas y
+               se ven TODOS los datos. Acotado a .admin-table porque Prospectos
+               comparte la clase .leads-table y ahí sí quiere scroll. */
+            .admin-table,
+            .admin-table tbody,
+            .admin-table tr,
+            .admin-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .admin-table thead {
+                display: none;
+            }
+
+            .admin-table tr {
+                border: 1px solid var(--border-color);
+                border-radius: 12px;
+                padding: 6px 0;
+                margin-bottom: 10px;
+                background: var(--bg-surface);
+            }
+
+            .admin-table tbody tr:hover {
+                background: var(--bg-surface);
+            }
+
+            .admin-table td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 14px;
+                border: none;
+                padding: 9px 14px;
+            }
+
+            .admin-table td::before {
+                content: attr(data-label);
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--text-muted);
+                flex-shrink: 0;
+            }
+
+            /* La primera celda es el título de la tarjeta: sin etiqueta a la izquierda. */
+            .admin-table td:first-child {
+                display: block;
+                padding-bottom: 12px;
+            }
+
+            .admin-table td:first-child::before {
+                content: none;
+            }
+
+            .admin-table td:last-child {
+                padding-top: 12px;
+            }
+
+            .admin-table td:last-child::before {
+                content: none;
+            }
+
+            .admin-table td[data-label="Plan"] .dropdown {
+                min-width: 140px;
+            }
+
+            /* Prospectos en móvil: cada fila es una tarjeta y se apilan una debajo
+               de otra. El wrapper con overflow/max-height_NO_ se lleva, porque un
+               scroller con altura fija recorta los desplegables (position:absolute)
+               y agrega un scroll anidado innecesario. */
+            .leads-table-wrap {
+                overflow: visible;
+                max-height: none;
+                border: none;
+                background: transparent;
+            }
+
+            .leads-table,
+            .leads-table tbody,
+            .leads-table tr,
+            .leads-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .leads-table thead {
+                display: none;
+            }
+
+            .leads-table tr {
+                border: 1px solid var(--border-color);
+                border-radius: 12px;
+                padding: 6px 0;
+                margin-bottom: 10px;
+                background: var(--bg-surface);
+            }
+
+            .leads-table tbody tr:hover {
+                background: var(--bg-surface);
+            }
+
+            .leads-table td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 14px;
+                border: none;
+                padding: 9px 14px;
+            }
+
+            .leads-table td::before {
+                content: attr(data-label);
+                font-size: 10px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--text-muted);
+                flex-shrink: 0;
+            }
+
+            /* El checkbox va en la esquina de la tarjeta, no como celda. */
+            .leads-table td.leads-check-col {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                padding: 0;
+            }
+
+            .leads-table tr {
+                position: relative;
+            }
+
+            /* La celda del nombre es el título: sin etiqueta, con espacio para
+               que el checkbox no se monte sobre el texto. */
+            .leads-table td:nth-child(2) {
+                display: block;
+                padding-right: 40px;
+                padding-bottom: 10px;
+            }
+
+            .leads-table td:nth-child(2)::before {
+                content: none;
+            }
+
+            .leads-table td:last-child {
+                padding-top: 10px;
+                justify-content: flex-end;
+            }
+
+            .leads-table td:last-child::before {
+                content: none;
+            }
+
+            /* 1) Las 4 tarjetas de KPIs, una abajo de otra. */
+            .leads-kpis {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                margin-bottom: 14px;
+            }
+
+            /* 2) Barra de acciones por lote: antes centered con translateX(-50%),
+               se salia de la pantalla y solo se veia el contador. Ahora ocupa el
+               ancho disponible y se distribuyen contador, menu, papelera y cerrar. */
+            .leads-fab {
+                left: 12px;
+                right: 12px;
+                bottom: 12px;
+                transform: none;
+                justify-content: space-between;
+            }
+
+            .leads-fab-count {
+                padding: 0 4px;
+                font-size: 11px;
+            }
+
+            .leads-fab-menu-btn {
+                padding: 0 10px;
+                font-size: 12px;
+            }
+
+            /* 3) Correos largos: en la tarjeta la etiqueta y el chip competian en
+               el mismo flex row y el correo empujaba el ancho. Se apilan, el chip
+               toma el ancho de la tarjeta y el texto recorta con ... */
+            .leads-table td[data-label="Contacto"] {
+                display: block;
+                min-width: 0;
+                max-width: none;
+            }
+
+            .leads-table td[data-label="Contacto"]::before {
+                display: block;
+                margin-bottom: 7px;
+            }
+
+            .leads-table td[data-label="Contacto"] .contact-chip {
+                display: flex;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            /* NO poner overflow:hidden en tr/td: el menu de Estado es
+               position:absolute y cualquier ancestro con overflow lo recorta. */
+
+            /* 4) El selector de estado a la izquierda, no al lado de la etiqueta. */
+            .leads-table td[data-label="Estado"] {
+                justify-content: flex-start;
+            }
+
             main.content-wrapper {
                 height: calc(100vh - 64px);
+                height: calc(100dvh - 64px);
+            }
+
+            /* En móvil el footer va al final del contenido, como en cualquier
+               página: sin position:sticky ni margin-top:auto, así deja de verse
+               siempre pegado abajo y solo aparece al bajar hasta el final. */
+            .dashboard-footer {
+                position: static;
+                margin-top: 24px;
             }
 
             header.topbar {
@@ -2815,6 +3195,10 @@ padding: 22px 26px;
             flex-shrink: 0;
         }
 
+        .user-menu-name {
+            min-width: 0;
+        }
+
         .user-menu-name h4 {
             font-size: 14px;
             font-weight: 700;
@@ -2824,6 +3208,9 @@ padding: 22px 26px;
         .user-menu-name p {
             font-size: 11px;
             color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .user-menu-item {
@@ -2921,8 +3308,8 @@ padding: 22px 26px;
             position: fixed;
             inset: 0;
             background-color: rgba(15, 23, 42, 0.5);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(var(--modal-blur));
+            -webkit-backdrop-filter: blur(var(--modal-blur));
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2940,14 +3327,14 @@ padding: 22px 26px;
 
         body.dark-mode .modal-backdrop {
             background-color: rgba(0, 0, 0, 0.62);
-            backdrop-filter: blur(5px);
-            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(var(--modal-blur));
+            -webkit-backdrop-filter: blur(var(--modal-blur));
         }
-
+        
         .logout-modal {
             width: min(380px, 100%);
-            backdrop-filter: blur(12px) saturate(140%);
-            -webkit-backdrop-filter: blur(12px) saturate(140%);
+            backdrop-filter: blur(var(--card-blur));
+            -webkit-backdrop-filter: blur(var(--card-blur));
             background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
             border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
             border-radius: 20px;
@@ -3057,6 +3444,210 @@ padding: 22px 26px;
             box-shadow: none;
         }
 
+        /* --- Aviso de plan vencido (RenewalModal) ---
+           Reusa la casse de los demas modales; solo agrega el boton de WhatsApp
+           (un <a>, no un <button>) y una linea de contexto para que el cliente
+           entienda que sus agentes siguen andando. */
+        .renewal-modal-icon {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.16) 0%, rgba(16, 185, 129, 0.16) 100%);
+            color: #16a34a;
+        }
+
+        .renewal-modal-note {
+            margin: -6px 0 18px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            font-size: 12.5px;
+            color: var(--text-muted);
+        }
+
+        .logout-modal-actions .renewal-whatsapp {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            color: #ffffff;
+            background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+            box-shadow: 0 6px 16px -6px rgba(37, 211, 102, 0.55);
+            transition: all 0.2s ease;
+        }
+
+        .logout-modal-actions .renewal-whatsapp:hover {
+            box-shadow: 0 8px 22px -6px rgba(37, 211, 102, 0.65);
+            transform: translateY(-1px);
+        }
+
+        .logout-modal-actions .renewal-whatsapp:active {
+            transform: scale(0.98);
+        }
+
+        /* --- Modal de historial (PlanHistoryModal) ---
+           Reusa la cáscara .logout-modal del panel; solo se ensancha y se le
+           da scroll propio, porque adentro van 12 movimientos de alto. */
+        .history-modal {
+            width: min(680px, 100%);
+            max-height: min(80vh, 720px);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 24px 18px;
+        }
+
+        .history-modal > h2 {
+            margin: 0 0 2px;
+            font-size: 19px;
+        }
+
+        .history-modal .acct-events {
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .history-modal-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .history-modal-head h2 {
+            margin: 0 0 2px;
+            font-size: 19px;
+        }
+
+        .history-modal-who {
+            margin: 0;
+            font-size: 12.5px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        /* Contador dentro de los píldoros de plan de Clientes. Reusa el estilo
+           del contador de estados de Prospectos para que la fila se lea igual. */
+        .lead-filter-pill .lead-filter-pill-n {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            margin-left: 6px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.08);
+            font-size: 10.5px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .lead-filter-pill.is-active .lead-filter-pill-n {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        body.dark-mode .lead-filter-pill .lead-filter-pill-n {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        /* --- Filtro de vencimientos + historial (AdminView) --- */
+        .admin-toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .admin-filter-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            margin-left: 8px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #d97706;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .acct-downgrade-note {
+            margin: 12px 0 0;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(217, 119, 6, 0.35);
+            background: rgba(217, 119, 6, 0.08);
+            color: var(--text-main);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        .acct-events {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .acct-event {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 2px 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12.5px;
+        }
+
+        .acct-event:last-child {
+            border-bottom: none;
+        }
+
+        .acct-event-when {
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .acct-event-what {
+            font-weight: 600;
+        }
+
+        .acct-event-detail {
+            grid-column: 2;
+            color: var(--text-muted);
+            font-family: var(--font-mono, monospace);
+            font-size: 11.5px;
+            overflow-wrap: anywhere;
+        }
+
+        .acct-event-detail em {
+            font-style: normal;
+            color: var(--text-main);
+        }
+
+        .acct-event-detail s {
+            opacity: 0.55;
+        }
+
+        .acct-event-actor {
+            margin-left: 8px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            font-family: inherit;
+            font-size: 10.5px;
+        }
+
         .logout-spinner {
             width: 14px;
             height: 14px;
@@ -3071,10 +3662,10 @@ padding: 22px 26px;
             to { transform: rotate(360deg); }
         }
 
-        .pay-modal {
-            width: min(420px, 100%);
-            backdrop-filter: blur(12px) saturate(140%);
-            -webkit-backdrop-filter: blur(12px) saturate(140%);
+    .pay-modal {
+        width: min(420px, 100%);
+        backdrop-filter: blur(var(--card-blur));
+        -webkit-backdrop-filter: blur(var(--card-blur));
             background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
             border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
             border-radius: 20px;
@@ -3204,6 +3795,144 @@ padding: 22px 26px;
         }
 
         /* ========================================================
+           MODAL DE BIENVENIDA (solo cuenta nueva)
+           ======================================================== */
+    .welcome-modal {
+        width: min(480px, 100%);
+        backdrop-filter: blur(var(--card-blur));
+        -webkit-backdrop-filter: blur(var(--card-blur));
+            background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+            border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+            border-radius: 22px;
+            box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px var(--border-color);
+            padding: 34px 30px 28px;
+            text-align: center;
+            transform: translateY(16px) scale(0.96);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            max-height: calc(100svh - 40px);
+            overflow-y: auto;
+        }
+
+        .modal-backdrop.open .welcome-modal {
+            transform: translateY(0) scale(1);
+        }
+
+        .welcome-logo {
+            position: relative;
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .welcome-logo-ping {
+            position: absolute;
+            inset: -8px;
+            border: 2px solid var(--primary-color);
+            border-radius: 50%;
+            opacity: 0.35;
+            animation: welcomePing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes welcomePing {
+            0% { transform: scale(0.9); opacity: 0.45; }
+            80%, 100% { transform: scale(1.35); opacity: 0; }
+        }
+
+        .welcome-modal h3 {
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+            margin-bottom: 6px;
+            color: var(--text-main);
+        }
+
+        .welcome-sub {
+            font-size: 13.5px;
+            color: var(--text-muted);
+            margin: 0 auto 22px;
+            max-width: 330px;
+            line-height: 1.5;
+        }
+
+        .welcome-steps {
+            list-style: none;
+            margin: 0 0 24px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: left;
+        }
+
+        .welcome-steps li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: color-mix(in srgb, var(--bg-subtle) 60%, transparent);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+        }
+
+        .welcome-step-num {
+            flex-shrink: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .welcome-steps li > div {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .welcome-steps h5 {
+            font-size: 13.5px;
+            font-weight: 600;
+            margin: 0 0 2px;
+            color: var(--text-main);
+        }
+
+        .welcome-steps p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .welcome-step-cta {
+            flex-shrink: 0;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            background: transparent;
+            border-radius: 10px;
+            padding: 7px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .welcome-step-cta:hover {
+            background: var(--primary-color);
+            color: #ffffff;
+        }
+
+        .welcome-primary {
+            max-width: 220px;
+        }
+
+        /* ========================================================
            ?? MENÚ HAMBURGUESA MÓVIL: usuario, orden y stagger
            ======================================================== */
         .sidebar-header-actions {
@@ -3222,6 +3951,34 @@ padding: 22px 26px;
 
         .nav-menu-user .user-menu-item {
             padding: 11px 12px;
+        }
+
+        .nav-agent-switcher {
+            /* Alineado a la derecha: la etiqueta y el control se pegan al borde
+               derecho del panel, que es donde se los pide. */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            padding: 0 12px 12px;
+        }
+
+        .nav-agent-switcher .dropdown {
+            width: 200px;
+        }
+
+        .nav-agent-switcher .nav-agent-label {
+            text-align: right;
+        }
+
+        .nav-agent-label {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
         }
 
         .nav-user-pill {
@@ -5535,7 +6292,7 @@ padding: 22px 26px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 56px;
+            padding: 72px 56px 56px;
             background: var(--primary-gradient);
             color: #ffffff;
             position: relative;
@@ -5564,82 +6321,323 @@ padding: 22px 26px;
         }
 
         .auth-brand-inner {
-            max-width: 460px;
+            max-width: 600px;
             position: relative;
             z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
         }
 
-        .auth-brand-logo {
+        .auth-brand-top {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 36px;
+            gap: 10px;
         }
 
-        .auth-brand-logo img {
-            border-radius: 12px;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        .auth-brand-top img {
+            display: block;
         }
 
-        .auth-brand-logo h1 {
-            font-size: 26px;
-            font-weight: 800;
+        .auth-brand-top h1 {
+            font-size: 24px;
+            font-weight: 700;
             letter-spacing: -0.02em;
             color: #ffffff;
+            margin: 0;
+            line-height: 1;
+            padding-top: 3px;
+            transform: translateY(-1px);
+        }
+
+        .auth-brand-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-top: 24px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 11.5px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
         }
 
         .auth-brand h2 {
-            font-size: 34px;
+            font-size: 32px;
             line-height: 1.25;
-            font-weight: 800;
+            font-weight: 700;
             letter-spacing: -0.02em;
             color: #ffffff;
-            margin-bottom: 16px;
+            margin: 0 0 12px;
         }
 
-        .auth-brand p {
+        .auth-brand-sub {
             font-size: 15px;
             line-height: 1.7;
             color: rgba(255, 255, 255, 0.92);
-            margin-bottom: 28px;
+            margin: 0 0 28px;
         }
 
-        .auth-brand-features {
-            list-style: none;
+        .auth-brand-badges {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            justify-content: center;
+            align-items: stretch;
+            gap: 10px;
+            margin: 0;
+            padding: 0;
+            width: auto;
         }
 
-        .auth-brand-features li {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            font-size: 14px;
-            line-height: 1.5;
+        .auth-brand-badges span {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 9px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
             color: rgba(255, 255, 255, 0.95);
         }
 
-        .auth-brand-features li::before {
-            content: '✓';
+        .auth-brand-badges span svg {
             flex-shrink: 0;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            display: inline-flex;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* ── Mockup del chat flotante (decorativo) ─────────────────────────── */
+        .auth-brand-split {
+            display: flex;
+            align-items: stretch;
+            gap: 28px;
+            margin-top: 24px;
+            width: 100%;
+        }
+
+        .auth-chatmock {
+            width: 100%;
+            max-width: 360px;
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .auth-chatmock-head {
+            display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 16px 10px;
+            background: var(--primary-gradient);
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .auth-chatmock-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2px;
+        }
+
+        .auth-chatmock-avatar img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .auth-chatmock-head strong {
+            display: block;
+            font-size: 15px;
             font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .auth-chatmock-head span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-size: 11px;
+            opacity: 0.85;
+        }
+
+        .auth-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #7cf7c4;
+            display: inline-block;
+        }
+
+        .auth-chatmock-body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 14px 14px 10px;
+            background: #f8fafc;
+        }
+
+        .auth-chatmock-welcome {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 12px 14px;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-chatmock-welcome::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--primary-gradient);
+        }
+
+        .auth-chatmock-welcome h4 {
+            margin: 0 0 4px;
+            font-size: 14px;
+            color: #0f172a;
+            font-weight: 700;
+        }
+
+        .auth-chatmock-welcome p {
+            margin: 0;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .auth-chatmock-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 9px 14px;
+            border-radius: 11px;
+            background: var(--primary-gradient);
+            color: #ffffff;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .auth-chatmock-btn svg,
+        .auth-chatmock-prompt svg {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            fill: none;
+        }
+
+        .auth-chatmock-prompt {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            font-size: 12px;
+            color: #334155;
+            cursor: pointer;
+        }
+
+        .auth-chatmock-prompt svg {
+            stroke: var(--primary-color);
+            flex-shrink: 0;
+        }
+
+        .auth-chatmock-input {
+            padding: 10px 14px 12px;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .auth-chatmock-inputbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 22px;
+            padding: 4px 6px 4px 14px;
+        }
+
+        .auth-chatmock-mic,
+        .auth-chatmock-send {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .auth-chatmock-mic {
+            border: 1px solid #e2e8f0;
+            background: transparent;
+            color: #64748b;
+        }
+
+        .auth-chatmock-mic svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+        }
+
+        .auth-chatmock-ph {
+            flex: 1;
+            font-size: 13.5px;
+            color: #94a3b8;
+            padding: 6px 8px 6px 0;
+        }
+
+        .auth-chatmock-send {
+            background: var(--primary-gradient);
+            color: #ffffff;
+        }
+
+        .auth-chatmock-send svg {
+            width: 18px;
+            height: 18px;
+            fill: #ffffff;
         }
 
         .auth-panel {
             flex: 0 0 45%;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 40px;
+        }
+
+        .auth-copyright {
+            margin: 28px 0 0;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
         }
 
         .auth-card {
@@ -5650,6 +6648,10 @@ padding: 22px 26px;
             border-radius: var(--radius-brand);
             box-shadow: var(--card-shadow);
             padding: 36px 32px;
+        }
+
+        .auth-card .form-group + .form-group {
+            margin-top: 12px;
         }
 
         .auth-card-head {
@@ -5791,35 +6793,194 @@ padding: 22px 26px;
             color: var(--text-muted);
         }
 
-        /* Responsive: en pantallas angostas el branding pasa arriba y el form abajo */
+        /* ========================================================
+           OVERLAY DE CARGA (crear cuenta / ingreso)
+           ======================================================== */
+        .auth-loading {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-loading-overlay {
+            position: absolute;
+            inset: 0;
+            background-color: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(var(--modal-blur));
+            -webkit-backdrop-filter: blur(var(--modal-blur));
+            animation: authFadeIn 0.25s ease;
+        }
+
+        .auth-loading-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-align: center;
+        }
+
+        .auth-loading-card p {
+            margin: 10px 0 0;
+            font-size: 17px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.02em;
+        }
+
+        .auth-loading-card span {
+            font-size: 12.5px;
+            color: rgba(226, 232, 240, 0.85);
+        }
+
+        .auth-loading-logo {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-loading-spinner {
+            position: absolute;
+            inset: -14px;
+            border: 3px solid rgba(255, 255, 255, 0.18);
+            border-top-color: #ffffff;
+            border-right-color: rgba(255, 255, 255, 0.35);
+            border-radius: 50%;
+            animation: authSpin 0.9s linear infinite;
+        }
+
+        @keyframes authSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes authGlow {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--primary-box-shadow-glow); }
+            50% { transform: scale(1.06); box-shadow: 0 0 48px 6px var(--primary-box-shadow-glow); }
+        }
+
+        @keyframes authFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Responsive: cintillo decorativo (fuera del flujo), la pagina scrollea
+           si el contenido excede la pantalla. */
         @media (max-width: 860px) {
             .auth-page {
                 flex-direction: column;
+                position: relative;
+                height: 100svh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .auth-brand {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
                 flex: none;
-                padding: 40px 24px;
+                min-height: 46svh;
+                padding: max(17px, calc(46svh - 290px)) 24px 72px;
+                border-radius: 0 0 36px 36px;
+                z-index: 0;
+                justify-content: flex-start;
+                align-items: flex-start;
             }
 
-            .auth-brand h2 {
-                font-size: 24px;
+            .auth-brand-inner {
+                width: 100%;
+                max-width: none;
+                align-items: center;
             }
 
-            .auth-brand p {
-                font-size: 14px;
+            .auth-brand-top {
+                margin: 0 auto;
+                flex-direction: column;
+                align-items: center;
+                gap: 6px;
             }
 
-            .auth-brand-features li {
-                font-size: 13px;
+            .auth-brand-top img {
+                width: 36px;
+                height: 36px;
+            }
+
+            .auth-brand-top h1 {
+                font-size: 20px;
+                padding-top: 0;
+                transform: none;
+            }
+
+            .auth-brand-badge,
+            .auth-brand h2,
+            .auth-brand-sub,
+            .auth-chatmock,
+            .auth-brand-badges,
+            .auth-copyright {
+                display: none;
+            }
+
+            .auth-social-row {
+                display: flex;
+                flex-direction: row;
+                gap: 10px;
+            }
+
+            .auth-social-btn {
+                flex: 1;
+            }
+
+            .auth-social-label {
+                display: none;
             }
 
             .auth-panel {
-                flex: none;
-                padding: 28px 20px 44px;
+                flex: 1;
+                position: relative;
+                z-index: 1;
+                align-items: flex-start;
+                padding: max(110px, calc(46svh - 200px)) 20px 40px;
             }
 
             .auth-card {
+                margin: 0 auto;
                 padding: 28px 22px;
+                box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+            }
+        }
+
+        /* Tablet (601-860px): marca centrada y más grande, card más ancho */
+        @media (min-width: 601px) and (max-width: 860px) {
+            .auth-brand {
+                justify-content: center;
+                align-items: center;
+            }
+
+            .auth-brand-top {
+                gap: 10px;
+            }
+
+            .auth-brand-top img {
+                width: 52px;
+                height: 52px;
+            }
+
+            .auth-brand-top h1 {
+                font-size: 26px;
+            }
+
+            .auth-panel {
+                align-items: flex-start;
+                padding: calc(46svh - 180px) 32px 48px;
+            }
+
+            .auth-card {
+                width: 500px;
+                padding: 42px 38px;
             }
         }

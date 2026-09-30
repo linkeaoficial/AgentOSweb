@@ -9,10 +9,10 @@ interface UserMenuProps {
   onNavigate: (viewId: string) => void;
   onOpenLogout: () => void;
   ownerName: string;
-  ownerPlan: string;
+  ownerEmail: string | null;
 }
 
-export default function UserMenu({ isDark, onToggleTheme, onNavigate, onOpenLogout, ownerName, ownerPlan }: UserMenuProps) {
+export default function UserMenu({ isDark, onToggleTheme, onNavigate, onOpenLogout, ownerName, ownerEmail }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +50,7 @@ export default function UserMenu({ isDark, onToggleTheme, onNavigate, onOpenLogo
           <div className="user-menu-avatar">{ownerName.charAt(0).toUpperCase()}</div>
           <div className="user-menu-name">
             <h4>{ownerName}</h4>
-            <p>{ownerPlan}</p>
+            <p title={ownerEmail ?? undefined}>{ownerEmail || "-"}</p>
           </div>
         </div>
 

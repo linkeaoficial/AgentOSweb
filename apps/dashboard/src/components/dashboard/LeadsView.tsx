@@ -54,7 +54,7 @@ function formatRelTime(a: string, b: string): string {
   return formatDate(b) + " · " + formatTime(b);
 }
 
-function pageNumbers(current: number, total: number): number[] {
+export function pageNumbers(current: number, total: number): number[] {
   const window = 1;
   const pages: number[] = [];
   for (let p = Math.max(2, current - window); p <= Math.min(total - 1, current + window); p++) pages.push(p);
@@ -137,9 +137,11 @@ function ContactChip({ lead }: { lead: Lead }) {
   return (
     <div className="leads-contact-stack">
       {chips.map((c) => (
-        <button type="button" className="contact-chip" onClick={c.onClick} key={c.label}>
+        <button type="button" className="contact-chip" onClick={c.onClick} key={c.label} title={c.label}>
           {c.children}
-          {c.label}
+          {/* El texto va en un span porque el botón es flex: elipsis sobre el
+              botón no recorta un nodo de texto suelto. */}
+          <span className="contact-chip-text">{c.label}</span>
         </button>
       ))}
     </div>
@@ -1083,11 +1085,11 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
                     </div>
                   </div>
                 </td>
-                <td className="leads-contact-cell"><ContactChip lead={l} /></td>
-                <td className="leads-notes">
+                <td className="leads-contact-cell" data-label="Contacto"><ContactChip lead={l} /></td>
+                <td className="leads-notes" data-label="Mensaje">
                   {(l.interest || l.notes) ? <span title={(l.interest || l.notes) ?? undefined}>{l.interest || l.notes}</span> : <span className="count">—</span>}
                 </td>
-                <td>
+                <td data-label="Estado">
                   <StatusSelect lead={l} onStatus={handleStatus} busy={busyStatus === l.id} />
                 </td>
                 <td className="leads-actions-col"><ActionIcons lead={l} onView={setViewLead} onViewHistory={setHistoryLead} onRequestDelete={setPendingDelete} /></td>

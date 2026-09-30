@@ -1,4 +1,5 @@
 import Image from "next/image";
+import AgentSwitcher from "./AgentSwitcher";
 import type { ReactNode } from "react";
 import {
   IconMenu,
@@ -9,6 +10,7 @@ import {
   IconAnalytics,
   IconBilling,
   IconSettings,
+  IconUser,
   IconBell,
   IconMoon,
   IconSun,
@@ -20,6 +22,7 @@ export interface NavItem {
   tooltip: string;
   badge?: string;
   icon: ReactNode;
+  adminOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -28,6 +31,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "view-leads", label: "Prospectos", tooltip: "Prospectos Capturados", icon: <IconLeads /> },
   { id: "view-analytics", label: "Analíticas", tooltip: "Analíticas", icon: <IconAnalytics /> },
   { id: "view-billing", label: "Planes & Facturación", tooltip: "Planes & Facturación", icon: <IconBilling /> },
+  { id: "view-admin", label: "Clientes", tooltip: "Gestionar clientes", icon: <IconUser />, adminOnly: true },
   { id: "view-settings", label: "Configuración", tooltip: "Configuración", icon: <IconSettings /> },
 ];
 
@@ -36,16 +40,20 @@ interface SidebarProps {
   activeView: string;
   pageTitle: string;
   isDark: boolean;
+  isAdmin: boolean;
   agents: { id: string; name: string; is_active: number }[];
   ownerName: string;
-  ownerPlan: string;
+  ownerEmail: string | null;
   onToggle: () => void;
   onNavigate: (viewId: string) => void;
   onToggleTheme: () => void;
   onOpenLogout: () => void;
+  currentAgentId: string | null;
+  onSelectAgent: (id: string) => void;
+  onCreateAgent: (name: string) => Promise<boolean>;
 }
 
-export default function Sidebar({ collapsed, activeView, pageTitle, isDark, agents, ownerName, ownerPlan, onToggle, onNavigate, onToggleTheme, onOpenLogout }: SidebarProps) {
+export default function Sidebar({ collapsed, activeView, pageTitle, isDark, isAdmin, agents, ownerName, ownerEmail, onToggle, onNavigate, onToggleTheme, onOpenLogout, currentAgentId, onSelectAgent, onCreateAgent }: SidebarProps) {
   return (
     <aside className={`sidebar ${collapsed ? "collapsed" : ""}`} id="sidebar">
       <div>
@@ -70,7 +78,7 @@ export default function Sidebar({ collapsed, activeView, pageTitle, isDark, agen
         </div>
 
         <nav className="nav-menu">
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => (
             <div
               key={item.id}
               className={`nav-item ${activeView === item.id ? "active" : ""}`}
@@ -90,12 +98,24 @@ export default function Sidebar({ collapsed, activeView, pageTitle, isDark, agen
           ))}
 
           <div className="nav-menu-user">
+            {/* En desktop el AgentSwitcher vive en el Topbar, que se oculta en móvil
+               (header.topbar { display: none }). Sin esto, en el celular no había
+               forma de cambiar ni de crear un agente. */}
+            <div className="nav-agent-switcher">
+              <span className="nav-agent-label">Agente</span>
+              <AgentSwitcher
+                agents={agents}
+                current={currentAgentId ?? ""}
+                onSelect={onSelectAgent}
+                onCreate={onCreateAgent}
+              />
+            </div>
             <div className="user-menu-divider" />
             <div className="user-menu-header nav-user-pill">
               <div className="user-menu-avatar">{ownerName.charAt(0).toUpperCase()}</div>
               <div className="user-menu-name">
                 <h4>{ownerName}</h4>
-                <p>{ownerPlan}</p>
+                <p title={ownerEmail ?? undefined}>{ownerEmail || "—"}</p>
               </div>
             </div>
             <button className="user-menu-item" onClick={onToggleTheme}>
@@ -119,7 +139,7 @@ export default function Sidebar({ collapsed, activeView, pageTitle, isDark, agen
           <div className="user-avatar">{ownerName.charAt(0).toUpperCase()}</div>
           <div className="user-info">
             <h4>{ownerName}</h4>
-            <p>{ownerPlan}</p>
+            <p title={ownerEmail ?? undefined}>{ownerEmail || "—"}</p>
           </div>
         </div>
       </div>

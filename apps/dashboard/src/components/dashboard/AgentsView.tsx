@@ -334,7 +334,7 @@ function Segmented<T extends string>({
   );
 }
 
-function Dropdown({
+export function Dropdown({
   value,
   options,
   onChange,

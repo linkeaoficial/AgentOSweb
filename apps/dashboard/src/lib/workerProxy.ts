@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifySessionToken, authConfigured, SESSION_COOKIE } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -10,27 +9,26 @@ export const runtime = "nodejs";
 const WORKER_API = process.env.WORKER_API_BASE ?? "https://agentosweb-api.linkeaoficial2025.workers.dev/api";
 
 export async function forwardToWorker(path: string, init?: RequestInit) {
-  // Login del panel opcional: si no hay DASHBOARD_PASSWORD, el proxy no exige sesión.
-  if (authConfigured()) {
-    const store = await cookies();
-    if (!verifySessionToken(store.get(SESSION_COOKIE)?.value)) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-  }
   const store = await cookies();
+  // La sesión de Better Auth es la única autorización: se reenvía al worker, que
+  // resuelve el `user_id` y el `role` desde la base. Nunca se suplanta al dueño.
   const sessionCookie = store.get("aow_auth.session_token")?.value;
+  if (!sessionCookie) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   const res = await fetch(`${WORKER_API}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(sessionCookie
-        ? { Cookie: `aow_auth.session_token=${sessionCookie}` }
-        : process.env.OWNER_TOKEN
-          ? { "X-Owner-Token": process.env.OWNER_TOKEN }
-          : {}),
+      Cookie: `aow_auth.session_token=${sessionCookie}`,
       ...(init?.headers ?? {}),
     },
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => null);
+  // El worker siempre responde JSON. Si llega otra cosa (HTML, texto vacío),
+  // no lo reenviamos como 200: el cliente debe ver el fallo.
+  if (data === null) {
+    return NextResponse.json({ error: "Respuesta inválida del servidor" }, { status: 502 });
+  }
   return NextResponse.json(data, { status: res.status });
 }

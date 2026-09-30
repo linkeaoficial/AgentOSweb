@@ -13,7 +13,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>
+      {/* suppressHydrationWarning: el script antibrillo de abajo mete dark-mode en
+          el body antes de que hidrate, y el servidor no puede saberlo, asi que
+          React siempre marca diferencia. Es el caso exacto para este atributo:
+          silencia el aviso esperado, no oculta desajustes reales. */}
+      <body suppressHydrationWarning>
         <script
           dangerouslySetInnerHTML={{
             __html:

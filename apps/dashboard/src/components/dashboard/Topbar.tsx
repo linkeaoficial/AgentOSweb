@@ -11,10 +11,10 @@ interface TopbarProps {
   onOpenLogout: () => void;
   switcher?: ReactNode;
   ownerName: string;
-  ownerPlan: string;
+  ownerEmail: string | null;
 }
 
-export default function Topbar({ pageTitle, isDark, onToggleTheme, onNavigate, onOpenLogout, switcher, ownerName, ownerPlan }: TopbarProps) {
+export default function Topbar({ pageTitle, isDark, onToggleTheme, onNavigate, onOpenLogout, switcher, ownerName, ownerEmail }: TopbarProps) {
   return (
     <header className="topbar">
       <div className="topbar-title">
@@ -34,7 +34,7 @@ export default function Topbar({ pageTitle, isDark, onToggleTheme, onNavigate, o
           {isDark ? <IconSun /> : <IconMoon />}
         </button>
 
-        <UserMenu isDark={isDark} onToggleTheme={onToggleTheme} onNavigate={onNavigate} onOpenLogout={onOpenLogout} ownerName={ownerName} ownerPlan={ownerPlan} />
+        <UserMenu isDark={isDark} onToggleTheme={onToggleTheme} onNavigate={onNavigate} onOpenLogout={onOpenLogout} ownerName={ownerName} ownerEmail={ownerEmail} />
       </div>
     </header>
   );

@@ -3,21 +3,22 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
+type State = "loading" | "ok" | "no";
+
 export default function AuthGate({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<"loading" | "ok" | "no">("loading");
+  const [state, setState] = useState<State>("loading");
   const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/auth/get-session", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { session?: { id: string } } | null) => {
-        if (cancelled) return;
-        setState(d?.session?.id ? "ok" : "no");
-      })
-      .catch(() => {
-        if (!cancelled) setState("no");
-      });
+    (async () => {
+      const session = await fetch("/api/auth/get-session", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { session?: { id: string } } | null) => d?.session?.id)
+        .catch(() => null);
+      if (cancelled) return;
+      setState(session ? "ok" : "no");
+    })();
     return () => {
       cancelled = true;
     };
