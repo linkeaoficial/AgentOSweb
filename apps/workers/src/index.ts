@@ -9,7 +9,11 @@ export interface Env {
   DEFAULT_MODEL?: string;
   OWNER_TOKEN?: string;     // Secreto del dueño: el dashboard lo envía para escribir/leer config
   ENCRYPTION_KEY?: string;  // Clave AES-GCM (texto) para cifrar chat_api_key en reposo
-  OWNER_USER_ID?: string;   // Dueño multi-agente; si falta, se deduce del primer agente existente
+    OWNER_USER_ID?: string;   // Dueño multi-agente; si falta, se deduce del primer agente existente
+    // Numero de WhatsApp de soporte con prefijo de pais y sin signos, tal como lo
+    // acepta el enlace wa.me (ej. "5491122334455"). Lo usa el boton de renovar del
+    // modal de vencimiento. Vacio = el modal avisa pero no ofrece WhatsApp.
+    SUPPORT_WHATSAPP?: string;
   AUTH_SECRET?: string;     // Mejor Auth: firma de sesiones/tokens. REQUERIDO en producción.
   AUTH_BASE_URL?: string;   // Base URL pública del panel (para redirecciones OAuth). Default: el worker.
   GOOGLE_CLIENT_ID?: string;
@@ -149,18 +153,38 @@ async function claimLegacyOwner(env: Env, su: { id: string; email: string; name?
     // ¿Ya está reclamado? Si el id ya tiene agentes propios, no repetir el reclamo.
     const already = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ? LIMIT 1").bind(su.id).first();
     if (!already) {
+      // La FK agents.user_id -> users(id) es ON DELETE CASCADE y no ON UPDATE
+      // CASCADE, así que cambiar el id del padre está prohibido en cualquier
+      // orden. defer_foreign_keys postpone la verificación hasta el COMMIT.
       await env.DB.batch([
-        env.DB.prepare("UPDATE agents SET user_id = ? WHERE user_id = ?").bind(su.id, legacy.id),
+        env.DB.prepare("PRAGMA defer_foreign_keys = ON"),
         env.DB.prepare("UPDATE users SET id = ?, name = COALESCE(NULLIF(?, ''), name) WHERE id = ?").bind(su.id, su.name ?? "", legacy.id),
+        env.DB.prepare("UPDATE agents SET user_id = ? WHERE user_id = ?").bind(su.id, legacy.id),
       ]);
       // El dueño legacy pasa a ser admin: puede editar planes (Fase 2D).
-      await env.DB.prepare("UPDATE user SET role = 'admin' WHERE id = ?").bind(su.id).run();
+      await env.DB.prepare('UPDATE "user" SET role = \'admin\' WHERE id = ?').bind(su.id).run();
     }
     return;
   }
+  // La cuenta nueva entra en free con un mes de período ya corriendo: desde el
+  // alta se sabe que vence, sin depender de que alguien abra el panel.
   await env.DB.prepare(
-    "INSERT OR IGNORE INTO users (id, email, name, plan) VALUES (?, ?, ?, 'free')"
-  ).bind(su.id, su.email, su.name ?? null).run();
+    "INSERT OR IGNORE INTO users (id, email, name, plan, plan_expires_at) VALUES (?, ?, ?, 'free', ?)"
+  ).bind(su.id, su.email, su.name ?? null, periodEnd()).run();
+  await ensureDefaultAgent(env, su.id, su.name);
+}
+
+// Toda cuenta nueva arranca con un agente propio: el panel (agentes, script de
+// instalación, overview y prospectos) siempre trabaja sobre un agent_id real.
+async function ensureDefaultAgent(env: Env, userId: string, name?: string | null) {
+  const existing = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ? LIMIT 1").bind(userId).first();
+  if (existing) return;
+  await env.DB.prepare(
+    "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model) VALUES (?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?)"
+  )
+    .bind(crypto.randomUUID(), userId, "Mi Agente", "AgentOSweb", "", `Soy el asistente virtual de ${name || "tu negocio"}. ¿En qué te puedo colaborar hoy?`, DEFAULT_MODEL_FAST)
+    .run()
+    .catch(() => {}); // nunca romper el listado por el agente por defecto
 }
 
 async function resolveUser(request: Request, env: Env): Promise<ResolvedUser | null> {
@@ -666,9 +690,9 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
     // KV evita releer D1 en cada intento: 5 min una vez agotado
     const blocked = await env.AGENT_CACHE.get(`quota:${agent.user_id}`);
     if (blocked) return json({ reply: CUPO_REPLY }, 200, origin);
-    const userInfo = await env.DB.prepare("SELECT messages_used, messages_limit, plan FROM users WHERE id = ?")
+    const userInfo = await env.DB.prepare("SELECT messages_used, messages_limit, plan, plan_expires_at FROM users WHERE id = ?")
       .bind(agent.user_id)
-      .first<{ messages_used: number; messages_limit: number | null; plan: string | null }>();
+      .first<{ messages_used: number; messages_limit: number | null; plan: string | null; plan_expires_at: string | null }>();
     if (userInfo) {
       const limit = effectiveMessagesLimit(userInfo);
       managedLimit = limit;
@@ -1025,9 +1049,9 @@ async function handleOverview(request: Request, agentId: string, env: Env) {
     (faqHitsRes.results as { faq_label: string; hits: number }[] | undefined)?.map((h) => [h.faq_label, h.hits])
   );
 
-  const quota = await env.DB.prepare("SELECT messages_limit, messages_used, plan FROM users WHERE id = ?")
+  const quota = await env.DB.prepare("SELECT messages_limit, messages_used, plan, plan_expires_at FROM users WHERE id = ?")
     .bind(agent.user_id)
-    .first<{ messages_limit: number | null; messages_used: number; plan: string | null }>();
+    .first<{ messages_limit: number | null; messages_used: number; plan: string | null; plan_expires_at: string | null }>();
 
   return json(
     {
@@ -1305,24 +1329,76 @@ export const PLAN_DEFAULTS: Record<string, { agents: number; messages: number }>
   agency: { agents: 10, messages: 25000 },
 };
 
-type OwnerRow = { name: string | null; plan: string | null; agent_limit: number | null; messages_limit: number | null; messages_used: number | null };
+type OwnerRow = { email: string | null; name: string | null; plan: string | null; agent_limit: number | null; messages_limit: number | null; messages_used: number | null; plan_expires_at: string | null };
+
+// Vigencia de un plan: 1 mes. La renovación la hace el dueño a mano cuando
+// cobra, así que el sistema solo arranca el reloj, nunca lo extiende solo.
+const PLAN_PERIOD_MONTHS = 1;
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Fecha de vencimiento de un período de `months` que arranca en `from`, en UTC
+// y como 'YYYY-MM-DD'. Aritmética de calendario, no "+30 días": una cuenta
+// creada el 31-ene con un mes de plan vence el 28/29-feb, no el 2-mar (que es
+// lo que devuelve un setMonth sin clamp, porque feb no tiene día 31). Todo en
+// UTC para que el string no cambie de día según la zona horaria del que lo lee.
+function periodEnd(from: Date = new Date(), months: number = PLAN_PERIOD_MONTHS): string {
+  const d = new Date(from);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, lastDay));
+  return d.toISOString().slice(0, 10);
+}
 
 function planDefaults(plan: string | null | undefined) {
   return PLAN_DEFAULTS[plan ?? ""] ?? PLAN_DEFAULTS.free;
 }
 
-function effectiveAgentLimit(user: { plan: string | null; agent_limit: number | null } | null | undefined) {
-  if (user?.agent_limit != null) return user.agent_limit;
-  return planDefaults(user?.plan).agents;
+// Un plan vencido equivale a free, y esto es el UNICO lugar que lo decide.
+//
+// Se aplica en el momento de calcular los limites, no solo en el cron: si el
+// cron se atrasa o no corre, el cliente sigue sin poder pasarse de los cupos de
+// free. El cron despues reescribe `plan` en la base para que el panel y el
+// historial/account digan la verdad, pero la regla de paso esta aqui.
+//
+// Los agentes ya creados NO se tocan al vencer (el due�o eligio que siguieran
+// respondiendo en la web de sus clientes); lo que se limita son los mensajes y
+// la creacion de agentes nuevos.
+function effectivePlan(user: { plan: string | null; plan_expires_at: string | null } | null | undefined): string {
+  const plan = user?.plan ?? "free";
+  if (plan === "free" || plan === "starter") return plan;
+  const exp = user?.plan_expires_at;
+  if (exp && exp < todayIso()) return "free";
+  return plan;
 }
 
-function effectiveMessagesLimit(user: { plan: string | null; messages_limit: number | null } | null | undefined) {
+function isExpired(user: { plan_expires_at: string | null } | null | undefined): boolean {
+  const exp = user?.plan_expires_at;
+  return Boolean(exp && exp < todayIso());
+}
+
+function effectiveAgentLimit(user: { plan: string | null; agent_limit: number | null; plan_expires_at: string | null } | null | undefined) {
+  if (user?.agent_limit != null) return user.agent_limit;
+  return planDefaults(effectivePlan(user)).agents;
+}
+
+function effectiveMessagesLimit(user: { plan: string | null; messages_limit: number | null; plan_expires_at: string | null } | null | undefined) {
   if (user?.messages_limit != null) return user.messages_limit;
-  return planDefaults(user?.plan).messages;
+  return planDefaults(effectivePlan(user)).messages;
 }
 
 async function resolveOwnerId(env: Env): Promise<string | null> {
   if (env.OWNER_USER_ID) return env.OWNER_USER_ID;
+  // Antes era "el primer agente de la tabla": el orden es arbitrario, así que el
+  // panel caía en la cuenta de cualquiera. El dueño es el marcado como admin.
+  const admin = await env.DB.prepare(
+    'SELECT u.id FROM users u JOIN "user" b ON b.id = u.id WHERE b.role = \'admin\' LIMIT 1'
+  ).first<{ id: string }>();
+  if (admin) return admin.id;
   const row = await env.DB.prepare("SELECT user_id FROM agents LIMIT 1").first<{ user_id: string }>();
   return row?.user_id ?? null;
 }
@@ -1337,17 +1413,33 @@ async function handleAgentList(request: Request, env: Env) {
   ).bind(user.id).all();
 
   const owner = await env.DB.prepare(
-    "SELECT name, plan, agent_limit, messages_limit, messages_used FROM users WHERE id = ?"
-  ).bind(user.id).first<OwnerRow>();
+    "SELECT email, name, plan, agent_limit, messages_limit, messages_used, plan_expires_at, downgraded_from, expiry_notice_at FROM users WHERE id = ?"
+  ).bind(user.id).first<OwnerRow & { downgraded_from: string | null; expiry_notice_at: string | null }>();
+
+  // `expiry_notice` viaja ya resuelto para que el panel no repita la regla de
+  // "vencio" ni la comparacion de fechas: el cliente solo muestra u oculta el
+  // modal. Requiere las tres cosas para ser justo: que un plan pagado haya
+  // vencido, que el cron lo haya bajado, y que el cliente no lo haya cerrado
+  // ya (si lo cerro, no vuelve a aparecer hasta el proximo vencimiento).
+  const showExpiryNotice =
+    Boolean(owner?.downgraded_from) && isExpired(owner) && !owner?.expiry_notice_at;
 
   return json(
     {
       owner: {
         name: owner?.name ?? null,
+        email: owner?.email ?? null,
         plan: owner?.plan ?? null,
+        role: user.role,
         agent_limit: effectiveAgentLimit(owner),
         messages_limit: effectiveMessagesLimit(owner),
         messages_used: Number(owner?.messages_used) || 0,
+        plan_expires_at: owner?.plan_expires_at ?? null,
+        // De que plan se cay�: el modal dice "vencio tu plan Pro", no algo
+        // genérico. Va aparte de `plan` porque ese ya quedó en free.
+        downgraded_from: owner?.downgraded_from ?? null,
+        show_expiry_notice: showExpiryNotice,
+        support_whatsapp: env.SUPPORT_WHATSAPP ?? null,
       },
       plan_defaults: PLAN_DEFAULTS,
       agents: results ?? [],
@@ -1373,9 +1465,9 @@ async function handleAgentCreate(request: Request, env: Env) {
     .first<{ id: string }>();
   if (duplicate) return json({ error: `Ya tienes un agente llamado "${name}". Elige otro nombre.` }, 409, origin);
 
-  const owner = await env.DB.prepare("SELECT plan, agent_limit FROM users WHERE id = ?")
+  const owner = await env.DB.prepare("SELECT plan, agent_limit, plan_expires_at FROM users WHERE id = ?")
     .bind(user.id)
-    .first<{ plan: string | null; agent_limit: number | null }>();
+    .first<{ plan: string | null; agent_limit: number | null; plan_expires_at: string | null }>();
   const limit = effectiveAgentLimit(owner);
   const countRow = await env.DB.prepare("SELECT COUNT(*) AS total FROM agents WHERE user_id = ?").bind(user.id).first<{ total: number }>();
   if ((Number(countRow?.total) || 0) >= limit) {
@@ -1421,6 +1513,113 @@ async function handleAgentDelete(request: Request, agentId: string, env: Env) {
 
 // Asignar plan y/o editar cupos del dueño. Si cambia el plan, aplica los valores por
 // defecto (salvo que el mismo request traiga un override explícito).
+// Panel administrativo: listar todas las cuentas con su plan y consumo.
+// Solo admin/superadmin. El `user` de Better Auth manda (es el login); las filas
+// de `users` sin login se incluyen al final para que no queden invisibles.
+async function handleAdminUsers(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user || !(user.superadmin || user.role === "admin")) {
+    return json({ error: "No autorizado" }, 403, origin);
+  }
+
+  const { results } = await env.DB.prepare(
+    `SELECT 0 AS orphan, l.createdAt AS created, l.id, l.email AS login_email,
+            l.role, u.name, u.plan, u.agent_limit, u.messages_limit, u.messages_used,
+            u.plan_expires_at, u.downgraded_from, u.expiry_notice_at,
+            (CASE WHEN u.telegram_chat_id IS NOT NULL AND u.telegram_chat_id <> '' THEN 1 ELSE 0 END) AS has_telegram,
+            (CASE WHEN u.webhook_url IS NOT NULL AND u.webhook_url <> '' THEN 1 ELSE 0 END) AS has_webhook,
+            (SELECT COUNT(*) FROM agents a WHERE a.user_id = l.id) AS agents,
+            (SELECT GROUP_CONCAT(a.name, ' | ') FROM agents a WHERE a.user_id = l.id) AS agent_names
+       FROM "user" l LEFT JOIN users u ON u.id = l.id
+     UNION ALL
+     SELECT 1, NULL, u2.id, u2.email, NULL, u2.name, u2.plan,
+             u2.agent_limit, u2.messages_limit, u2.messages_used, u2.plan_expires_at,
+             u2.downgraded_from, u2.expiry_notice_at,
+            (CASE WHEN u2.telegram_chat_id IS NOT NULL AND u2.telegram_chat_id <> '' THEN 1 ELSE 0 END),
+            (CASE WHEN u2.webhook_url IS NOT NULL AND u2.webhook_url <> '' THEN 1 ELSE 0 END),
+            (SELECT COUNT(*) FROM agents a WHERE a.user_id = u2.id),
+            (SELECT GROUP_CONCAT(a.name, ' | ') FROM agents a WHERE a.user_id = u2.id)
+       FROM users u2 WHERE NOT EXISTS (SELECT 1 FROM "user" l2 WHERE l2.id = u2.id)
+     ORDER BY orphan, created DESC`
+  ).all();
+
+  type Row = {
+    id: string;
+    login_email: string | null;
+    role: string | null;
+    name: string | null;
+    plan: string | null;
+    agent_limit: number | null;
+    messages_limit: number | null;
+    messages_used: number | null;
+    plan_expires_at: string | null;
+    downgraded_from: string | null;
+    expiry_notice_at: string | null;
+    has_telegram: number | null;
+    has_webhook: number | null;
+    agents: number;
+    agent_names: string | null;
+    // Better Auth guarda createdAt como INTEGER en milisegundos, no como texto.
+    created: string | number | null;
+  };
+
+  const users = ((results ?? []) as unknown as Row[]).map((r) => ({
+    id: r.id,
+    email: r.login_email,
+    name: r.name,
+    role: r.role ?? "sin login",
+    plan: r.plan ?? "free",
+    agent_limit: r.agent_limit,
+    messages_limit: r.messages_limit,
+    messages_used: Number(r.messages_used) || 0,
+    // La UNION de la segunda rama pone NULL en `created` (cuentas legacy que
+    // nunca pasaron por Better Auth): no hay fecha de login que mostrar.
+    created: r.created ?? null,
+    plan_expires_at: r.plan_expires_at ?? null,
+    downgraded_from: r.downgraded_from ?? null,
+    // El panel lo usa para poner "vencio su plan Pro" en la fila y para saber si
+    // el cliente todavia no vio el aviso de renovacion.
+    show_expiry_notice: Boolean(r.downgraded_from) && Boolean(r.plan_expires_at) && String(r.plan_expires_at) < todayIso() && !r.expiry_notice_at,
+    has_telegram: !!r.has_telegram,
+    has_webhook: !!r.has_webhook,
+    agents: r.agents,
+    agent_names: r.agent_names ?? null,
+  }));
+
+  return json({ users }, 200, origin);
+}
+
+// El cliente cerro el aviso de renovacion. Solo se marca la SUYA: se usa el
+// user_id de la sesion, nunca uno del body, asi que no hay forma de acknowledg-
+// -ear el aviso de otro. El cron vuelve a ponerlo en NULL al proximo vencimiento.
+async function handleUserNotice(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  await env.DB.prepare("UPDATE users SET expiry_notice_at = datetime('now') WHERE id = ?")
+    .bind(user.id)
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
+// Historial de plan de una cuenta. Responde "¿que me contrataste y cuando?",
+// que antes no se podia contestar con evidencia. Solo admin, como todo lo de
+// /api/admin.
+async function handleUserEvents(request: Request, env: Env, userId: string) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user || !(user.superadmin || user.role === "admin")) {
+    return json({ error: "No autorizado" }, 403, origin);
+  }
+  const { results } = await env.DB.prepare(
+    "SELECT id, action, field, from_value, to_value, actor, created_at FROM plan_events WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 100"
+  )
+    .bind(userId)
+    .all();
+  return json({ events: results ?? [] }, 200, origin);
+}
+
 async function handleUserUpdate(request: Request, env: Env) {
   const origin = request.headers.get("Origin") || "*";
   // Solo admin/superadmin (Fase 2D): el cliente no edita su propio plan/cupos.
@@ -1428,10 +1627,15 @@ async function handleUserUpdate(request: Request, env: Env) {
   if (!user || !(user.superadmin || user.role === "admin")) {
     return json({ error: "No autorizado" }, 403, origin);
   }
-  const ownerId = user.id;
-
   const body = await request.json().catch(() => ({}));
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+
+  // El admin edita su propio plan por omisión, o el de un cliente con `user_id`.
+  // El guard de arriba ya exige admin/superadmin: acá solo se valida el destino.
+  const targetId = typeof b.user_id === "string" && b.user_id ? b.user_id : user.id;
+  const target = await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(targetId).first<{ id: string }>();
+  if (!target) return json({ error: "Usuario no encontrado" }, 404, origin);
+
   const updates: [string, unknown][] = [];
   let plan: string | undefined;
 
@@ -1443,18 +1647,25 @@ async function handleUserUpdate(request: Request, env: Env) {
     updates.push(["plan", plan]);
   }
 
-  const current = await env.DB.prepare("SELECT plan, agent_limit FROM users WHERE id = ?")
-    .bind(ownerId)
-    .first<{ plan: string | null; agent_limit: number | null }>();
-  const effectivePlan = plan ?? current?.plan ?? "free";
+  const current = await env.DB.prepare("SELECT plan, agent_limit, plan_expires_at, downgraded_from FROM users WHERE id = ?")
+    .bind(targetId)
+    .first<{ plan: string | null; agent_limit: number | null; plan_expires_at: string | null; downgraded_from: string | null }>();
+  const targetPlan = plan ?? current?.plan ?? "free";
+  const planChanged = plan !== undefined && plan !== (current?.plan ?? "free");
 
   if ("messages_limit" in b) {
     const v = b.messages_limit;
-    if (typeof v !== "number" || !Number.isInteger(v) || v < 1 || v > 1_000_000) {
+    // null = "sigue el plan", igual que agent_limit. Sin esto, limpiar un cupo
+    // manual desde el panel era imposible: la unica forma de volver al default
+    // era cambiar el plan entero.
+    if (v === null) {
+      updates.push(["messages_limit", null]);
+    } else if (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 1_000_000) {
+      // Si coincide con el default del plan se guarda NULL (= "sigue el plan")
+      updates.push(["messages_limit", v === planDefaults(targetPlan).messages ? null : v]);
+    } else {
       return json({ error: "Campo inválido: messages_limit" }, 400, origin);
     }
-    // Si coincide con el default del plan se guarda NULL (= "sigue el plan")
-    updates.push(["messages_limit", v === planDefaults(effectivePlan).messages ? null : v]);
   } else if (plan) {
     updates.push(["messages_limit", null]);
   }
@@ -1465,7 +1676,7 @@ async function handleUserUpdate(request: Request, env: Env) {
       updates.push(["agent_limit", null]);
     } else if (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 100) {
       // Si coincide con el default del plan se guarda NULL (= "sigue el plan")
-      updates.push(["agent_limit", v === planDefaults(effectivePlan).agents ? null : v]);
+      updates.push(["agent_limit", v === planDefaults(targetPlan).agents ? null : v]);
     } else {
       return json({ error: "Campo inválido: agent_limit" }, 400, origin);
     }
@@ -1473,14 +1684,164 @@ async function handleUserUpdate(request: Request, env: Env) {
     updates.push(["agent_limit", null]);
   }
 
+  if ("plan_expires_at" in b) {
+    const v = b.plan_expires_at;
+    if (v === null || v === "") {
+      updates.push(["plan_expires_at", null]);
+    } else if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      updates.push(["plan_expires_at", v]);
+    } else {
+      return json({ error: "Campo inválido: plan_expires_at" }, 400, origin);
+    }
+  }
+
+  // Renovación de un clic: el dueño no calcula fechas, el worker sí. El período
+  // se suma al vencimiento si sigue vivo (el cliente pagó otro mes a partir de
+  // ahí) o a hoy si ya venció (no se le regalan los meses que no usó).
+  //
+  // Y si la cuenta ya había caído a free por vencimiento, renovar le DEVUELVE el
+  // plan que tenía (queda en `downgraded_from`): renovar es cobrar, no solo mover
+  // la fecha. Sin esto, el botón "Renovar +1 mes" sobre un plan Pro vencido le
+  // compraba un mes de free y el dueño tenía que acordarse de volver a tocar el
+  // plan a mano. Si el dueño mandó `plan` explícito, manda su elección y no se
+  // restaura el anterior.
+  const isRenew = "renew_months" in b;
+  const restorePlan =
+    isRenew && plan === undefined && current?.downgraded_from && current.downgraded_from in PLAN_DEFAULTS
+      ? current.downgraded_from
+      : null;
+  if (isRenew || planChanged) {
+    // Cualquiera de los dos es "volvió a pagar": se limpia la marca de downgrade
+    // para que el panel no diga "viene de Pro" y el aviso pueda reaparecer en el
+    // próximo vencimiento.
+    updates.push(["downgraded_from", null]);
+    updates.push(["expiry_notice_at", null]);
+    if (restorePlan) updates.push(["plan", restorePlan]);
+  }
+
+  if (isRenew) {
+    const n = b.renew_months;
+    if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > 24) {
+      return json({ error: "Campo inválido: renew_months (entero de 1 a 24)" }, 400, origin);
+    }
+    const exp = current?.plan_expires_at ?? null;
+    const base = exp && exp > todayIso() ? new Date(`${exp}T00:00:00Z`) : new Date();
+    updates.push(["plan_expires_at", periodEnd(base, n)]);
+  }
+
+  // El período arranca solo al cambiar de plan: hoy + 1 mes. Tres casos, y en
+  // este orden importa:
+  //  1. Si el admin mandó plan_expires_at o pidió una renovación, manda lo suyo.
+  //  2. Si ya hay una fecha futura, NO se toca: un plan ya pagado (ej. 3 meses)
+  //     no puede acortarse solo porque el dueño retoque el plan.
+  //  3. Sin fecha o ya vencida, se pone un mes nuevo desde hoy.
+  if (!("plan_expires_at" in b) && !("renew_months" in b) && planChanged) {
+    const exp = current?.plan_expires_at ?? null;
+    if (!exp || exp < todayIso()) updates.push(["plan_expires_at", periodEnd()]);
+  }
+
   if (updates.length === 0) return json({ error: "Nada para actualizar" }, 400, origin);
+
+  // Estado previo completo, para poder anotar de->que en el historial. `current`
+  // de arriba solo trae lo que se necesita para decidir; el registro necesita
+  // tambien el messages_limit de antes.
+  const before = await env.DB.prepare(
+    "SELECT plan, agent_limit, messages_limit, plan_expires_at FROM users WHERE id = ?"
+  )
+    .bind(targetId)
+    .first<{ plan: string | null; agent_limit: number | null; messages_limit: number | null; plan_expires_at: string | null }>();
+  const beforeValues: Record<string, unknown> = { ...(before ?? {}) };
 
   const setClause = updates.map(([col]) => `${col} = ?`).join(", ");
   await env.DB.prepare(`UPDATE users SET ${setClause} WHERE id = ?`)
-    .bind(...updates.map(([, v]) => v), ownerId)
+    .bind(...updates.map(([, v]) => v), targetId)
     .run();
 
-  return json({ ok: true, plan: effectivePlan }, 200, origin);
+  // Historial: un renglon por cada columna tocada. `renew_months` se anota como
+  // 'renew' (no como una fecha cualquiera) porque es la accion que el dueño
+  // ejecuta cuando cobra, y es la que el cliente va a reclamar.
+  // Solo se anotan los campos que el dueño edita a mano. `downgraded_from` y
+  // `expiry_notice_at` son marcas internas del ciclo de vida, no cambios de
+  // contrato: ponerlas acá llenaría el historial de ruido que el dueño lee
+  // cuando un cliente reclama.
+  const LOGGED_FIELDS = new Set(["plan", "plan_expires_at", "messages_limit", "agent_limit"]);
+  for (const [col, v] of updates) {
+    if (!LOGGED_FIELDS.has(col)) continue;
+    const prev = beforeValues[col] ?? null;
+    const next = v ?? null;
+    if (String(prev ?? "") === String(next ?? "")) continue;
+    const action =
+      col === "plan_expires_at" ? (isRenew ? "renew" : "expiry")
+      : col === "plan" ? "plan"
+      : "quota";
+    await logPlanEvent(env, targetId, action, col, prev, next, "admin");
+  }
+
+  // Se devuelve la vigencia resultante porque la renovación la calcula el
+  // servidor: si no, el panel tendría que repetir la aritmética de meses para
+  // pintar el resultado, y se mostraría la fecha vieja hasta el próximo refresco.
+  const expUpdate = updates.find(([col]) => col === "plan_expires_at");
+  const newExpiry = expUpdate ? (expUpdate[1] as string | null) : (current?.plan_expires_at ?? null);
+
+  return json({ ok: true, plan: restorePlan ?? targetPlan, user_id: targetId, plan_expires_at: newExpiry, downgraded: false }, 200, origin);
+}
+
+// Un registro por cada cambio de plan, renovacion, cupo o vencimiento. Todo pasa
+// por aca, asi que el historial no puede quedar desincronizado con la base: es el
+// mismo codigo que aplica el cambio el que lo anota.
+async function logPlanEvent(
+  env: Env,
+  userId: string,
+  action: "plan" | "renew" | "quota" | "expiry" | "downgrade",
+  field: string | null,
+  from: unknown,
+  to: unknown,
+  actor: "admin" | "system" | "user" = "admin"
+): Promise<void> {
+  const s = (v: unknown) => (v === null || v === undefined ? null : String(v));
+  await env.DB.prepare(
+    "INSERT INTO plan_events (id, user_id, action, field, from_value, to_value, actor, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))"
+  )
+    .bind(crypto.randomUUID(), userId, action, field, s(from), s(to), actor)
+    .run();
+}
+
+// Baja a free las cuentas cuyo plan pagado ya vencio.
+//
+// Esto NO es lo que corta el acceso: el corte real de cupos ya ocurre en
+// effectivePlan(), en cada request, y por eso funciona aunque el cron se atrase.
+// Aca solo se reescribe `plan` para que el panel, el historial y el modal del
+// cliente digan la verdad en vez de mostrar "Pro" a un plan que ya murio.
+//
+// Los agentes existentes NO se borran ni se desactivan (decision del dueho: que
+// sigan respondiendo en la web de sus clientes); lo que se limita son los
+// mensajes y la creacion de agentes nuevos.
+async function downgradeExpired(env: Env): Promise<number> {
+  const today = todayIso();
+  // El WHERE es solo un pre-filtro barato (no lee la tabla entera). Quien decide
+  // de verdad es effectivePlan(), el mismo que aplica el corte de cupos: si
+  // divergieran, el panel y el cron contarian historias distintas.
+  const { results } = await env.DB.prepare(
+    "SELECT id, plan, plan_expires_at FROM users WHERE plan_expires_at IS NOT NULL AND plan_expires_at < ?"
+  )
+    .bind(today)
+    .all<{ id: string; plan: string | null; plan_expires_at: string | null }>();
+
+  let n = 0;
+  for (const row of results ?? []) {
+    if (effectivePlan(row) === (row.plan ?? "free")) continue;
+    // Los cupos vuelven a NULL (= "sigue el plan", o sea los de free): un
+    // messages_limit de 6000 era del plan pagado: dejarlo intacto anuleria el efecto
+    // del vencimiento. Queda anotado en plan_events, asi que no se pierde.
+    await env.DB.prepare(
+      "UPDATE users SET plan = 'free', downgraded_from = ?, agent_limit = NULL, messages_limit = NULL, expiry_notice_at = NULL WHERE id = ?"
+    )
+      .bind(row.plan, row.id)
+      .run();
+    await logPlanEvent(env, row.id, "downgrade", null, row.plan, "free", "system");
+    n++;
+  }
+  return n;
 }
 
 async function resetMonthlyQuota(env: Env): Promise<void> {
@@ -1489,7 +1850,11 @@ async function resetMonthlyQuota(env: Env): Promise<void> {
 
 export default {
   async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
-    await resetMonthlyQuota(env);
+    // Los cupos se cortan solos al vencer el plan (effectivePlan), pero el registro
+  // en la base se hace aqui: diario, para que el vencimiento no tarde un mes en
+  // verse. El reinicio mensual de mensajes sigue igual, solo el dia 1.
+  await downgradeExpired(env);
+  if (new Date().getUTCDate() === 1) await resetMonthlyQuota(env);
   },
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
@@ -1521,6 +1886,17 @@ export default {
     if (url.pathname === "/api/user" && request.method === "PUT") {
       return handleUserUpdate(request, env);
     }
+  if (url.pathname === "/api/admin/users" && request.method === "GET") {
+    return handleAdminUsers(request, env);
+  }
+  if (url.pathname === "/api/user/notice" && request.method === "POST") {
+    return handleUserNotice(request, env);
+  }
+
+  const eventsMatch = url.pathname.match(/^\/api\/admin\/users\/([^/]+)\/events$/);
+  if (eventsMatch && request.method === "GET") {
+    return handleUserEvents(request, env, eventsMatch[1]);
+  }
 
     if (url.pathname === "/api/chat" && request.method === "POST") {
       return handleChat(request, env, ctx);

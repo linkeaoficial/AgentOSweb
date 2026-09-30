@@ -9,11 +9,34 @@ CREATE TABLE IF NOT EXISTS users (
   messages_limit INTEGER DEFAULT 1500,       -- Cupo mensual contratado
   agent_limit INTEGER,                       -- Override de agentes (NULL = sigue el plan)
   messages_used INTEGER DEFAULT 0,           -- Contador mensual de consumo
+  plan_expires_at TEXT,                      -- Vencimiento del plan 'YYYY-MM-DD' (NULL = sin vencimiento)
+  downgraded_from TEXT,                      -- Plan del que vino el downgrade automatico (NULL = nunca bajo solo)
+  expiry_notice_at TEXT,                     -- Cuando el cliente cerro el aviso de renovacion (NULL = no lo vio)
   telegram_chat_id TEXT,                     -- Para alertas instantáneas
   webhook_url TEXT,                          -- Webhook externo (Make / WhatsApp)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ==========================================================
+-- 📜 HISTORIAL DE PLAN (quién cambió qué, y cuándo)
+-- ==========================================================
+-- Respaldo de cada cambio de plan, renovación, cupo o vencimiento automático.
+-- Sin esto, un reclamo ("yo pagué 3 meses") no se podía verificar.
+CREATE TABLE IF NOT EXISTS plan_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  action TEXT NOT NULL,                      -- 'plan' | 'renew' | 'quota' | 'expiry' | 'downgrade'
+  field TEXT,                                -- Campo cambiado (NULL en acciones sin uno solo)
+  from_value TEXT,
+  to_value TEXT,
+    actor TEXT DEFAULT 'admin',                -- 'admin' | 'system' | 'user'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- El historial se lee siempre por cuenta y de más nuevo a más viejo; sin
+    -- este índice es un scan de la tabla entera por cada apertura del modal.
+    CREATE INDEX IF NOT EXISTS idx_plan_events_user ON plan_events(user_id, created_at DESC);
+    
 -- ==========================================================
 -- 🤖 2. AGENTES (Configuración del Chatbot)
 -- ==========================================================
@@ -42,6 +65,8 @@ CREATE TABLE IF NOT EXISTS agents (
   chat_model TEXT DEFAULT 'llama-3.3-70b-versatile',
   chat_api_key TEXT,                         -- Clave privada del cliente (BYOK)
   chat_base_url TEXT,                        -- URL base custom (proveedor "otro")
+  byok_provider TEXT,                        -- Memoria BYOK: proveedor elegido (se conserva al volver a Administrada)
+  byok_model TEXT,                           -- Memoria BYOK: modelo elegido (se conserva al volver a Administrada)
   faqs TEXT,                                 -- Preguntas frecuentes (JSON: label, msg, answer)
   max_tokens INTEGER DEFAULT 500,
 

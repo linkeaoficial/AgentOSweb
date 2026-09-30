@@ -81,8 +81,10 @@ export interface SessionUser {
 // Sesión de Better Auth resuelta desde las cookies del request (el dashboard
 // reenvía `aow_auth.session_token` server-side). Devuelve null si no hay sesión.
 export async function getSessionUser(env: AuthEnv, request: Request): Promise<SessionUser | null> {
+  // Un token de sesión vencido o corrupto hace lanzar a Better Auth; sin este
+  // catch el worker responde 500 y el panel ve HTML en vez de JSON.
   const auth = createAuth(env);
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
   if (!session?.user) return null;
   return {
     id: session.user.id,
