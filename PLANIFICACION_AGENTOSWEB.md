@@ -20,7 +20,7 @@
 ---
 
 ## 0. ✅ ESTADO REAL IMPLEMENTADO (sep-2026) — lo que YA funciona en producción
-⚠️ Esta sección está desactualizada frente al trabajo del 24-25-sep-2026. La fuente viva del backlog está en `AGENTOSWEB_PENDIENTES.md`; el código real es `apps/` + `database/schema.sql` (+ migraciones `database/*.sql`).
+⚠️ Esta sección está desactualizada frente al trabajo del 24-28-sep-2026. La fuente viva del backlog está en `AGENTOSWEB_PENDIENTES.md`; el código real es `apps/` + `database/schema.sql`. Las migraciones viven en **dos** lugares según su origen: las versionadas del worker en `apps/workers/migrations/` (D1 las registra por nombre en `d1_migrations`, así que cada archivo corre **una sola vez** y no son idempotentes) y las de datos sueltos en `database/*.sql` (aplicadas a mano por `wrangler d1 execute`).
 
 ### Estado del 24-25-sep-2026: el producto ya captura y gestiona prospectos de punta a punta
 - **Bandeja de Prospectos profesional** (24-sep-2026, ~90/100 vs competencia): captura automática por regex (email/teléfono/nombre) controlada por agente (`lead_capture` + `lead_fields`), formulario embebido en el chat al detectar interés, `interest` separado de `notes`, búsqueda + paginación server-side (debounce 300ms), sort por columnas, filtro por estado (pills), avatar + fecha en la fila, filas clickeables, KPIs, bulk select/acciones con FAB pegada a pantalla, export CSV (respeta filtro), drawer lateral con nota editable + historial de conversación (overlay tipo widget, sin flash, con cache y export .txt), alertas a Telegram/webhook. *El detalle completo está en `AGENTOSWEB_PENDIENTES.md`.*
@@ -32,15 +32,15 @@
 
 ### Lo que está DESPLEGADO y verificado en vivo
 - **Worker API en Cloudflare** (`apps/workers/src/index.ts`, single-file, `wrangler deploy`). URL prod: `https://agentosweb-api.linkeaoficial2025.workers.dev`. Endpoints:
-  - Públicos (widget): `GET /api/agent/:id` (config visual + prompts), `POST /api/chat` (chat + FAQ auto-respuesta), `GET /` (health).
-  - Protegidos (dashboard, gate `X-Owner-Token`): `GET /api/agent/:id/config`, `PUT /api/agent/:id`, `DELETE /api/agent/:id`, `GET|POST /api/agents`, `GET /api/overview/:id`, `PUT /api/user`. **Con `OWNER_TOKEN` activo desde 22-sep-2026: sin token → 403.**
+  - Públicos (widget): `GET /api/agent/:id` (config visual + prompts), `POST /api/chat` (chat + FAQ auto-respuesta), `POST /api/leads` (formulario del widget), `GET /` (health).
+  - Protegidos (`resolveUser`: `X-Owner-Token` = superadmin **o** cookie de sesión Better Auth + rol): `GET /api/agent/:id/config`, `PUT /api/agent/:id`, `DELETE /api/agent/:id`, `GET|POST /api/agents`, `GET /api/overview/:id`, `GET /api/leads/:agentId`, `PATCH|DELETE /api/leads/:id`, `GET /api/leads/:agentId/history`, `POST /api/leads/bulk`, `PUT /api/user` (**solo admin/superadmin**), `GET /api/admin/users` (**solo admin/superadmin**).
 - **Motor IA administrada: Workers AI de Cloudflare** (dominante) + **BYOK** con Chat Completions multi-proveedor: workers-ai, openai, groq, deepseek, gemini, mistral, qwen, nvidia, openrouter, omnirouter, unorouter, cerebras, custom. *Los proveedores NOMBRE de "Groq Llama 3.3 / OpenAI GPT-4o Mini" de las secciones 1-3 son del blueprint; hoy predomina Workers AI.* Modelo managed default: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (const) o `openai/gpt-oss-120b` (var `DEFAULT_MODEL`); agentes nuevos nacen managed `@cf/meta/llama-3.1-8b-instruct-fast`.
 - **D1** (`agentosweb-db`): tablas `users` (con `agent_limit`), `agents` (con **`faqs` JSON, `chat_base_url`, `bubble_logo_url`**, además del blueprint), `leads`, `conversations`, `messages`, **`faq_hits`**. Índices compuestos. `schema.sql` es la fuente de verdad (ver §4 actualizado).
 - **KV** `AGENT_CACHE`: cache del agente (TTL 1h) + bloqueo de cupo (5 min); invalida al `PUT`.
-- **Cupos por plan** (`PLAN_DEFAULTS`): free 1 ag/20 msgs · starter 1/1500 · pro 3/6000 · agency 10/25000. `users.agent_limit`/`messages_limit` = override (NULL = plan). BYOK no consume cupo. Reset mensual vía cron. `/api/user` solo con token.
-- **Widget** (`apps/widget/src/index.ts` → `widget.js` ~1 archivo, Vanilla TS, sin frameworks): Shadow DOM, dual-view (portada FAQ + chat), tema claro/oscuro (`default_theme` desde config), botón flotante (`position`, `primary_color`, `bubble_logo_url` para Agency), FAQ auto-respuesta **tolerante** (ver FAQ matching abajo), historial de sesión (últimos 6), indicador de escritura, pacing 1.000 ms.
-- **Panel dashboard** (`apps/dashboard`, Next.js 15 + React 19): login opcional vía `DASHBOARD_PASSWORD` (hoy directo, login completo va AL FINAL), `Mis Agentes` multi-agente con selector/crear/renombrar/eliminar, editor de identidad/apariencia, Modo clave propia (BYOK) con catálogo de modelos y citado descifrado, base de conocimiento (scratchpad), Vista previa en vivo, Overview (conversaciones + FAQ hits), Planes & Facturación (plan + cupos), modo oscuro persistente.
-- **Seguridad (22-sep-2026):** `OWNER_TOKEN` + `ENCRYPTION_KEY` aplicados en el worker y dashboard `.env.local`. Doble puerta habilitada; cifrado de API keys en reposo. `domainAllowed` compara host exacto. **Login multi-cliente completo = pendiente final (ver pendientes).**
+- **Cupos por plan** (`PLAN_DEFAULTS`): free 1 ag/20 msgs · starter 1/1500 · pro 3/6000 · agency 10/25000. `users.agent_limit`/`messages_limit` = override (NULL = plan). BYOK no consume cupo. Reset mensual vía cron. `PUT /api/user` → **solo admin/superadmin** (el cliente solicita, el admin aplica).
+- **Widget** (`apps/widget/src/index.ts` → `widget.js` ~1 archivo, Vanilla TS, sin frameworks): Shadow DOM, dual-view (portada FAQ + chat), tema claro/oscuro (`default_theme` desde config), botón flotante (`position`, `primary_color`, `bubble_logo_url` para Agency), FAQ auto-respuesta **tolerante** (ver FAQ matching abajo), historial de sesión (últimos 6), indicador de escritura, pacing 1.000 ms. ⚠️ **El script se sirve desde el panel** (`public/widget.js` + rewrite `/w/:id/widget.js`) y **debe quedar fuera del login**: está en `PUBLIC_PATHS` de `src/middleware.ts` porque si el middleware lo captura, el visitante recibe el HTML de `/login` y el widget nunca carga (pasó el 25-sep-2026).
+- **Panel dashboard** (`apps/dashboard`, Next.js 15 + React 19): login real con **Better Auth** (cookie `aow_auth.session_token`, redirect por middleware sin tocar la DB), `Mis Agentes` multi-agente con selector/crear/renombrar/eliminar, editor de identidad/apariencia, Modo clave propia (BYOK) con catálogo de modelos y citado descifrado, base de conocimiento (scratchpad), Vista previa en vivo, Overview (conversaciones + FAQ hits), Planes & Facturación (plan + cupos), **Prospectos** (bandeja completa server-side), **Clientes** (solo `role=admin`: lista de cuentas, rol, plan y cuotas de todos los clientes, más un drawer de detalle por cuenta con alta, vencimiento del plan editable, barras de cuota y lista de agentes), modo oscuro persistente.
+- **Seguridad (25-sep-2026):** `OWNER_TOKEN` (superadmin, timing-safe) + `ENCRYPTION_KEY` + `aow_auth.session_token` (Better Auth, HttpOnly+Lax) aplicados. `resolveUser` resuelve por token **o** por sesión con rol; los handlers scoping filtran por `user_id`. `domainAllowed` compara host exacto. **Login multi-cliente = HECHO** (FASE 2A/2B/2C).
 
 ### Bugfix/detalle reciente (22-sep-2026)
 - **FAQ auto-respuesta tolerante:** con FAQ de 4+ keywords, permite que falte 1 keyword (natural); 1-3 keywords siguen exactas. Verificado: "funciona el efecto cristal en safari" responde la FAQ fija, no la IA.
@@ -131,9 +131,12 @@ Permite a cualquier negocio transformar su atención web en menos de 2 minutos i
 *Archivo: `database/schema.sql`* (fuente de verdad — coincide con lo desplegado).
 
 > ⚠️ **Diferencias del esquema original respecto a lo desplegado (ver §0):**
-> - `agents` hoy además tiene `bubble_logo_url` (marca blanca, solo Agency), `chat_base_url` (proveedor "custom"), `faqs` (JSON: label, msg, answer) y `agent_limit` en `users`.
+> - `agents` hoy además tiene `bubble_logo_url` (marca blanca, solo Agency), `chat_base_url` (proveedor "custom"), `faqs` (JSON: label, msg, answer), `lead_capture`/`lead_fields` (control de captura), `byok_provider`/`byok_model` (memoria BYOK) y `agent_limit` en `users`.
+> - `leads` tiene además `status` (Nuevo/Contactado/Calificado/Convertido/Archivado), `interest` (mensaje real del visitante) y `session_id` (para el historial de conversación).
 > - Existe la tabla `faq_hits` (contador de veces que se respondió cada FAQ).
-> - Aunque `agents.mode` default del schema es `'byok'`, **los agentes NUEVOS nacen `'managed'`** (el worker los inserta con `mode='managed'`, `chat_provider='workers-ai'`); el managed usa Workers AI de Cloudflare, y `chat_provider` admite: workers-ai, openai, groq, deepseek, gemini, mistral, qwen, nvidia, openrouter, omnirouter, custom.
+> - **Las tablas de Better Auth (`user`, `session`, `account`, `verification`) NO están en ningún `.sql`**: las crea `apps/workers/src/auth.ts` en runtime vía `getMigrations`/`runMigrations` al primer hit. No hay que crearlas a mano, pero conviene saberlo antes de reconstruir una base.
+> - Los índices que la app usa están versionados en `apps/workers/migrations/0001_indexes.sql` (el bloque SQL de abajo es la copia legible, kept en sync con producción).
+> - Aunque `agents.mode` default del schema es `'byok'`, **los agentes NUEVOS nacen `'managed'`** (el worker los inserta con `mode='managed'`, `chat_provider='workers-ai'`); el managed usa Workers AI de Cloudflare, y `chat_provider` admite: workers-ai, openai, groq, deepseek, gemini, mistral, qwen, nvidia, openrouter, omnirouter, unorouter, cerebras, custom.
 
 ```sql
 -- ==========================================================
@@ -272,7 +275,9 @@ agentosweb/
 │   │
 │   ├── 📁 workers/                # API Edge Serverless (Cloudflare Workers)
 │   │   ├── 📁 src/
-│   │   │   └── index.ts           # TODO el worker: enrutador, CORS, dominios, chat, FAQ, agentes, overview, cupos, cifrado
+│   │   │   ├── index.ts           # TODO el worker: enrutador, CORS, dominios, chat, FAQ, agentes, overview, cupos, cifrado
+│   │   │   └── auth.ts            # Better Auth (D1 nativo) + resolveUser por sesión/rol
+│   │   ├── 📁 migrations/         # SQL de D1 versionado (0001_indexes.sql)
 │   │   ├── wrangler.toml
 │   │   └── package.json
 │   │
