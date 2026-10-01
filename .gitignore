@@ -34,3 +34,6 @@ Thumbs.db
 # Misc
 coverage/
 .vercel/
+
+# Capturas de prueba (se regeneran desde Playwright, no son fuente)
+captura_*.png

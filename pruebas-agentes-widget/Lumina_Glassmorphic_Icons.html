@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina UI — Sistema de Iconos Glassmorphic 3D Relieve</title>
+    
+    <!-- Tipografía Premium: Poppins & Manrope -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Poppins', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        accent: {
+                            purple: '#9333ea',
+                            emerald: '#10b981',
+                            blue: '#3b82f6',
+                            rose: '#f43f5e',
+                            amber: '#f59e0b',
+                        }
+                    },
+                    animation: {
+                        'float-slow': 'float 6s ease-in-out infinite',
+                        'float-delayed': 'float 6s ease-in-out 3s infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shimmer': 'shimmer 2.5s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-12px)' },
+                        },
+                        shimmer: {
+                            '0%': { transform: 'translateX(-100%)' },
+                            '100%': { transform: 'translateX(100%)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* ======================================================== */
+        /* VARIABLES DE TEMA DINÁMICAS                              */
+        /* ======================================================== */
+        :root {
+            /* MODO CLARO (Inspirado en la tarjeta limpia del proyecto) */
+            --bg-body: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-surface-elevated: #ffffff;
+            --bg-input: #f1f5f9;
+            --border-ui: #e2e8f0;
+            --border-ui-subtle: #f1f5f9;
+            --text-title: #0f172a;
+            --text-body: #334155;
+            --text-muted: #64748b;
+            --gradient-hero: linear-gradient(180deg, #0f172a 0%, #334155 100%);
+            --header-bg: rgba(255, 255, 255, 0.85);
+            --badge-bg: rgba(147, 51, 234, 0.08);
+            --badge-border: rgba(147, 51, 234, 0.2);
+            --badge-text: #7e22ce;
+            --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+            
+            /* Glassmorphic Icon Vars - Light */
+            --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.25));
+            --glass-border: rgba(255, 255, 255, 0.85);
+            --glass-shadow: 0 12px 24px -6px rgba(147, 51, 234, 0.14), 0 4px 6px -2px rgba(0,0,0,0.03);
+            --glass-inset-top: rgba(255, 255, 255, 0.95);
+            --glass-inset-bottom: rgba(147, 51, 234, 0.12);
+            --glass-icon-color: #9333ea;
+        }
+
+        /* MODO OSCURO (Azul Profundo / Slate 950 - Alta Gama) */
+        html.dark {
+            --bg-body: #0b0f19;
+            --bg-surface: #111827;
+            --bg-surface-elevated: #162032;
+            --bg-input: #1e293b;
+            --border-ui: rgba(255, 255, 255, 0.08);
+            --border-ui-subtle: rgba(255, 255, 255, 0.04);
+            --text-title: #ffffff;
+            --text-body: #94a3b8;
+            --text-muted: #64748b;
+            --gradient-hero: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.65) 100%);
+            --header-bg: rgba(11, 15, 25, 0.85);
+            --badge-bg: rgba(147, 51, 234, 0.15);
+            --badge-border: rgba(147, 51, 234, 0.35);
+            --badge-text: #c084fc;
+            --card-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.4);
+
+            /* Glassmorphic Icon Vars - Dark Slate */
+            --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02));
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --glass-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.65), 0 4px 10px -2px rgba(0,0,0,0.35);
+            --glass-inset-top: rgba(255, 255, 255, 0.4);
+            --glass-inset-bottom: rgba(0, 0, 0, 0.4);
+            --glass-icon-color: #c084fc;
+        }
+
+        /* MODO BLACK (OLED / Pitch Black / Vercel-Style) */
+        html.dark.theme-black {
+            --bg-body: #050505;
+            --bg-surface: #0a0a0a;
+            --bg-surface-elevated: #121212;
+            --bg-input: #171717;
+            --border-ui: rgba(255, 255, 255, 0.08);
+            --border-ui-subtle: rgba(255, 255, 255, 0.03);
+            --text-title: #ffffff;
+            --text-body: #a1a1aa;
+            --text-muted: #52525b;
+            --gradient-hero: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, 0.6) 100%);
+            --header-bg: rgba(5, 5, 5, 0.9);
+            --badge-bg: rgba(255, 255, 255, 0.05);
+            --badge-border: rgba(255, 255, 255, 0.12);
+            --badge-text: #e4e4e7;
+            --card-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.9);
+
+            /* Glassmorphic Icon Vars - OLED Black */
+            --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.012));
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-shadow: 0 14px 32px -4px rgba(0, 0, 0, 0.9), 0 4px 8px -2px rgba(0, 0, 0, 0.6);
+            --glass-inset-top: rgba(255, 255, 255, 0.35);
+            --glass-inset-bottom: rgba(0, 0, 0, 0.65);
+            --glass-icon-color: #d8b4fe;
+        }
+
+        /* Base Settings */
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-body);
+            font-family: 'Poppins', sans-serif;
+            transition: background-color 0.35s ease, color 0.35s ease;
+            overflow-x: hidden;
+            letter-spacing: -0.015em;
+        }
+
+        h1, h2, h3, h4, .font-heading {
+            letter-spacing: -0.035em;
+        }
+
+        /* -------------------------------------------------------- */
+        /* EL CORAZÓN DEL DISEÑO: GLASSMORPHIC 3D RELIEVE           */
+        /* -------------------------------------------------------- */
+        .glass-icon-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow),
+                        inset 0 1.5px 1px var(--glass-inset-top),
+                        inset 0 -1.5px 2px var(--glass-inset-bottom);
+            color: var(--glass-icon-color);
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+        }
+
+        .glass-icon-container:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 18px 36px -6px rgba(0,0,0,0.35),
+                        inset 0 2px 1.5px var(--glass-inset-top),
+                        inset 0 -1px 3px var(--glass-inset-bottom);
+        }
+
+        /* Variantes de Tinte de Color para el Icono */
+        .glass-tint-purple {
+            --glass-icon-color: #9333ea;
+            --glass-inset-bottom: rgba(147, 51, 234, 0.15);
+        }
+        .dark .glass-tint-purple {
+            --glass-icon-color: #c084fc;
+            --glass-inset-bottom: rgba(147, 51, 234, 0.3);
+        }
+
+        .glass-tint-emerald {
+            --glass-icon-color: #059669;
+            --glass-inset-bottom: rgba(16, 185, 129, 0.15);
+        }
+        .dark .glass-tint-emerald {
+            --glass-icon-color: #34d399;
+            --glass-inset-bottom: rgba(16, 185, 129, 0.3);
+        }
+
+        .glass-tint-blue {
+            --glass-icon-color: #2563eb;
+            --glass-inset-bottom: rgba(59, 130, 246, 0.15);
+        }
+        .dark .glass-tint-blue {
+            --glass-icon-color: #60a5fa;
+            --glass-inset-bottom: rgba(59, 130, 246, 0.3);
+        }
+
+        .glass-tint-rose {
+            --glass-icon-color: #e11d48;
+            --glass-inset-bottom: rgba(244, 63, 94, 0.15);
+        }
+        .dark .glass-tint-rose {
+            --glass-icon-color: #fb7185;
+            --glass-inset-bottom: rgba(244, 63, 94, 0.3);
+        }
+
+        .glass-tint-amber {
+            --glass-icon-color: #d97706;
+            --glass-inset-bottom: rgba(245, 158, 11, 0.15);
+        }
+        .dark .glass-tint-amber {
+            --glass-icon-color: #fbbf24;
+            --glass-inset-bottom: rgba(245, 158, 11, 0.3);
+        }
+
+        /* UI Cards */
+        .ui-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-ui);
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .ui-card:hover {
+            border-color: rgba(147, 51, 234, 0.3);
+        }
+
+        /* Ambient Glow Circles */
+        .ambient-glow {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(120px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.45;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-body);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-ui);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body class="min-h-screen relative selection:bg-purple-500/20 selection:text-purple-300">
+
+    <!-- RESPLANDORES AMBIENTALES DECORATIVOS -->
+    <div class="ambient-glow w-[550px] h-[550px] bg-purple-600/15 top-[-100px] left-[15%]"></div>
+    <div class="ambient-glow w-[450px] h-[450px] bg-blue-600/10 top-[20%] right-[10%]"></div>
+    <div class="ambient-glow w-[600px] h-[600px] bg-emerald-600/10 bottom-[15%] left-[5%]"></div>
+
+    <!-- ======================================================== -->
+    <!-- NAVEGACIÓN SUPERIOR (Glass Minimalista)                   -->
+    <!-- ======================================================== -->
+    <header class="fixed top-0 left-0 w-full z-50 border-b backdrop-blur-xl transition-colors duration-300" 
+            style="background-color: var(--header-bg); border-color: var(--border-ui);">
+        <div class="max-w-7xl mx-auto px-5 sm:px-8 h-20 flex items-center justify-between">
+            
+            <!-- Logotipo con Micro-Icono Glassmorphic -->
+            <a href="#" class="flex items-center gap-3 group">
+                <div class="glass-icon-container w-10 h-10 rounded-xl glass-tint-purple">
+                    <i data-lucide="layers" class="w-5 h-5 stroke-[2.2]"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-base font-bold tracking-tight text-white flex items-center gap-1.5" style="color: var(--text-title);">
+                        Lumina<span class="text-purple-500 font-black">Icons</span>
+                    </span>
+                    <span class="text-[10px] tracking-wider uppercase font-semibold text-slate-400 font-mono">
+                        Glass 3D System
+                    </span>
+                </div>
+            </a>
+
+            <!-- Enlaces Centrales de Navegación -->
+            <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
+                <a href="#catalogo" class="hover:text-purple-400 transition-colors">Biblioteca de Iconos</a>
+                <a href="#playground" class="hover:text-purple-400 transition-colors">Estudio & Personalizador</a>
+                <a href="#arquitectura" class="hover:text-purple-400 transition-colors">Física de Relieve 3D</a>
+                <a href="#integracion" class="hover:text-purple-400 transition-colors">Integración</a>
+                <a href="#faq" class="hover:text-purple-400 transition-colors">Documentación</a>
+            </nav>
+
+            <!-- Acciones Derecha: Switcher de 3 Modos (Sin Emojis) + Botón CTA -->
+            <div class="flex items-center gap-3">
+                
+                <!-- SELECTOR DE 3 MODOS PROFESIONAL (Lucide Icons) -->
+                <div class="flex items-center p-1 rounded-xl border border-slate-700/40 bg-black/20 backdrop-blur-md" 
+                     style="border-color: var(--border-ui); background-color: var(--bg-input);">
+                    
+                    <!-- Modo Claro -->
+                    <button onclick="setGlobalTheme('light')" 
+                            id="theme-btn-light" 
+                            title="Modo Claro" 
+                            class="p-2 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-purple-400">
+                        <i data-lucide="sun" class="w-4 h-4"></i>
+                    </button>
+
+                    <!-- Modo Azul Oscuro (Slate) -->
+                    <button onclick="setGlobalTheme('dark-blue')" 
+                            id="theme-btn-blue" 
+                            title="Modo Azul Profundo" 
+                            class="p-2 rounded-lg text-xs font-medium transition-all bg-purple-600/20 text-purple-400 border border-purple-500/30">
+                        <i data-lucide="moon" class="w-4 h-4"></i>
+                    </button>
+
+                    <!-- Modo Black / OLED -->
+                    <button onclick="setGlobalTheme('dark-black')" 
+                            id="theme-btn-black" 
+                            title="Modo Pitch Black / OLED" 
+                            class="p-2 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-purple-400">
+                        <i data-lucide="circle-dot" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Botón Descargar Pack -->
+                <a href="#catalogo" 
+                   class="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 shadow-sm hover:scale-[1.02] active:scale-[0.98] text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span>Explorar 48 Iconos</span>
+                </a>
+
+                <!-- Mobile Menu Trigger -->
+                <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg border text-slate-400" style="border-color: var(--border-ui);">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Drawer -->
+        <div id="mobileMenu" class="hidden md:hidden px-6 py-5 border-b backdrop-blur-2xl flex flex-col gap-4 text-sm" 
+             style="background-color: var(--bg-surface); border-color: var(--border-ui);">
+            <a href="#catalogo" onclick="toggleMobileMenu()" class="hover:text-purple-400">Biblioteca de Iconos</a>
+            <a href="#playground" onclick="toggleMobileMenu()" class="hover:text-purple-400">Estudio & Personalizador</a>
+            <a href="#arquitectura" onclick="toggleMobileMenu()" class="hover:text-purple-400">Física de Relieve 3D</a>
+            <a href="#integracion" onclick="toggleMobileMenu()" class="hover:text-purple-400">Integración</a>
+            <a href="#faq" onclick="toggleMobileMenu()" class="hover:text-purple-400">Documentación</a>
+        </div>
+    </header>
+
+    <main class="relative z-10 pt-28">
+
+        <!-- ======================================================== -->
+        <!-- SECCIÓN 1: HERO PRINCIPAL PREMIUM                        -->
+        <!-- ======================================================== -->
+        <section class="relative max-w-7xl mx-auto px-5 sm:px-8 pt-12 pb-24 text-center flex flex-col items-center">
+            
+            <!-- Badge Superior -->
+            <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border mb-8 backdrop-blur-md" 
+                 style="background-color: var(--badge-bg); border-color: var(--badge-border); color: var(--badge-text);">
+                <div class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></div>
+                <span class="text-xs font-semibold uppercase tracking-wider font-mono">Colección Glassmorphic 3D Relieve</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </div>
+
+            <!-- Titular con Efecto Degradado Metálico -->
+            <h1 class="text-4xl sm:text-6xl lg:text-7xl font-semibold max-w-4xl tracking-tight leading-[1.08] mb-6" 
+                style="background: var(--gradient-hero); -webkit-background-clip: text; background-clip: text; color: transparent;">
+                Iconos táctiles en relieve de cristal para interfaces de alta gama
+            </h1>
+
+            <p class="text-sm sm:text-base lg:text-lg max-w-2xl mx-auto leading-relaxed mb-10" style="color: var(--text-muted);">
+                Inspirados en la óptica de refracción tridimensional, bordes especulares pulidos y física de sombras sub-superficiales. Diseñados para integrarse nativamente en React, Tailwind y Figma.
+            </p>
+
+            <!-- Botones de Acción -->
+            <div class="flex flex-wrap items-center justify-center gap-4 mb-20">
+                <a href="#catalogo" 
+                   class="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-sm font-semibold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:opacity-95 shadow-xl shadow-purple-600/25 transition-all duration-300 hover:scale-105 active:scale-95">
+                    <i data-lucide="grid" class="w-4 h-4"></i>
+                    <span>Ver Catálogo Completo</span>
+                </a>
+                <a href="#playground" 
+                   class="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl text-sm font-semibold transition-all duration-300 border hover:bg-purple-500/5 active:scale-95"
+                   style="border-color: var(--border-ui); color: var(--text-title); background-color: var(--bg-surface);">
+                    <i data-lucide="sliders" class="w-4 h-4 text-purple-400"></i>
+                    <span>Abrir Estudio Interactivo</span>
+                </a>
+            </div>
+
+            <!-- ESCENARIO HERO: COMPOSICIÓN FLOTANTE 3D -->
+            <div class="relative w-full max-w-5xl mx-auto p-8 sm:p-12 rounded-3xl ui-card relative overflow-hidden">
+                <!-- Luces de fondo del marco -->
+                <div class="absolute inset-0 bg-gradient-to-b from-purple-500/5 via-transparent to-transparent pointer-events-none"></div>
+                <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <!-- Encabezado del Showcase -->
+                <div class="flex items-center justify-between border-b pb-6 mb-10" style="border-color: var(--border-ui);">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+                        <div class="w-3 h-3 rounded-full bg-amber-500/60"></div>
+                        <div class="w-3 h-3 rounded-full bg-emerald-500/60"></div>
+                        <span class="text-xs font-mono ml-2 text-slate-500">live-preview://glass-specular-refraction</span>
+                    </div>
+                    <span class="text-xs font-mono text-purple-400 font-semibold uppercase tracking-wider">CSS3 PURE REFRACTION</span>
+                </div>
+
+                <!-- Cuadrícula Hero con Iconos en 3D Relieve -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6 sm:gap-8 items-center justify-items-center">
+                    
+                    <!-- Icono 1: Users (Púrpura Original) -->
+                    <div class="flex flex-col items-center gap-3 group cursor-pointer" onclick="openIconModal('users', 'Comunidad & Equipo', 'users')">
+                        <div class="glass-icon-container glass-tint-purple w-20 h-20 rounded-3xl animate-float-slow">
+                            <i data-lucide="users" class="w-9 h-9 stroke-[2.2]"></i>
+                        </div>
+                        <span class="text-xs font-semibold" style="color: var(--text-title);">users.glass</span>
+                        <span class="text-[10px] font-mono text-purple-400">#9333ea</span>
+                    </div>
+
+                    <!-- Icono 2: Activity (Esmeralda) -->
+                    <div class="flex flex-col items-center gap-3 group cursor-pointer" onclick="openIconModal('activity', 'Telemetría & Métricas', 'activity')">
+                        <div class="glass-icon-container glass-tint-emerald w-20 h-20 rounded-3xl animate-float-delayed">
+                            <i data-lucide="activity" class="w-9 h-9 stroke-[2.2]"></i>
+                        </div>
+                        <span class="text-xs font-semibold" style="color: var(--text-title);">activity.glass</span>
+                        <span class="text-[10px] font-mono text-emerald-400">#10b981</span>
+                    </div>
+
+                    <!-- Icono 3: Sparkles (Azul Cyan) -->
+                    <div class="flex flex-col items-center gap-3 group cursor-pointer" onclick="openIconModal('sparkles', 'Inteligencia Artificial', 'sparkles')">
+                        <div class="glass-icon-container glass-tint-blue w-20 h-20 rounded-3xl animate-float-slow">
+                            <i data-lucide="sparkles" class="w-9 h-9 stroke-[2.2]"></i>
+                        </div>
+                        <span class="text-xs font-semibold" style="color: var(--text-title);">sparkles.glass</span>
+                        <span class="text-[10px] font-mono text-blue-400">#3b82f6</span>
+                    </div>
+
+                    <!-- Icono 4: Shield-Check (Rose) -->
+                    <div class="flex flex-col items-center gap-3 group cursor-pointer" onclick="openIconModal('shield-check', 'Seguridad Zero-Trust', 'shield-check')">
+                        <div class="glass-icon-container glass-tint-rose w-20 h-20 rounded-3xl animate-float-delayed">
+                            <i data-lucide="shield-check" class="w-9 h-9 stroke-[2.2]"></i>
+                        </div>
+                        <span class="text-xs font-semibold" style="color: var(--text-title);">security.glass</span>
+                        <span class="text-[10px] font-mono text-rose-400">#f43f5e</span>
+                    </div>
+
+                    <!-- Icono 5: Zap (Golden Amber) -->
+                    <div class="flex flex-col items-center gap-3 group cursor-pointer" onclick="openIconModal('zap', 'Rendimiento Ultra Rápido', 'zap')">
+                        <div class="glass-icon-container glass-tint-amber w-20 h-20 rounded-3xl animate-float-slow">
+                            <i data-lucide="zap" class="w-9 h-9 stroke-[2.2]"></i>
+                        </div>
+                        <span class="text-xs font-semibold" style="color: var(--text-title);">lightning.glass</span>
+                        <span class="text-[10px] font-mono text-amber-400">#f59e0b</span>
+                    </div>
+
+                    <!-- Icono 6: Terminal (Púrpura Neon) -->
+                    <div class="flex flex-col items-center gap-3 group cursor-pointer" onclick="openIconModal('terminal', 'Consola de Desarrollo', 'terminal')">
+                        <div class="glass-icon-container glass-tint-purple w-20 h-20 rounded-3xl animate-float-delayed">
+                            <i data-lucide="terminal" class="w-9 h-9 stroke-[2.2]"></i>
+                        </div>
+                        <span class="text-xs font-semibold" style="color: var(--text-title);">terminal.glass</span>
+                        <span class="text-[10px] font-mono text-purple-400">#9333ea</span>
+                    </div>
+
+                </div>
+
+                <!-- Barra de Estadísticas Rápidas al Pie de Hero -->
+                <div class="mt-12 pt-6 border-t flex flex-wrap items-center justify-around gap-6 text-left" style="border-color: var(--border-ui);">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="feather" class="w-5 h-5 text-purple-400"></i>
+                        <div>
+                            <div class="text-sm font-bold text-white" style="color: var(--text-title);">0 KB Assets 3D</div>
+                            <div class="text-xs text-slate-500">100% CSS3 Nativo + SVG</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="palette" class="w-5 h-5 text-emerald-400"></i>
+                        <div>
+                            <div class="text-sm font-bold text-white" style="color: var(--text-title);">3 Modos Calibrados</div>
+                            <div class="text-xs text-slate-500">Claro, Slate y Pitch Black</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="copy" class="w-5 h-5 text-blue-400"></i>
+                        <div>
+                            <div class="text-sm font-bold text-white" style="color: var(--text-title);">Copiar en 1 Clic</div>
+                            <div class="text-xs text-slate-500">HTML, Tailwind & React</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- SECCIÓN 2: ESTUDIO & PERSONALIZADOR INTERACTIVO          -->
+        <!-- ======================================================== -->
+        <section id="playground" class="py-20 border-t" style="border-color: var(--border-ui);">
+            <div class="max-w-7xl mx-auto px-5 sm:px-8">
+                
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <span class="text-xs font-mono font-bold uppercase tracking-widest text-purple-400 mb-3 block">
+                        ESTUDIO DE REFRACCIÓN EN VIVO
+                    </span>
+                    <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight" style="color: var(--text-title);">
+                        Ajusta la geometría, resplandor y biselado en tiempo real
+                    </h2>
+                    <p class="text-sm sm:text-base mt-3" style="color: var(--text-muted);">
+                        Experimenta con los parámetros ópticos y obtén el código CSS y HTML listo para producción sin dependencias pesadas.
+                    </p>
+                </div>
+
+                <!-- PANEL INTERACTIVO DE DOS COLUMNAS -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+                    
+                    <!-- Columna Izquierda: Controles y Sliders -->
+                    <div class="lg:col-span-5 ui-card rounded-3xl p-6 sm:p-8 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-lg font-bold mb-6 flex items-center gap-2.5" style="color: var(--text-title);">
+                                <i data-lucide="sliders" class="w-5 h-5 text-purple-400"></i>
+                                Parámetros de Estilo
+                            </h3>
+
+                            <!-- 1. Selección de Icono de Prueba -->
+                            <div class="mb-6">
+                                <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--text-muted);">
+                                    Icono de Lucide
+                                </label>
+                                <div class="grid grid-cols-5 gap-2">
+                                    <button onclick="setStudioIcon('users')" class="studio-icon-btn p-2.5 rounded-xl border flex items-center justify-center transition-all bg-purple-500/10 border-purple-500/40 text-purple-400">
+                                        <i data-lucide="users" class="w-5 h-5"></i>
+                                    </button>
+                                    <button onclick="setStudioIcon('shield-check')" class="studio-icon-btn p-2.5 rounded-xl border flex items-center justify-center transition-all border-slate-700/50 text-slate-400 hover:text-white">
+                                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                                    </button>
+                                    <button onclick="setStudioIcon('credit-card')" class="studio-icon-btn p-2.5 rounded-xl border flex items-center justify-center transition-all border-slate-700/50 text-slate-400 hover:text-white">
+                                        <i data-lucide="credit-card" class="w-5 h-5"></i>
+                                    </button>
+                                    <button onclick="setStudioIcon('zap')" class="studio-icon-btn p-2.5 rounded-xl border flex items-center justify-center transition-all border-slate-700/50 text-slate-400 hover:text-white">
+                                        <i data-lucide="zap" class="w-5 h-5"></i>
+                                    </button>
+                                    <button onclick="setStudioIcon('cpu')" class="studio-icon-btn p-2.5 rounded-xl border flex items-center justify-center transition-all border-slate-700/50 text-slate-400 hover:text-white">
+                                        <i data-lucide="cpu" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 2. Paleta de Color de Acento -->
+                            <div class="mb-6">
+                                <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--text-muted);">
+                                    Color de Tinte & Reflejo
+                                </label>
+                                <div class="flex items-center gap-3">
+                                    <button onclick="setStudioColor('purple', '#9333ea')" class="w-9 h-9 rounded-xl bg-purple-600 border-2 border-white/60 shadow-md transition-transform hover:scale-110 active:scale-95"></button>
+                                    <button onclick="setStudioColor('emerald', '#10b981')" class="w-9 h-9 rounded-xl bg-emerald-500 border border-transparent shadow-md transition-transform hover:scale-110 active:scale-95"></button>
+                                    <button onclick="setStudioColor('blue', '#3b82f6')" class="w-9 h-9 rounded-xl bg-blue-500 border border-transparent shadow-md transition-transform hover:scale-110 active:scale-95"></button>
+                                    <button onclick="setStudioColor('rose', '#f43f5e')" class="w-9 h-9 rounded-xl bg-rose-500 border border-transparent shadow-md transition-transform hover:scale-110 active:scale-95"></button>
+                                    <button onclick="setStudioColor('amber', '#f59e0b')" class="w-9 h-9 rounded-xl bg-amber-500 border border-transparent shadow-md transition-transform hover:scale-110 active:scale-95"></button>
+                                </div>
+                            </div>
+
+                            <!-- 3. Tamaño del Contenedor -->
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center text-xs font-semibold uppercase tracking-wider mb-2">
+                                    <span style="color: var(--text-muted);">Dimensión del Contenedor</span>
+                                    <span id="label-size" class="font-mono text-purple-400">80px</span>
+                                </div>
+                                <input type="range" id="input-size" min="48" max="112" value="80" step="8" 
+                                       oninput="updateStudioParams()" 
+                                       class="w-full accent-purple-500 cursor-pointer">
+                            </div>
+
+                            <!-- 4. Radio de Borde (Squircle a Círculo) -->
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center text-xs font-semibold uppercase tracking-wider mb-2">
+                                    <span style="color: var(--text-muted);">Curvatura de Esquinas (Border Radius)</span>
+                                    <span id="label-radius" class="font-mono text-purple-400">24px</span>
+                                </div>
+                                <input type="range" id="input-radius" min="8" max="56" value="24" step="4" 
+                                       oninput="updateStudioParams()" 
+                                       class="w-full accent-purple-500 cursor-pointer">
+                            </div>
+
+                            <!-- 5. Intensidad de Desenfoque (Backdrop Blur) -->
+                            <div class="mb-6">
+                                <div class="flex justify-between items-center text-xs font-semibold uppercase tracking-wider mb-2">
+                                    <span style="color: var(--text-muted);">Densidad de Difracción (Blur)</span>
+                                    <span id="label-blur" class="font-mono text-purple-400">12px</span>
+                                </div>
+                                <input type="range" id="input-blur" min="4" max="24" value="12" step="2" 
+                                       oninput="updateStudioParams()" 
+                                       class="w-full accent-purple-500 cursor-pointer">
+                            </div>
+                        </div>
+
+                        <!-- Reset -->
+                        <button onclick="resetStudio()" class="w-full py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:bg-slate-500/10" style="border-color: var(--border-ui); color: var(--text-muted);">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                            <span>Restablecer Valores Predeterminados</span>
+                        </button>
+                    </div>
+
+                    <!-- Columna Derecha: Vista Previa y Código Generado -->
+                    <div class="lg:col-span-7 flex flex-col gap-6">
+                        
+                        <!-- Tarjeta de Visor Óptico Central -->
+                        <div class="ui-card rounded-3xl p-8 sm:p-12 flex flex-col items-center justify-center relative overflow-hidden min-h-[340px]">
+                            <!-- Luces y Fondos Dinámicos de Estudio -->
+                            <div id="studio-glow-1" class="absolute -top-12 -right-12 w-48 h-48 bg-purple-500/25 rounded-full blur-3xl pointer-events-none transition-all duration-500"></div>
+                            <div id="studio-glow-2" class="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none transition-all duration-500"></div>
+
+                            <!-- OBJETO EN VIVO -->
+                            <div class="relative z-10 flex flex-col items-center">
+                                <div id="studio-icon-target" 
+                                     class="glass-icon-container glass-tint-purple group cursor-pointer"
+                                     style="width: 80px; height: 80px; border-radius: 24px; backdrop-filter: blur(12px);">
+                                    <i id="studio-icon-lucide" data-lucide="users" class="w-10 h-10 stroke-[2.2]"></i>
+                                </div>
+                                
+                                <p class="text-xs font-mono text-slate-400 mt-6 tracking-wide">
+                                    Pasa el cursor por encima para probar la elevación tridimensional
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Visor de Código Generado en Tiempo Real -->
+                        <div class="ui-card rounded-3xl p-6 relative">
+                            <div class="flex items-center justify-between border-b pb-4 mb-4" style="border-color: var(--border-ui);">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="code" class="w-4 h-4 text-purple-400"></i>
+                                    <span class="text-xs font-bold font-mono uppercase tracking-wider" style="color: var(--text-title);">CSS3 Generado</span>
+                                </div>
+                                <button onclick="copyStudioCSS()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/30">
+                                    <i data-lucide="clipboard-copy" class="w-3.5 h-3.5"></i>
+                                    <span id="copy-btn-text">Copiar CSS</span>
+                                </button>
+                            </div>
+
+                            <pre class="bg-black/50 p-4 rounded-xl text-xs font-mono text-purple-300 overflow-x-auto leading-relaxed"><code id="studio-code-output">/* Código CSS generado automáticamente por el Estudio */</code></pre>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- SECCIÓN 3: CATÁLOGO COMPLETO DE ICONOS (48 ICONOS)       -->
+        <!-- ======================================================== -->
+        <section id="catalogo" class="py-24 border-t" style="border-color: var(--border-ui);">
+            <div class="max-w-7xl mx-auto px-5 sm:px-8">
+
+                <!-- Cabecera de Sección -->
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div>
+                        <span class="text-xs font-mono font-bold uppercase tracking-widest text-purple-400 mb-2 block">
+                            REPOSITORIO DE ICONOS TÁCTILES
+                        </span>
+                        <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight" style="color: var(--text-title);">
+                            Explora 48 iconos de interfaz modernos
+                        </h2>
+                        <p class="text-sm mt-2 max-w-xl" style="color: var(--text-muted);">
+                            Selecciona cualquier ícono para inspeccionar su renderizado en los 3 modos de contraste, descargar el SVG o copiar su CSS directo.
+                        </p>
+                    </div>
+
+                    <!-- Buscador en Vivo -->
+                    <div class="relative w-full md:w-80">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        <input type="text" 
+                               id="icon-search-input" 
+                               placeholder="Buscar ícono (ej. users, lock, zap)..." 
+                               oninput="filterIcons()"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-medium border outline-none focus:ring-2 focus:ring-purple-500/40 transition-all"
+                               style="background-color: var(--bg-input); border-color: var(--border-ui); color: var(--text-title);">
+                    </div>
+                </div>
+
+                <!-- Tabs de Categoría -->
+                <div class="flex flex-wrap items-center gap-2 mb-10 pb-4 border-b overflow-x-auto" style="border-color: var(--border-ui);">
+                    <button onclick="filterCategory('all', this)" class="cat-pill px-4 py-2 rounded-xl text-xs font-bold transition-all bg-purple-600 text-white shadow-sm">
+                        Todos (48)
+                    </button>
+                    <button onclick="filterCategory('ui', this)" class="cat-pill px-4 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-500/10">
+                        Interfaz & Navegación
+                    </button>
+                    <button onclick="filterCategory('metrics', this)" class="cat-pill px-4 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-500/10">
+                        Métricas & Analítica
+                    </button>
+                    <button onclick="filterCategory('security', this)" class="cat-pill px-4 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-500/10">
+                        Seguridad & Autenticación
+                    </button>
+                    <button onclick="filterCategory('finance', this)" class="cat-pill px-4 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-500/10">
+                        Finanzas & Comercio
+                    </button>
+                    <button onclick="filterCategory('dev', this)" class="cat-pill px-4 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-500/10">
+                        Dev & Cloud Ops
+                    </button>
+                </div>
+
+                <!-- GRILLA DINÁMICA DE ICONOS -->
+                <div id="icon-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+                    <!-- Los iconos se inyectan automáticamente desde JavaScript con todos los datos -->
+                </div>
+
+                <!-- Mensaje cuando no hay resultados de búsqueda -->
+                <div id="no-results" class="hidden py-16 text-center">
+                    <div class="glass-icon-container w-16 h-16 rounded-2xl mx-auto mb-4 glass-tint-purple opacity-60">
+                        <i data-lucide="help-circle" class="w-8 h-8"></i>
+                    </div>
+                    <p class="text-base font-semibold" style="color: var(--text-title);">No se encontraron iconos</p>
+                    <p class="text-xs text-slate-500 mt-1">Prueba con otra palabra clave o limpia el campo de búsqueda.</p>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- SECCIÓN 4: BENTO GRID - FÍSICA Y ARQUITECTURA 3D         -->
+        <!-- ======================================================== -->
+        <section id="arquitectura" class="py-24 border-t" style="border-color: var(--border-ui);">
+            <div class="max-w-7xl mx-auto px-5 sm:px-8">
+                
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <span class="text-xs font-mono font-bold uppercase tracking-widest text-purple-400 mb-2 block">
+                        ANATOMÍA & INGENIERÍA ÓPTICA
+                    </span>
+                    <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight" style="color: var(--text-title);">
+                        ¿Por qué este cristal 3D luce tan premium?
+                    </h2>
+                    <p class="text-sm sm:text-base mt-3" style="color: var(--text-muted);">
+                        A diferencia de los degradados planos comunes, combinamos 5 capas de luz calculada para engañar al ojo humano con sensación de volumen y relieve real.
+                    </p>
+                </div>
+
+                <!-- BENTO GRID -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                    <!-- Tarjeta 1: Doble Bisel Inset -->
+                    <div class="ui-card rounded-3xl p-8 flex flex-col justify-between md:col-span-2 relative overflow-hidden">
+                        <div class="max-w-md z-10">
+                            <div class="w-12 h-12 rounded-2xl glass-icon-container glass-tint-purple mb-6">
+                                <i data-lucide="box" class="w-6 h-6 stroke-[2.2]"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-3" style="color: var(--text-title);">
+                                Bisel Especular Superior (Specular Inset Ray)
+                            </h3>
+                            <p class="text-sm leading-relaxed" style="color: var(--text-muted);">
+                                Usamos un brillo interior de ángulo agudo (<code class="font-mono text-purple-400">inset 0 1.5px 1px rgba(255,255,255,0.95)</code>) que imita la reflexión de una fuente de luz cenital de estudio sobre el borde afilado del cristal.
+                            </p>
+                        </div>
+                        <div class="mt-8 pt-6 border-t font-mono text-xs text-slate-500 z-10 flex items-center gap-4" style="border-color: var(--border-ui);">
+                            <span>LIGHT SOURCE: 90° ZENITH</span>
+                            <span>INDEX REFRACT: 1.52 (CROWN GLASS)</span>
+                        </div>
+                        <!-- Efecto visual decorativo de fondo -->
+                        <div class="absolute right-0 bottom-0 w-80 h-80 bg-gradient-to-tl from-purple-600/10 to-transparent rounded-tl-full pointer-events-none"></div>
+                    </div>
+
+                    <!-- Tarjeta 2: Difracción Sub-superficial -->
+                    <div class="ui-card rounded-3xl p-8 flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl glass-icon-container glass-tint-emerald mb-6">
+                                <i data-lucide="eye" class="w-6 h-6 stroke-[2.2]"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-3" style="color: var(--text-title);">
+                                Difracción Gaussiana
+                            </h3>
+                            <p class="text-sm leading-relaxed" style="color: var(--text-muted);">
+                                Filtrado nativo <code class="font-mono text-emerald-400">backdrop-filter: blur(12px)</code> que difumina los elementos de fondo, logrando sensación translúcida esmerilada.
+                            </p>
+                        </div>
+                        <div class="mt-6 text-xs font-mono text-emerald-400">
+                            ZERO RUNTIME OVERHEAD
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 3: Calibración Triple Modo -->
+                    <div class="ui-card rounded-3xl p-8 flex flex-col justify-between">
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl glass-icon-container glass-tint-blue mb-6">
+                                <i data-lucide="contrast" class="w-6 h-6 stroke-[2.2]"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-3" style="color: var(--text-title);">
+                                Triple Calibración de Contraste
+                            </h3>
+                            <p class="text-sm leading-relaxed" style="color: var(--text-muted);">
+                                El brillo del cristal se recalibra dinámicamente: blanco pulido en Modo Claro, azul profundo en Slate y negro absoluto en OLED.
+                            </p>
+                        </div>
+                        <div class="mt-6 text-xs font-mono text-blue-400">
+                            WCAG AA/AAA COMPLIANT
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta 4: Micro-Interacción Háptica -->
+                    <div class="ui-card rounded-3xl p-8 flex flex-col justify-between md:col-span-2">
+                        <div>
+                            <div class="w-12 h-12 rounded-2xl glass-icon-container glass-tint-rose mb-6">
+                                <i data-lucide="mouse-pointer-click" class="w-6 h-6 stroke-[2.2]"></i>
+                            </div>
+                            <h3 class="text-xl font-bold mb-3" style="color: var(--text-title);">
+                                Elevación Táctil Suave al Pasar el Cursor
+                            </h3>
+                            <p class="text-sm leading-relaxed" style="color: var(--text-muted);">
+                                Con una curva cúbica Bézier de desaceleración física (<code class="font-mono text-rose-400">cubic-bezier(0.16, 1, 0.3, 1)</code>), el contenedor se eleva 3px, proyecta sombra profunda y expande su resplandor cromático.
+                            </p>
+                        </div>
+                        <div class="mt-8 flex items-center gap-3">
+                            <span class="px-3 py-1 rounded-md text-xs font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20">hover:-translate-y-1</span>
+                            <span class="px-3 py-1 rounded-md text-xs font-mono bg-rose-500/10 text-rose-400 border border-rose-500/20">hover:scale-105</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- SECCIÓN 5: GUÍA DE INTEGRACIÓN RÁPIDA (Código Copiable)  -->
+        <!-- ======================================================== -->
+        <section id="integracion" class="py-24 border-t" style="border-color: var(--border-ui);">
+            <div class="max-w-7xl mx-auto px-5 sm:px-8">
+                
+                <div class="text-center max-w-3xl mx-auto mb-16">
+                    <span class="text-xs font-mono font-bold uppercase tracking-widest text-purple-400 mb-2 block">
+                        IMPLEMENTACIÓN SENCILLA
+                    </span>
+                    <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight" style="color: var(--text-title);">
+                        Añade iconos Glassmorphic a tu proyecto en 30 segundos
+                    </h2>
+                    <p class="text-sm sm:text-base mt-3" style="color: var(--text-muted);">
+                        Elige tu stack de desarrollo preferido y copia el fragmento directamente.
+                    </p>
+                </div>
+
+                <div class="max-w-4xl mx-auto ui-card rounded-3xl overflow-hidden">
+                    <!-- Pestañas de Lenguaje -->
+                    <div class="flex items-center gap-2 p-3 border-b bg-black/30" style="border-color: var(--border-ui);">
+                        <button onclick="switchCodeTab('html')" id="tab-btn-html" class="px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all bg-purple-600 text-white">
+                            HTML + CSS Nativo
+                        </button>
+                        <button onclick="switchCodeTab('tailwind')" id="tab-btn-tailwind" class="px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all text-slate-400 hover:text-white">
+                            Tailwind CSS Utility
+                        </button>
+                        <button onclick="switchCodeTab('react')" id="tab-btn-react" class="px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all text-slate-400 hover:text-white">
+                            React + Lucide
+                        </button>
+                    </div>
+
+                    <!-- Snippet HTML -->
+                    <div id="code-snippet-html" class="p-6 sm:p-8">
+                        <pre class="text-xs font-mono text-slate-300 leading-relaxed overflow-x-auto"><code>&lt;!-- 1. Estilos CSS del Relieve 3D --&gt;
+&lt;style&gt;
+  .icon-glass-3d {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.2));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 10px 20px -5px rgba(147, 51, 234, 0.15),
+                inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+                inset 0 -1.5px 2px rgba(147, 51, 234, 0.1);
+  }
+  .dark .icon-glass-3d {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0.5px rgba(255, 255, 255, 0.4),
+                inset 0 -1px 2px rgba(0, 0, 0, 0.4);
+  }
+&lt;/style&gt;
+
+&lt;!-- 2. Estructura HTML del Ícono --&gt;
+&lt;div class="icon-glass-3d w-14 h-14 rounded-2xl text-purple-500 flex items-center justify-center transition-all duration-300 hover:scale-110"&gt;
+  &lt;i data-lucide="users" class="w-7 h-7"&gt;&lt;/i&gt;
+&lt;/div&gt;</code></pre>
+                    </div>
+
+                    <!-- Snippet Tailwind -->
+                    <div id="code-snippet-tailwind" class="hidden p-6 sm:p-8">
+                        <pre class="text-xs font-mono text-slate-300 leading-relaxed overflow-x-auto"><code>&lt;!-- Requiere backdrop-blur habilitado en tailwind.config.js --&gt;
+&lt;div class="w-14 h-14 rounded-2xl flex items-center justify-center text-purple-400
+            bg-gradient-to-br from-white/60 to-white/20 dark:from-white/15 dark:to-white/5
+            backdrop-blur-md border border-white/80 dark:border-white/20
+            shadow-[0_10px_20px_-5px_rgba(147,51,234,0.15)] dark:shadow-[0_10px_25px_-4px_rgba(0,0,0,0.6)]
+            shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.95)] dark:shadow-[inset_0_1px_0.5px_rgba(255,255,255,0.4)]
+            transition-all duration-300 hover:scale-110 hover:-translate-y-1 cursor-pointer"&gt;
+  &lt;Users className="w-7 h-7 stroke-[2.2]" /&gt;
+&lt;/div&gt;</code></pre>
+                    </div>
+
+                    <!-- Snippet React -->
+                    <div id="code-snippet-react" class="hidden p-6 sm:p-8">
+                        <pre class="text-xs font-mono text-slate-300 leading-relaxed overflow-x-auto"><code>import React from 'react';
+import { Users } from 'lucide-react';
+
+export const GlassIcon = ({ icon: Icon = Users, size = 'w-14 h-14', color = 'text-purple-400' }) => {
+  return (
+    &lt;div className={`relative flex items-center justify-center rounded-2xl ${size} ${color}
+      bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-xl border border-white/20
+      shadow-xl hover:scale-110 hover:-translate-y-1 transition-all duration-300 group cursor-pointer`}
+      style={{
+        boxShadow: '0 12px 28px -4px rgba(0,0,0,0.5), inset 0 1px 0.5px rgba(255,255,255,0.4)'
+      }}&gt;
+      &lt;Icon className="w-1/2 h-1/2 stroke-[2.2]" /&gt;
+    &lt;/div&gt;
+  );
+};</code></pre>
+                    </div>
+
+                    <!-- Barra de Copiado Inferior -->
+                    <div class="flex items-center justify-between px-6 py-4 border-t bg-black/20" style="border-color: var(--border-ui);">
+                        <span class="text-xs text-slate-500 font-mono">Compatible con Next.js, Vite, Astro y Webpack</span>
+                        <button onclick="copyCurrentSnippet()" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 transition-all flex items-center gap-1.5">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span id="btn-copy-snippet-text">Copiar Código</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- SECCIÓN 6: PREGUNTAS FRECUENTES (FAQ)                    -->
+        <!-- ======================================================== -->
+        <section id="faq" class="py-24 border-t" style="border-color: var(--border-ui);">
+            <div class="max-w-4xl mx-auto px-5 sm:px-8">
+                
+                <div class="text-center mb-16">
+                    <span class="text-xs font-mono font-bold uppercase tracking-widest text-purple-400 mb-2 block">
+                        RESOLUCIÓN DE DUDAS
+                    </span>
+                    <h2 class="text-3xl sm:text-4xl font-semibold tracking-tight" style="color: var(--text-title);">
+                        Preguntas Frecuentes
+                    </h2>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    
+                    <details class="ui-card rounded-2xl p-6 group cursor-pointer">
+                        <summary class="flex items-center justify-between text-base font-semibold list-none" style="color: var(--text-title);">
+                            <span>¿Funciona el efecto de cristal en navegadores antiguos o Safari móvil?</span>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="mt-4 text-sm leading-relaxed text-slate-400">
+                            Sí, se incluye el prefijo obligatorio <code class="text-purple-400 font-mono">-webkit-backdrop-filter: blur(10px)</code> que asegura total compatibilidad con iOS Safari, Chrome, Edge y Firefox moderno sin artefactos visuales.
+                        </p>
+                    </details>
+
+                    <details class="ui-card rounded-2xl p-6 group cursor-pointer">
+                        <summary class="flex items-center justify-between text-base font-semibold list-none" style="color: var(--text-title);">
+                            <span>¿Afecta el rendimiento de la página el uso de múltiples capas de cristal?</span>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="mt-4 text-sm leading-relaxed text-slate-400">
+                            Al ser implementado con CSS3 y aceleración por GPU (<code class="text-purple-400 font-mono">backdrop-filter</code>), el rendimiento es significativamente superior a renderizar archivos 3D WebGL o videos en bucle. Mantiene fluidos 60-120 FPS estables.
+                        </p>
+                    </details>
+
+                    <details class="ui-card rounded-2xl p-6 group cursor-pointer">
+                        <summary class="flex items-center justify-between text-base font-semibold list-none" style="color: var(--text-title);">
+                            <span>¿Puedo cambiar la familia de iconos por Tabler, Feather o FontAwesome?</span>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="mt-4 text-sm leading-relaxed text-slate-400">
+                            Absolutamente. El contenedor <code class="text-purple-400 font-mono">glass-icon-container</code> es agnóstico del contenido interno. Puedes colocar cualquier SVG, ícono vectorial o texto dentro de él.
+                        </p>
+                    </details>
+
+                    <details class="ui-card rounded-2xl p-6 group cursor-pointer">
+                        <summary class="flex items-center justify-between text-base font-semibold list-none" style="color: var(--text-title);">
+                            <span>¿Puedo utilizar este sistema en proyectos comerciales y clientes?</span>
+                            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <p class="mt-4 text-sm leading-relaxed text-slate-400">
+                            Sí. El código generado está liberado bajo licencia libre sin regalías. Eres libre de usarlo en plataformas SaaS, paneles administrativos, aplicaciones móviles y sitios comerciales.
+                        </p>
+                    </details>
+
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- SECCIÓN 7: BANNER FINAL CTA                              -->
+        <!-- ======================================================== -->
+        <section class="py-24 border-t relative overflow-hidden" style="border-color: var(--border-ui);">
+            <div class="ambient-glow w-[500px] h-[500px] bg-purple-600/15 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+            
+            <div class="max-w-5xl mx-auto px-5 sm:px-8 text-center relative z-10">
+                <div class="glass-icon-container w-20 h-20 rounded-3xl glass-tint-purple mx-auto mb-8 shadow-2xl">
+                    <i data-lucide="sparkles" class="w-10 h-10 stroke-[2.2]"></i>
+                </div>
+
+                <h2 class="text-3xl sm:text-5xl font-semibold tracking-tight mb-6" style="background: var(--gradient-hero); -webkit-background-clip: text; background-clip: text; color: transparent;">
+                    Eleva la calidad visual de tu próxima interfaz
+                </h2>
+                <p class="text-sm sm:text-base max-w-xl mx-auto mb-10 text-slate-400">
+                    Únete a diseñadores y desarrolladores front-end que ya construyen con el sistema táctil Glassmorphic 3D.
+                </p>
+
+                <div class="flex flex-wrap items-center justify-center gap-4">
+                    <a href="#catalogo" class="px-8 py-4 rounded-2xl text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 shadow-lg shadow-purple-600/25 transition-all hover:scale-105 active:scale-95">
+                        Ver Colección Completa
+                    </a>
+                    <a href="#playground" class="px-8 py-4 rounded-2xl text-sm font-semibold border transition-all hover:bg-slate-500/10" style="border-color: var(--border-ui); color: var(--text-title);">
+                        Ajustar en el Estudio
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+
+    <!-- ======================================================== -->
+    <!-- FOOTER ULTRA MODERNO                                     -->
+    <!-- ======================================================== -->
+    <footer class="border-t py-16 text-sm" style="border-color: var(--border-ui); background-color: var(--bg-surface);">
+        <div class="max-w-7xl mx-auto px-5 sm:px-8">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-8">
+                
+                <div class="flex items-center gap-3">
+                    <div class="glass-icon-container w-9 h-9 rounded-xl glass-tint-purple">
+                        <i data-lucide="layers" class="w-4 h-4"></i>
+                    </div>
+                    <span class="font-bold tracking-tight" style="color: var(--text-title);">Lumina UI Icons</span>
+                    <span class="text-xs text-slate-500 font-mono">v2.4 Production Ready</span>
+                </div>
+
+                <div class="flex items-center gap-8 text-xs font-medium text-slate-400">
+                    <a href="#catalogo" class="hover:text-purple-400 transition-colors">Iconos</a>
+                    <a href="#playground" class="hover:text-purple-400 transition-colors">Estudio</a>
+                    <a href="#arquitectura" class="hover:text-purple-400 transition-colors">Física 3D</a>
+                    <a href="#integracion" class="hover:text-purple-400 transition-colors">Código</a>
+                </div>
+
+                <p class="text-xs text-slate-500 font-mono">
+                    Construido con amor por el diseño táctil. 0% emojis, 100% vector glass.
+                </p>
+
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- ======================================================== -->
+    <!-- MODAL DE DETALLE DE ÍCONO (Vista de 3 Modos en Paralelo)  -->
+    <!-- ======================================================== -->
+    <div id="iconModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 transition-all duration-300">
+        <div class="ui-card w-full max-w-4xl rounded-3xl p-6 sm:p-8 relative max-h-[90vh] overflow-y-auto shadow-2xl">
+            
+            <!-- Botón Cerrar -->
+            <button onclick="closeIconModal()" class="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-500/10 transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <!-- Encabezado del Modal -->
+            <div class="flex items-center gap-4 mb-8">
+                <div id="modal-badge-icon" class="glass-icon-container w-14 h-14 rounded-2xl glass-tint-purple">
+                    <i id="modal-lucide-badge" data-lucide="users" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <h3 id="modal-title" class="text-xl font-bold" style="color: var(--text-title);">users.glass</h3>
+                    <p id="modal-desc" class="text-xs text-slate-400 mt-0.5">Icono de interfaz con relieve de cristal tridimensional.</p>
+                </div>
+            </div>
+
+            <!-- COMPARATIVA DE LOS 3 MODOS DENTRO DEL MODAL -->
+            <div class="mb-8">
+                <span class="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 block mb-4">
+                    Renderizado Óptico en los 3 Entornos
+                </span>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    
+                    <!-- 1. Preview Modo Claro -->
+                    <div class="p-5 rounded-2xl bg-[#f8fafc] border border-slate-200 text-slate-900 flex flex-col items-center justify-between text-center relative overflow-hidden">
+                        <div class="w-full flex justify-between items-center text-[10px] font-mono text-slate-500 mb-4">
+                            <span class="font-bold">MODO CLARO</span>
+                            <span>#f8fafc</span>
+                        </div>
+                        <div class="my-4">
+                            <div id="modal-icon-light" class="glass-icon-container glass-tint-purple w-16 h-16 rounded-2xl" 
+                                 style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.25)); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 10px 20px -5px rgba(147, 51, 234, 0.15), inset 0 1.5px 1px rgba(255, 255, 255, 0.95); color: #9333ea;">
+                                <i id="modal-lucide-light" data-lucide="users" class="w-8 h-8 stroke-[2.2]"></i>
+                            </div>
+                        </div>
+                        <span class="text-[11px] text-slate-600 font-medium">Borde Especular Blanco Nítido</span>
+                    </div>
+
+                    <!-- 2. Preview Modo Azul Oscuro -->
+                    <div class="p-5 rounded-2xl bg-[#0f172a] border border-slate-800 text-white flex flex-col items-center justify-between text-center relative overflow-hidden">
+                        <div class="w-full flex justify-between items-center text-[10px] font-mono text-slate-400 mb-4">
+                            <span class="font-bold">MODO SLATE AZUL</span>
+                            <span>#0f172a</span>
+                        </div>
+                        <div class="my-4">
+                            <div id="modal-icon-slate" class="glass-icon-container glass-tint-purple w-16 h-16 rounded-2xl"
+                                 style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)); border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0.5px rgba(255, 255, 255, 0.4); color: #c084fc;">
+                                <i id="modal-lucide-slate" data-lucide="users" class="w-8 h-8 stroke-[2.2]"></i>
+                            </div>
+                        </div>
+                        <span class="text-[11px] text-slate-300 font-medium">Cristal Ahumado con Sombra Profunda</span>
+                    </div>
+
+                    <!-- 3. Preview Modo Black OLED -->
+                    <div class="p-5 rounded-2xl bg-[#0a0a0a] border border-[#222] text-white flex flex-col items-center justify-between text-center relative overflow-hidden">
+                        <div class="w-full flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-4">
+                            <span class="font-bold">MODO PITCH BLACK</span>
+                            <span>#0a0a0a</span>
+                        </div>
+                        <div class="my-4">
+                            <div id="modal-icon-black" class="glass-icon-container glass-tint-purple w-16 h-16 rounded-2xl"
+                                 style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.015)); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.85), inset 0 1px 0.5px rgba(255, 255, 255, 0.35); color: #d8b4fe;">
+                                <i id="modal-lucide-black" data-lucide="users" class="w-8 h-8 stroke-[2.2]"></i>
+                            </div>
+                        </div>
+                        <span class="text-[11px] text-zinc-300 font-medium">Alto Contraste en Negro Puro</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Código Listo para Copiar -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-mono font-bold uppercase text-purple-400">Snippet HTML + Clases Listo</span>
+                    <button onclick="copyModalCode()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-600 text-white hover:bg-purple-500 transition-all flex items-center gap-1.5 shadow-sm">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span id="modal-copy-btn-text">Copiar Componente</span>
+                    </button>
+                </div>
+
+                <pre class="bg-black/60 p-4 rounded-xl text-xs font-mono text-purple-200 overflow-x-auto"><code id="modal-code-output">&lt;!-- Code --&gt;</code></pre>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- NOTIFICACIÓN TOAST FLOTANTE                              -->
+    <!-- ======================================================== -->
+    <div id="toast" class="fixed bottom-8 right-8 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl border text-sm font-semibold backdrop-blur-xl"
+         style="background-color: var(--bg-surface-elevated); border-color: var(--border-ui); color: var(--text-title);">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toast-message">Copiado al portapapeles</span>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- JAVASCRIPT: LÓGICA DE APLICACIÓN Y RENDERIZADO           -->
+    <!-- ======================================================== -->
+    <script>
+        // BASE DE DATOS DE 48 ICONOS DE ALTA CALIDAD PARA INTERFACES
+        const ICON_DATABASE = [
+            // INTERFAZ & NAVEGACIÓN (UI)
+            { id: 'users', name: 'users', label: 'Comunidad & Equipo', category: 'ui', tint: 'purple' },
+            { id: 'layout-grid', name: 'layout-grid', label: 'Cuadrícula Bento', category: 'ui', tint: 'blue' },
+            { id: 'layers', name: 'layers', label: 'Capas & Niveles', category: 'ui', tint: 'emerald' },
+            { id: 'compass', name: 'compass', label: 'Explorador Global', category: 'ui', tint: 'purple' },
+            { id: 'sliders', name: 'sliders', label: 'Ajustes & Controles', category: 'ui', tint: 'amber' },
+            { id: 'sparkles', name: 'sparkles', label: 'Inteligencia Artificial', category: 'ui', tint: 'purple' },
+            { id: 'bell', name: 'bell', label: 'Centro Notificaciones', category: 'ui', tint: 'rose' },
+            { id: 'bookmark', name: 'bookmark', label: 'Guardados & Pins', category: 'ui', tint: 'blue' },
+            { id: 'check-circle-2', name: 'check-circle-2', label: 'Verificado', category: 'ui', tint: 'emerald' },
+            { id: 'command', name: 'command', label: 'Paleta de Comandos', category: 'ui', tint: 'purple' },
+            
+            // MÉTRICAS & ANALÍTICA
+            { id: 'activity', name: 'activity', label: 'Telemetría Viva', category: 'metrics', tint: 'emerald' },
+            { id: 'trending-up', name: 'trending-up', label: 'Crecimiento de Tráfico', category: 'metrics', tint: 'emerald' },
+            { id: 'bar-chart-3', name: 'bar-chart-3', label: 'Estadísticas KPI', category: 'metrics', tint: 'blue' },
+            { id: 'pie-chart', name: 'pie-chart', label: 'Distribución de Cuota', category: 'metrics', tint: 'purple' },
+            { id: 'gauge', name: 'gauge', label: 'Velocidad de Respuesta', category: 'metrics', tint: 'amber' },
+            { id: 'zap', name: 'zap', label: 'Baja Latencia Edge', category: 'metrics', tint: 'amber' },
+            { id: 'target', name: 'target', label: 'Objetivos & Conversión', category: 'metrics', tint: 'rose' },
+            { id: 'line-chart', name: 'line-chart', label: 'Historial Temporal', category: 'metrics', tint: 'blue' },
+
+            // SEGURIDAD & AUTENTICACIÓN
+            { id: 'shield-check', name: 'shield-check', label: 'Protección Firewall', category: 'security', tint: 'emerald' },
+            { id: 'lock', name: 'lock', label: 'Cifrado AES-256', category: 'security', tint: 'purple' },
+            { id: 'key-round', name: 'key-round', label: 'Tokens de API', category: 'security', tint: 'amber' },
+            { id: 'fingerprint', name: 'fingerprint', label: 'Biometría Passkey', category: 'security', tint: 'blue' },
+            { id: 'shield-alert', name: 'shield-alert', label: 'Auditoría de Fuga', category: 'security', tint: 'rose' },
+            { id: 'eye', name: 'eye', label: 'Monitor de Visibilidad', category: 'security', tint: 'purple' },
+            { id: 'unlock', name: 'unlock', label: 'Permisos Abiertos', category: 'security', tint: 'amber' },
+            { id: 'file-check', name: 'file-check', label: 'Certificado SSL', category: 'security', tint: 'emerald' },
+
+            // FINANZAS & COMERCIO
+            { id: 'credit-card', name: 'credit-card', label: 'Procesador Stripe', category: 'finance', tint: 'blue' },
+            { id: 'wallet', name: 'wallet', label: 'Billetera Digital', category: 'finance', tint: 'purple' },
+            { id: 'dollar-sign', name: 'dollar-sign', label: 'Facturación & Cobro', category: 'finance', tint: 'emerald' },
+            { id: 'shopping-bag', name: 'shopping-bag', label: 'Carro de Compras', category: 'finance', tint: 'rose' },
+            { id: 'receipt', name: 'receipt', label: 'Recibo & Factura', category: 'finance', tint: 'amber' },
+            { id: 'coins', name: 'coins', label: 'Microtransacciones', category: 'finance', tint: 'amber' },
+            { id: 'package', name: 'package', label: 'Envío & Logística', category: 'finance', tint: 'blue' },
+            { id: 'scale', name: 'scale', label: 'Balance Contable', category: 'finance', tint: 'purple' },
+
+            // DEV & CLOUD OPS
+            { id: 'terminal', name: 'terminal', label: 'Línea de Comandos CLI', category: 'dev', tint: 'purple' },
+            { id: 'cpu', name: 'cpu', label: 'Cómputo Serveless', category: 'dev', tint: 'blue' },
+            { id: 'database', name: 'database', label: 'Base de Datos Vectorial', category: 'dev', tint: 'emerald' },
+            { id: 'server', name: 'server', label: 'Nodos Edge Globales', category: 'dev', tint: 'purple' },
+            { id: 'git-branch', name: 'git-branch', label: 'Ramas & Deployments', category: 'dev', tint: 'rose' },
+            { id: 'cloud-lightning', name: 'cloud-lightning', label: 'Sincronización Cloud', category: 'dev', tint: 'amber' },
+            { id: 'code-2', name: 'code-2', label: 'Editor de Código', category: 'dev', tint: 'blue' },
+            { id: 'webhook', name: 'webhook', label: 'Webhooks en Tiempo Real', category: 'dev', tint: 'emerald' },
+            { id: 'hard-drive', name: 'hard-drive', label: 'Almacenamiento S3', category: 'dev', tint: 'purple' },
+            { id: 'network', name: 'network', label: 'Malla Mesh DNS', category: 'dev', tint: 'blue' },
+            { id: 'box', name: 'box', label: 'Contenedores Docker', category: 'dev', tint: 'amber' },
+            { id: 'workflow', name: 'workflow', label: 'Pipelines CI/CD', category: 'dev', tint: 'rose' },
+            { id: 'cable', name: 'cable', label: 'Conexión WebSocket', category: 'dev', tint: 'emerald' },
+            { id: 'bot', name: 'bot', label: 'Agentes Automatizados', category: 'dev', tint: 'purple' }
+        ];
+
+        let currentActiveCategory = 'all';
+        let currentActiveSnippet = 'html';
+        let studioState = {
+            icon: 'users',
+            color: 'purple',
+            colorHex: '#9333ea',
+            size: 80,
+            radius: 24,
+            blur: 12
+        };
+
+        // ==========================================
+        // GESTOR DE TEMAS (3 MODOS)
+        // ==========================================
+        function setGlobalTheme(theme) {
+            const root = document.documentElement;
+            root.classList.remove('light', 'dark', 'theme-black');
+
+            const btnLight = document.getElementById('theme-btn-light');
+            const btnBlue = document.getElementById('theme-btn-blue');
+            const btnBlack = document.getElementById('theme-btn-black');
+
+            const defaultClasses = "p-2 rounded-lg text-xs font-medium transition-all text-slate-400 hover:text-purple-400 border border-transparent";
+            const activeClasses = "p-2 rounded-lg text-xs font-medium transition-all bg-purple-600/20 text-purple-400 border border-purple-500/30";
+
+            btnLight.className = defaultClasses;
+            btnBlue.className = defaultClasses;
+            btnBlack.className = defaultClasses;
+
+            if (theme === 'light') {
+                root.classList.add('light');
+                btnLight.className = activeClasses;
+                showToast("Modo Claro Activado (Fondo de Tarjeta Limpio)");
+            } else if (theme === 'dark-blue') {
+                root.classList.add('dark');
+                btnBlue.className = activeClasses;
+                showToast("Modo Azul Profundo (Slate 950) Activado");
+            } else if (theme === 'dark-black') {
+                root.classList.add('dark', 'theme-black');
+                btnBlack.className = activeClasses;
+                showToast("Modo Pitch Black / OLED Activado");
+            }
+
+            // Refrescar iconos y modal
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        // ==========================================
+        // RENDERIZADO DEL CATÁLOGO DE ICONOS
+        // ==========================================
+        function renderIcons(icons) {
+            const grid = document.getElementById('icon-grid');
+            const noResults = document.getElementById('no-results');
+
+            if (!icons || icons.length === 0) {
+                grid.innerHTML = '';
+                noResults.classList.remove('hidden');
+                return;
+            }
+
+            noResults.classList.add('hidden');
+            grid.innerHTML = icons.map(icon => `
+                <div onclick="openIconModal('${icon.id}', '${icon.label}', '${icon.name}')" 
+                     class="ui-card rounded-2xl p-5 flex flex-col items-center text-center group cursor-pointer relative overflow-hidden transition-all duration-300 hover:scale-[1.03]">
+                    
+                    <!-- Icono en Contenedor Glassmorphic 3D -->
+                    <div class="glass-icon-container glass-tint-${icon.tint} w-16 h-16 rounded-2xl mb-4 group-hover:scale-110 group-hover:-translate-y-1">
+                        <i data-lucide="${icon.name}" class="w-8 h-8 stroke-[2.2]"></i>
+                    </div>
+
+                    <span class="text-xs font-bold truncate max-w-full" style="color: var(--text-title);">${icon.name}</span>
+                    <span class="text-[10px] text-slate-400 truncate max-w-full mt-0.5">${icon.label}</span>
+
+                    <!-- Micro Badge de Categoría -->
+                    <span class="text-[9px] font-mono uppercase tracking-wider text-purple-400 mt-2.5 px-2 py-0.5 rounded-md bg-purple-500/10">
+                        ${icon.category}
+                    </span>
+                </div>
+            `).join('');
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        // ==========================================
+        // FILTRADO POR BÚSQUEDA Y CATEGORÍAS
+        // ==========================================
+        function filterCategory(cat, btn) {
+            currentActiveCategory = cat;
+            document.querySelectorAll('.cat-pill').forEach(pill => {
+                pill.className = "cat-pill px-4 py-2 rounded-xl text-xs font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-500/10";
+            });
+            btn.className = "cat-pill px-4 py-2 rounded-xl text-xs font-bold transition-all bg-purple-600 text-white shadow-sm";
+            applyCombinedFilters();
+        }
+
+        function filterIcons() {
+            applyCombinedFilters();
+        }
+
+        function applyCombinedFilters() {
+            const query = (document.getElementById('icon-search-input').value || '').toLowerCase().trim();
+            const filtered = ICON_DATABASE.filter(icon => {
+                const matchesCat = currentActiveCategory === 'all' || icon.category === currentActiveCategory;
+                const matchesSearch = icon.name.toLowerCase().includes(query) || 
+                                      icon.label.toLowerCase().includes(query) || 
+                                      icon.category.toLowerCase().includes(query);
+                return matchesCat && matchesSearch;
+            });
+            renderIcons(filtered);
+        }
+
+        // ==========================================
+        // ESTUDIO INTERACTIVO (PLAYGROUND)
+        // ==========================================
+        function setStudioIcon(iconName) {
+            studioState.icon = iconName;
+            const targetIcon = document.getElementById('studio-icon-lucide');
+            targetIcon.setAttribute('data-lucide', iconName);
+            
+            // Actualizar botones de icono activo
+            document.querySelectorAll('.studio-icon-btn').forEach(btn => {
+                btn.className = "studio-icon-btn p-2.5 rounded-xl border flex items-center justify-center transition-all border-slate-700/50 text-slate-400 hover:text-white";
+            });
+            event.currentTarget.className = "studio-icon-btn p-2.5 rounded-xl border flex items-center justify-center transition-all bg-purple-500/10 border-purple-500/40 text-purple-400";
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+            updateStudioParams();
+        }
+
+        function setStudioColor(tintClass, hex) {
+            studioState.color = tintClass;
+            studioState.colorHex = hex;
+
+            const target = document.getElementById('studio-icon-target');
+            target.className = `glass-icon-container glass-tint-${tintClass} group cursor-pointer`;
+
+            // Efecto en los resplandores de fondo del visor
+            document.getElementById('studio-glow-1').style.backgroundColor = hex + '40';
+            updateStudioParams();
+        }
+
+        function updateStudioParams() {
+            const size = document.getElementById('input-size').value;
+            const radius = document.getElementById('input-radius').value;
+            const blur = document.getElementById('input-blur').value;
+
+            studioState.size = size;
+            studioState.radius = radius;
+            studioState.blur = blur;
+
+            document.getElementById('label-size').textContent = `${size}px`;
+            document.getElementById('label-radius').textContent = `${radius}px`;
+            document.getElementById('label-blur').textContent = `${blur}px`;
+
+            const target = document.getElementById('studio-icon-target');
+            target.style.width = `${size}px`;
+            target.style.height = `${size}px`;
+            target.style.borderRadius = `${radius}px`;
+            target.style.backdropFilter = `blur(${blur}px)`;
+            target.style.webkitBackdropFilter = `blur(${blur}px)`;
+
+            // Ajustar tamaño del icono svg interno
+            const iconSvg = document.getElementById('studio-icon-lucide');
+            const iconSize = Math.round(size * 0.48);
+            iconSvg.style.width = `${iconSize}px`;
+            iconSvg.style.height = `${iconSize}px`;
+
+            generateStudioCSSOutput();
+        }
+
+        function generateStudioCSSOutput() {
+            const codeOutput = document.getElementById('studio-code-output');
+            const css = `/* 3. Glassmorphic 3D Relieve Personalizado */
+.custom-glass-icon {
+  width: ${studioState.size}px;
+  height: ${studioState.size}px;
+  border-radius: ${studioState.radius}px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(${studioState.blur}px);
+  -webkit-backdrop-filter: blur(${studioState.blur}px);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  color: ${studioState.colorHex};
+  
+  /* Modo Claro */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.25));
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.1),
+              inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+              inset 0 -1.5px 2px ${studioState.colorHex}25;
+}
+
+/* Elevación Hover */
+.custom-glass-icon:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 18px 36px -6px rgba(0, 0, 0, 0.3);
+}`;
+            codeOutput.textContent = css;
+        }
+
+        function resetStudio() {
+            document.getElementById('input-size').value = 80;
+            document.getElementById('input-radius').value = 24;
+            document.getElementById('input-blur').value = 12;
+            setStudioColor('purple', '#9333ea');
+            updateStudioParams();
+            showToast("Valores del Estudio Restablecidos");
+        }
+
+        function copyStudioCSS() {
+            const code = document.getElementById('studio-code-output').textContent;
+            navigator.clipboard.writeText(code);
+            showToast("CSS copiado al portapapeles");
+            
+            const btnText = document.getElementById('copy-btn-text');
+            btnText.textContent = "¡Copiado!";
+            setTimeout(() => { btnText.textContent = "Copiar CSS"; }, 2000);
+        }
+
+        // ==========================================
+        // MODAL DE DETALLE DE ICONO
+        // ==========================================
+        function openIconModal(id, label, iconName) {
+            const modal = document.getElementById('iconModal');
+            document.getElementById('modal-title').textContent = `${iconName}.glass`;
+            document.getElementById('modal-desc').textContent = `${label} — Renderizado 3D multi-capa`;
+
+            // Actualizar los iconos de lucide en los 3 visores del modal
+            document.getElementById('modal-lucide-badge').setAttribute('data-lucide', iconName);
+            document.getElementById('modal-lucide-light').setAttribute('data-lucide', iconName);
+            document.getElementById('modal-lucide-slate').setAttribute('data-lucide', iconName);
+            document.getElementById('modal-lucide-black').setAttribute('data-lucide', iconName);
+
+            // Generar fragmento copiable
+            const snippet = `<div class="glass-icon-container w-14 h-14 rounded-2xl glass-tint-purple">\n  <i data-lucide="${iconName}" class="w-7 h-7 stroke-[2.2]"></i>\n</div>`;
+            document.getElementById('modal-code-output').textContent = snippet;
+
+            modal.classList.remove('hidden');
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+        function closeIconModal() {
+            document.getElementById('iconModal').classList.add('hidden');
+        }
+
+        function copyModalCode() {
+            const code = document.getElementById('modal-code-output').textContent;
+            navigator.clipboard.writeText(code);
+            showToast("Componente copiado");
+            
+            const btnText = document.getElementById('modal-copy-btn-text');
+            btnText.textContent = "¡Copiado!";
+            setTimeout(() => { btnText.textContent = "Copiar Componente"; }, 2000);
+        }
+
+        // ==========================================
+        // SNIPPETS DE INTEGRACIÓN (SECCIÓN 5)
+        // ==========================================
+        function switchCodeTab(tab) {
+            currentActiveSnippet = tab;
+            ['html', 'tailwind', 'react'].forEach(t => {
+                document.getElementById(`code-snippet-${t}`).classList.add('hidden');
+                const btn = document.getElementById(`tab-btn-${t}`);
+                btn.className = "px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all text-slate-400 hover:text-white";
+            });
+
+            document.getElementById(`code-snippet-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tab}`).className = "px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all bg-purple-600 text-white";
+        }
+
+        function copyCurrentSnippet() {
+            const snippetElement = document.getElementById(`code-snippet-${currentActiveSnippet}`).querySelector('code');
+            navigator.clipboard.writeText(snippetElement.textContent);
+            showToast(`Snippet de ${currentActiveSnippet.toUpperCase()} copiado`);
+
+            const btnText = document.getElementById('btn-copy-snippet-text');
+            btnText.textContent = "¡Copiado!";
+            setTimeout(() => { btnText.textContent = "Copiar Código"; }, 2000);
+        }
+
+        // ==========================================
+        // UTILIDADES: TOAST Y MENÚ MÓVIL
+        // ==========================================
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Inicialización al cargar el documento
+        document.addEventListener('DOMContentLoaded', () => {
+            renderIcons(ICON_DATABASE);
+            updateStudioParams();
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    </script>
+
+    <!-- LUMINA · AgentOSweb Chat Widget -->
+    <script src="http://localhost:3000/w/7f1f92bb-f8b9-4d5c-b87d-fe83c6649db5/widget.js?v=12" data-api-url="https://agentosweb-api.linkeaoficial2025.workers.dev/api" defer></script>
+</body>
+</html>
