@@ -59,19 +59,16 @@
 
 ## ⚡ Mejoras de producto / UX
 
-- [ ] **Botón "Probar modelo" en la configuración (Modo clave propia).**
-  - Enviar un mensaje de prueba al worker con el proveedor/modelo elegido y devolver el error real de la API (para detectar claves inválidas o modelos caídos sin esperar al widget).
-  - *Archivo:* `apps/dashboard/src/components/dashboard/AgentsView.tsx`
-  - *Estado:* parado / en evaluación — hoy la prueba real se hace en la **Vista previa en vivo** del panel (usa la clave y modelo guardados). Un botón aparte solo agregaría valor para validar la clave sin guardar todavía.
-  - [x] **UX pulido del panel (multi-agente) — HECHO.**
-    - Nav label dinámico: **"Mi Agente"** cuando hay uno, **"Mis Agentes"** con varios (Sidebar, Topbar y UserMenu).
-    - Toast profesional al cambiar de agente: *"Agente activo: {nombre}"*.
-    - Empty state de "Preguntas Frecuentes" en el Overview: icono centrado con texto (antes texto aplastado a la izquierda).
-    - Script de instalación: ahora **multi-línea** en el panel (cada atributo en su propia línea, con color VS Code) para que no estire el contenedor. Copia un one-liner para pegar.
-    - URL de `widget.js` auto: en `localhost` usa `localhost:3000/widget.js` para pruebas; al desplegar en `agentosweb.com` se adapta automáticamente.
-    - Chips de compatibilidad + copy aclarando que el script es universal (mismo `<script>` puro sin dependencias, funciona en HTML, WordPress, Shopify, React… con hint por plataforma).
-    - *Archivos:* `Views.tsx`, `Dashboard.tsx`, `Sidebar.tsx`, `Topbar.tsx`, `UserMenu.tsx`, `globals.css`.
-  - [x] **Multi-agente (base) — HECHO**: el panel lista, crea y cambia entre agentes con un selector en la barra superior.
+- [x] ~~**Botón "Probar modelo" en la configuración (Modo clave propia)**~~ — **DESCARTADA (01-oct-2026)**: ya lo cubre la **Vista previa en vivo** de Mis Agentes (`AgentsView.tsx:1844`), que manda el mensaje real contra el worker vía `fetch(${apiBase}/chat)` (`AgentsView.tsx:634`) con la clave y el modelo guardados. Lo único que aportaría el botón es probar **sin guardar todavía** — no justifica un botón extra.
+- [x] **UX pulido del panel (multi-agente) — HECHO.**
+  - Nav label dinámico: **"Mi Agente"** cuando hay uno, **"Mis Agentes"** con varios (Sidebar, Topbar y UserMenu).
+  - Toast profesional al cambiar de agente: *"Agente activo: {nombre}"*.
+  - Empty state de "Preguntas Frecuentes" en el Overview: icono centrado con texto (antes texto aplastado a la izquierda).
+  - Script de instalación: ahora **multi-línea** en el panel (cada atributo en su propia línea, con color VS Code) para que no estire el contenedor. Copia un one-liner para pegar.
+  - URL de `widget.js` auto: en `localhost` usa `localhost:3000/widget.js` para pruebas; al desplegar en `agentosweb.com` se adapta automáticamente.
+  - Chips de compatibilidad + copy aclarando que el script es universal (mismo `<script>` puro sin dependencias, funciona en HTML, WordPress, Shopify, React… con hint por plataforma).
+  - *Archivos:* `Views.tsx`, `Dashboard.tsx`, `Sidebar.tsx`, `Topbar.tsx`, `UserMenu.tsx`, `globals.css`.
+- [x] **Multi-agente (base) — HECHO**: el panel lista, crea y cambia entre agentes con un selector en la barra superior.
   - Worker: `GET/POST /api/agents` con la misma doble puerta (`X-Owner-Token` + sesión del panel), dueño resuelto con `OWNER_USER_ID` (o el primer agente existente), límite por plan y `name` editable. **Desplegado.**
   - Dashboard: proxy `/api/agents`, selector con estado activo/pausado, creación con nombre, script de instalación por agente, overview por agente y renombrado en línea.
   - *Borrado:* `DELETE /api/agent/:id` — HECHO (worker + proxy `app/api/agent/[id]/route.ts` + botón "Eliminar" con `ConfirmModal` y confirmación escribiendo el nombre exacto del agente, patrón GitHub/Vercel). Bloquea borrar el último agente; elimina en cascada mensajes/conversaciones/leads/faq_hits. Verificado en vivo (crear → borrar → `{ok:true}`).
