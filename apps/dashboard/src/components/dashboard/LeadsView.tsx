@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { IconLeads, IconMessage, IconClock, IconCheck } from "./icons";
 import { useToast } from "./notifications";
 import ConfirmModal from "./ConfirmModal";
+import { MetricCard } from "./Views";
 import { shadeColor } from "./AgentsView";
 
 interface Lead {
@@ -17,6 +18,7 @@ interface Lead {
   session_id: string | null;
   status: string;
   created_at: string;
+  updated_at: string | null;
   last_activity: string | null;
 }
 
@@ -25,6 +27,16 @@ interface LeadsViewProps {
 }
 
 const STATUSES = ["Nuevo", "Contactado", "Calificado", "Convertido", "Archivado"] as const;
+// Cada cuánto se mira si entró un prospecto mientras la vista está a la vista.
+const LIVE_MS = 30_000;
+// Retraso antes de mandar la búsqueda al servidor. Sin esto cada tecla que se
+// escribe es un fetch con `LIKE '%texto%'`, que es justamente el patrón que la
+// doc de D1 marca como full scan.
+const SEARCH_DEBOUNCE_MS = 300;
+// Filas por página de la tabla. Es también el `page_size` que se pide al servidor,
+// así que vive acá y no dentro del componente: el paginado y la petición no
+// pueden desincronizarse.
+const PAGE_SIZE = 10;
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -78,34 +90,27 @@ const statusTone = (status: string): string => {
   }
 };
 
-// ---- cache de la tabla (SWR leve) ----
+// ---- datos de la tabla ----
+// El servidor es la fuente de verdad de TODO lo que se muestra: filtrar, ordenar y
+// paginar ocurren en SQL (con WHERE sobre indices) y la respuesta trae la página
+// pedida, su `total`, los contadores por estado y un `cursor` para el sondeo en
+// vivo. La versión anterior bajaba la tabla entera del agente con page_size=100000
+// y filtraba en el navegador: cada refresco y cada sondeo de 30 s leía todos los
+// leads, y D1 factura por filas leídas.
 interface LeadListData {
   leads?: Lead[];
   total?: number;
-  stats?: { nuevo?: number; contactado?: number; calificado?: number; convertido?: number; archivado?: number };
-}
-const LEAD_TTL = 30_000;
-const leadListCache = new Map<string, { at: number; data: LeadListData }>();
-
-interface LeadCtx {
-  setLeads: (f: (prev: Lead[]) => Lead[]) => void;
-  setTotal: (t: number) => void;
-  setLeadsStats: (s: { nuevo: number; contactado: number; calificado: number; convertido: number; archivado: number }) => void;
-  setLoadError: (b: boolean) => void;
+  allTotal?: number;
+  cursor?: string;
+  stats?: Record<string, number>;
+  error?: string;
 }
 
-function applyLeadData(d: LeadListData, ctx: LeadCtx) {
-  ctx.setLeads(() => d.leads ?? []);
-  ctx.setTotal(d.total ?? 0);
-  if (d.stats)
-    ctx.setLeadsStats({
-      nuevo: d.stats.nuevo ?? 0,
-      contactado: d.stats.contactado ?? 0,
-      calificado: d.stats.calificado ?? 0,
-      convertido: d.stats.convertido ?? 0,
-      archivado: d.stats.archivado ?? 0,
-    });
-  ctx.setLoadError(false);
+// Respuesta del sondeo en vivo: solo lo creado o modificado desde el cursor.
+interface LeadDeltaData {
+  changed?: Lead[];
+  cursor?: string;
+  error?: string;
 }
 
 function ContactChip({ lead }: { lead: Lead }) {
@@ -534,6 +539,8 @@ function ConversationOverlay({ agentId, lead, onClose }: { agentId: string; lead
   const [conf, setConf] = useState<WidgetConf | null>(agentConfCache.get(agentId) ?? null);
   const [failed, setFailed] = useState(false);
   const [sysDark, setSysDark] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delBusy, setDelBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -610,8 +617,30 @@ function ConversationOverlay({ agentId, lead, onClose }: { agentId: string; lead
     toast.success("Conversación exportada");
   };
 
-  const dark = conf ? conf.default_theme === "dark" || (conf.default_theme === "auto" && sysDark) : false;
-  const start = conf?.primary_color ?? "#3559ff";
+  const deleteConversation = async () => {
+  if (delBusy) return;
+  setDelBusy(true);
+  const histKey = `${agentId}:${lead.session_id || "anon"}`;
+  try {
+    const r = await fetch(`/api/leads/${agentId}/history?session_id=${encodeURIComponent(lead.session_id || "anon")}`, {
+      method: "DELETE",
+    });
+    const d = (await r.json().catch(() => ({}))) as { error?: string; deleted?: { messages?: number } };
+    if (!r.ok) throw new Error(d.error || "No se pudo eliminar");
+    // Sin esto, reabrir la conversacion dentro del TTL mostraria los mensajes
+    // borrados desde la cache en memoria.
+    histCache.delete(histKey);
+    setMessages([]);
+    setConfirmDel(false);
+    toast.success(`Conversación eliminada (${d.deleted?.messages ?? 0} mensajes)`);
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Error al eliminar");
+  } finally {
+    setDelBusy(false);
+  }
+};
+
+const dark = conf ? conf.default_theme === "dark" || (conf.default_theme === "auto" && sysDark) : false;  const start = conf?.primary_color ?? "#3559ff";
   const end = start.toLowerCase() === "#3559ff" ? "#13a0ff" : shadeColor(start, 28);
   const gradVertical = `linear-gradient(to bottom, ${start}, ${end})`;
   const containerBgc = dark ? "#18181b" : "#ffffff";
@@ -668,6 +697,32 @@ function ConversationOverlay({ agentId, lead, onClose }: { agentId: string; lead
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
+            </button>
+          )}
+          {messages && messages.length > 0 && (
+            <button
+              type="button"
+              className={`conv-history-close conv-history-export ${confirmDel ? "conv-history-del-confirm" : ""}`}
+              style={confirmDel ? undefined : { right: "93px" }}
+              onClick={confirmDel ? deleteConversation : () => setConfirmDel(true)}
+              disabled={delBusy}
+              aria-label={confirmDel ? "Confirmar borrado de la conversación" : "Eliminar conversación"}
+              title={
+                confirmDel
+                  ? "Se eliminará para siempre. Pulsa otra vez para confirmar."
+                  : "Eliminar conversación y mensajes"
+              }
+            >
+              {confirmDel ? (
+                <span className="conv-history-del-text">¿Eliminar?</span>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6M14 11v6" />
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                </svg>
+              )}
             </button>
           )}
           <div className="wv-header-content">
@@ -757,8 +812,6 @@ function initials(lead: Lead): string {
 export default function LeadsView({ agentId }: LeadsViewProps) {
   const toast = useToast();
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [total, setTotal] = useState(0);
-  const [leadsStats, setLeadsStats] = useState({ nuevo: 0, contactado: 0, calificado: 0, convertido: 0, archivado: 0 });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState("");
@@ -785,48 +838,210 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
   }, [bulkMenuOpen]);
 
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 10;
+  const [total, setTotal] = useState(0);
+  const [allTotal, setAllTotal] = useState(0);
+  const [stats, setStats] = useState<Record<string, number>>({});
+  // Porcentaje de un estado sobre el total del agente. Lo usan las tarjetas: los
+  // filtros siguen dando el número absoluto (que es lo que se filtra) y las
+  // tarjetas el peso de cada estado. `allTotal` es el denominador GLOBAL, no el
+  // de la página ni el filtrado: si fuera el filtrado, con un filtro puesto las
+  // tarjetas dirían "el 100% son nuevos".
+  const pctOf = useCallback(
+    (status: string) => (allTotal > 0 ? Math.round(((stats[status] ?? 0) / allTotal) * 100) : 0),
+    [allTotal, stats]
+  );
+  const [pending, setPending] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  // Texto del buscador con retardo: lo que se escribe va a `query` al instante
+  // (para que el input no se sienta lento) y a `deferredQuery` 300 ms después.
+  const [deferredQuery, setDeferredQuery] = useState("");
+  useEffect(() => {
+    const t = window.setTimeout(() => setDeferredQuery(query), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [query]);
 
-  const load = useCallback(() => {
-    const qs = new URLSearchParams();
-    if (query.trim()) qs.set("q", query.trim());
-    if (statusFilter) qs.set("status", statusFilter);
-    qs.set("sort_by", sortBy);
-    qs.set("sort_dir", sortDir);
-    qs.set("page", String(page));
-    qs.set("page_size", String(PAGE_SIZE));
-    const cacheKey = `${agentId}|${query.trim()}|${statusFilter}|${sortBy}|${sortDir}|${page}`;
-    const ctx: LeadCtx = { setLeads, setTotal, setLeadsStats, setLoadError };
-    const cached = leadListCache.get(cacheKey);
-    if (cached && Date.now() - cached.at < LEAD_TTL) {
-      applyLeadData(cached.data, ctx);
-      setLoading(false);
-      return;
-    }
-    fetch(`/api/leads/${agentId}?${qs.toString()}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
-      .then((d: LeadListData) => {
-        leadListCache.set(cacheKey, { at: Date.now(), data: d });
-        applyLeadData(d, ctx);
-      })
-      .catch((e) => {
-        // ante error de red, si la página ya estaba en cache se deja servida en vez de error
-        const stale = leadListCache.get(cacheKey);
-        if (stale) applyLeadData(stale.data, ctx);
-        else setLoadError(true);
-        if (e instanceof Error) console.warn("leads fetch:", e.message);
-      })
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentId, query, statusFilter, sortBy, sortDir, page]);
+  // Cursor del sondeo en vivo. Vive en un ref porque el temporizador lo lee cada
+  // 30 s sin querer que eso rearme el intervalo.
+  const cursorRef = useRef("");
+  // Espejo de `leads` para el sondeo: el efecto del temporizador solo depende de
+  // agentId, así que su `leads` del closure está viejo y hay que leer el actual.
+  const leadsRef = useRef<Lead[]>([]);
+  const sortByRef = useRef(sortBy);
+  const loadRef = useRef<(o?: { silent?: boolean }) => void>(() => {});
+
+  // Número de petición: si la del fondo y la del botón se pisan, gana la última
+  // y una respuesta vieja no puede pisar datos recién llegados.
+  const reqRef = useRef(0);
+
+  const load = useCallback(
+    (opts?: { silent?: boolean }) => {
+      // En silencio no se toca `loading`: el refresco de fondo actualiza la
+      // tabla sin vaciarla ni hacer parpadear el botón "Actualizar".
+      const silent = opts?.silent === true;
+      const req = ++reqRef.current;
+      if (!silent) {
+        setLoading(true);
+        setLoadError(false);
+      }
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(PAGE_SIZE),
+        sort_by: sortBy,
+        sort_dir: sortDir,
+      });
+      const q = deferredQuery.trim();
+      if (q) params.set("q", q);
+      if (statusFilter) params.set("status", statusFilter);
+
+      fetch(`/api/leads/${agentId}?${params}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+        .then((d: LeadListData) => {
+          if (req !== reqRef.current) return;
+          const rows = d.leads ?? [];
+          const tot = d.total ?? 0;
+          // Página más allá del final (borraste la última fila de la última
+          // página): en vez de dejar una tabla vacía sin salida, se corrige sola.
+          const maxPage = Math.max(1, Math.ceil(tot / PAGE_SIZE));
+          if (rows.length === 0 && page > maxPage) {
+            setPage(maxPage);
+            return;
+          }
+          setLeads(rows);
+          leadsRef.current = rows;
+          setTotal(tot);
+          setAllTotal(d.allTotal ?? tot);
+          setStats(d.stats ?? {});
+          if (d.cursor) {
+            cursorRef.current = d.cursor;
+            // Un listado completo ya refleja todo: lo pendiente se absorbió.
+            setPending(0);
+          }
+        })
+        .catch((e) => {
+          // Mismo criterio que antes: si ya había datos cargados, un fallo de
+          // refresco no borra la tabla (queda lo viejo y se reintenta después);
+          // la pantalla de error solo aparece si no había nada que mostrar.
+          if (req !== reqRef.current) return;
+          setLoadError(true);
+          if (e instanceof Error) console.warn("leads fetch:", e.message);
+        })
+        .finally(() => {
+          // Se limpia siempre, no solo en los no silenciosos. Si un refresco a la
+          // vista y el sondeo del temporizador se pisan, el silencioso sube el
+          // `req` y el normal ya no puede apagar el spinner; apagar siempre deja
+          // el estado consistente sin cambios visibles (poner false sobre false).
+          if (req === reqRef.current) setLoading(false);
+        });
+    },
+    [agentId, page, sortBy, sortDir, statusFilter, deferredQuery]
+  );
+
+  // Refresca los espejos después de cada render. El temporizador del sondeo solo
+  // depende de agentId, así que sin esto leería siempre el primer render.
+  useEffect(() => {
+    sortByRef.current = sortBy;
+    loadRef.current = load;
+  });
 
   useEffect(() => {
-    setLoading(true);
-    setLoadError(false);
-    const t = setTimeout(load, query.trim() ? 300 : 0);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, statusFilter, sortBy, sortDir, page, agentId]);
+    // Al cambiar de agente se limpia ANTES de que corra el efecto de carga de
+    // abajo, para no mostrar un instante los prospectos del agente anterior.
+    // Deliberadamente no dispara la petición: de eso se encarga el efecto que
+    // depende de `load`, que también corre en este mismo render.
+    setLeads([]);
+    leadsRef.current = [];
+    setTotal(0);
+    setAllTotal(0);
+    setStats({});
+    cursorRef.current = "";
+    setPending(0);
+  }, [agentId]);
+
+  // Cada cambio de filtro, página, orden o búsqueda pide su página al servidor.
+  // No se limpia nada acá: la tabla anterior sigue a la vista mientras llega la
+  // nueva, que es lo que evita el parpadeo al cambiar un filtro.
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // En vivo: el prospecto aparece solo cuando entra por el chat. Pide `?since`,
+  // que es una consulta acotada por indice (sin COUNT, sin GROUP BY y sin la
+  // página de listado) y devuelve 0 filas si no paso nada.
+  useEffect(() => {
+    let timer: number | undefined;
+    const poll = () => {
+      const since = cursorRef.current;
+      if (!since || document.visibilityState !== "visible") return;
+      fetch(`/api/leads/${agentId}?since=${encodeURIComponent(since)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: LeadDeltaData | null) => {
+          if (!d) return;
+          if (d.cursor) cursorRef.current = d.cursor;
+          const changed = d.changed ?? [];
+          if (changed.length === 0) return;
+          // Se decide acá y no dentro del updater de setLeads: un updater tiene que
+          // ser puro, y en StrictMode React lo invoca dos veces, con lo cual
+          // sumar `pending` adentro lo duplicaría.
+          const onScreen = new Set(leadsRef.current.map((l) => l.id));
+          const fresh = changed.filter((l) => !onScreen.has(l.id));
+          if (fresh.length > 0) {
+            // Filas nuevas: no se las mete a la fuerza en una página que puede
+            // estar filtrada, paginada u ordenada por estado, porque aparecerían
+            // fuera de lugar. Se cuentan y el botón "Actualizar" recarga la página.
+            setPending((n) => n + fresh.length);
+          }
+          const inPlace = changed.filter((l) => onScreen.has(l.id));
+          if (inPlace.length === 0) return;
+          // Pisar en el lugar es seguro: lo único que el sondeo puede traer
+          // cambiado es estado o notas, y si la tabla está ordenada por estado
+          // ese cambio sí mueve la fila, así que en ese caso se recarga entera.
+          if (sortByRef.current === "status") {
+            loadRef.current({ silent: true });
+            return;
+          }
+          const merged = inPlace.reduce((acc, l) => {
+            const i = acc.findIndex((r) => r.id === l.id);
+            if (i >= 0) acc[i] = { ...acc[i], ...l };
+            return acc;
+          }, leadsRef.current.slice());
+          leadsRef.current = merged;
+          setLeads(merged);
+        })
+        .catch(() => {
+          // Sondeo en vivo: si falla no se molesta al usuario. El botón
+          // "Actualizar" sigue trayendo el estado exacto.
+        });
+    };
+    const start = () => {
+      if (timer === undefined && document.visibilityState === "visible") {
+        timer = window.setInterval(poll, LIVE_MS);
+      }
+    };
+    const stop = () => {
+      if (timer !== undefined) {
+        window.clearInterval(timer);
+        timer = undefined;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        poll();
+        start();
+      } else {
+        stop();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onVisibility);
+    start();
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onVisibility);
+    };
+    // Solo `agentId` debe rearmar el temporizador. Los filtros, la página y el
+    // orden llegan por los refs, así que cambiarlos no lo reinician.
+  }, [agentId]);
 
   const toggleSort = (col: "created_at" | "name" | "status") => {
     setPage(1);
@@ -841,8 +1056,8 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageNumber = Math.min(page, totalPages);
+  // Con filtrado en el servidor, `leads` YA es la página: no hay slice.
   const pageLeads = leads;
-  const stats = leadsStats;
 
   const projected =
       totalPages > 5
@@ -874,8 +1089,11 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
       .then(async (r) => {
         const d = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo actualizar el estado");
-        leadListCache.clear();
-        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
+        // Recarga en silencio en vez de parchear la fila local: los contadores de
+        // los KPIs y de los píldoros los calcula el servidor sobre TODOS los leads
+        // del agente, y con el listado paginado el cliente ya no los tiene. Es una
+        // consulta acotada a la página actual.
+        load({ silent: true });
         toast.success(`Lead marcado como ${status}`);
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Error al actualizar"))
@@ -915,8 +1133,7 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
       .then(async (r) => {
         const d = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo completar la acción");
-        leadListCache.clear();
-        setLeads((prev) => prev.map((l) => (selection.has(l.id) ? { ...l, status: status! } : l)));
+        load({ silent: true });
         toast.success(`Selección marcada como ${status}`);
         setSelection(new Set());
       })
@@ -930,9 +1147,8 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
       const r = await fetch(`/api/leads/${pendingDelete.id}`, { method: "DELETE" });
       const d = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!r.ok || !d.ok) throw new Error(d.error || "No se pudo eliminar");
-      leadListCache.clear();
-      setLeads((prev) => prev.filter((l) => l.id !== pendingDelete.id));
       setPendingDelete(null);
+      load({ silent: true });
       toast.success("Prospecto eliminado");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al eliminar");
@@ -951,11 +1167,10 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
       });
       const d = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!r.ok || !d.ok) throw new Error(d.error || "No se pudieron eliminar");
-      leadListCache.clear();
-      setLeads((prev) => prev.filter((l) => !ids.includes(l.id)));
       toast.success(`${ids.length} prospecto${ids.length === 1 ? "" : "s"} eliminado${ids.length === 1 ? "" : "s"}`);
       setSelection(new Set());
       setBulkDeleteOpen(false);
+      load({ silent: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al eliminar masivamente");
     } finally {
@@ -963,39 +1178,77 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
     }
   };
 
-  const exportCsv = () => {
-    const qs = new URLSearchParams();
-    if (query.trim()) qs.set("q", query.trim());
-    qs.set("page_size", "100000");
-    fetch(`/api/leads/${agentId}?${qs.toString()}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
-      .then((d: { leads?: Lead[] }) => {
-        const header = ["Fecha", "Nombre", "Email", "Teléfono", "Estado", "Mensaje", "Nota"];
-        const rows = (d.leads ?? []).map((l) => [
-          formatDate(l.created_at),
-          l.name ?? "",
-          l.email ?? "",
-          l.phone ?? "",
-          l.status,
-          l.interest ?? "",
-          l.notes ?? "",
-        ]);
-        const csv = [header, ...rows]
-          .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-          .join("\n");
-        const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `prospectos-${agentId}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success("CSV exportado");
-      })
-      .catch(() => toast.error("No se pudo exportar el CSV"));
+  const EXPORT_CAP = 5_000;
+
+  // Exporta TODO lo que matchea el filtro actual, no solo la página de 10 filas
+  // que está en pantalla: con listado paginado el CSV salía truncado y nadie lo
+  // notaba hasta abrir el archivo. Se piden páginas de a 100 y se corta en
+  // EXPORT_CAP para que un agente con 200k leads no genere un CSV de 300 MB
+  // desde el navegador. Solo corre cuando el usuario aprieta el botón.
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const rows: Lead[] = [];
+      let pageNo = 1;
+      let target = total;
+      while (rows.length < target && rows.length < EXPORT_CAP) {
+        const params = new URLSearchParams({
+          page: String(pageNo),
+          page_size: "100",
+          sort_by: sortBy,
+          sort_dir: sortDir,
+        });
+        const q = deferredQuery.trim();
+        if (q) params.set("q", q);
+        if (statusFilter) params.set("status", statusFilter);
+        const r = await fetch(`/api/leads/${agentId}?${params}`);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const d = (await r.json()) as LeadListData;
+        target = d.total ?? target;
+        const batch = d.leads ?? [];
+        if (batch.length === 0) break;
+        rows.push(...batch);
+        if (batch.length < 100) break;
+        pageNo++;
+      }
+      const header = ["Fecha", "Nombre", "Email", "Teléfono", "Estado", "Mensaje", "Nota"];
+      const body = rows.map((l) => [
+        formatDate(l.created_at),
+        l.name ?? "",
+        l.email ?? "",
+        l.phone ?? "",
+        l.status,
+        l.interest ?? "",
+        l.notes ?? "",
+      ]);
+      const csv = [header, ...body]
+        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prospectos-${agentId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      // Si se cortó por el tope, avisarlo: un CSV de 5.000 filas cuando el filtro
+      // matchea 40.000 es un archivo incompleto sin que se note.
+      if (target > EXPORT_CAP) {
+        toast.error(`CSV limitado a ${EXPORT_CAP} de ${target} prospectos`);
+      } else {
+        toast.success(`${rows.length} prospecto${rows.length === 1 ? "" : "s"} exportado${rows.length === 1 ? "" : "s"}`);
+      }
+    } catch {
+      toast.error("No se pudo exportar el CSV");
+    } finally {
+      setExporting(false);
+    }
   };
 
   let content: ReactNode;
-  if (loading) {
+  if (loading && leads.length === 0) {
+    // El esqueleto es solo para el primer cargado (o al cambiar de agente, donde
+    // arriba se limpia la lista). Al refrescar con datos ya cargados la tabla
+    // se queda a la vista, igual que en Clientes: nada de parpadear por filtro.
     content = (
       <div className="faq-skeleton" aria-label="Cargando prospectos">
         <div className="faq-skeleton-row" />
@@ -1003,20 +1256,34 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
         <div className="faq-skeleton-row" />
       </div>
     );
-  } else if (loadError) {
+  } else if (loadError && leads.length === 0) {
     content = <span className="count">No se pudo cargar la bandeja de prospectos</span>;
   } else if (total === 0) {
+    /* El mensaje tiene que decir POR QUÉ no hay filas: con un filtro activo
+       afirmar "aún no hay prospectos capturados" es mentira (hay, escondidos
+       detrás del filtro) y hace parecer que se perdió la base. */
+    const why = [
+      query.trim() ? `que coincidan con “${query.trim()}”` : null,
+      statusFilter ? `en estado ${statusFilter}` : null,
+    ].filter(Boolean);
     content = (
       <div className="faq-empty">
         <IconLeads />
-        <span>{query.trim() ? `No hay prospectos que coincidan con “${query}”` : "Aún no hay prospectos capturados"}</span>
-      </div>
-    );
-  } else if (leads.length === 0) {
-    content = (
-      <div className="faq-empty">
-        <IconLeads />
-        <span>Página fuera de rango</span>
+        <span>
+          {why.length ? `No hay prospectos ${why.join(" y ")}.` : "Aún no hay prospectos capturados"}
+        </span>
+        {why.length ? (
+          <button
+            className="btn-ghost"
+            type="button"
+            onClick={() => {
+              setQuery("");
+              handleStatusFilter("");
+            }}
+          >
+            Quitar filtros
+          </button>
+        ) : null}
       </div>
     );
   } else {
@@ -1103,7 +1370,7 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
 
   return (
     <section className="view-section active" id="view-leads">
-      <div className="panel-card">
+      <div className={`panel-card${loading && leads.length > 0 ? " is-refreshing" : ""}`}>
         <div className="leads-header">
           <div>
             <h3>Bandeja de Prospectos</h3>
@@ -1123,16 +1390,62 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
               }}
               aria-label="Buscar prospectos"
             />
-            <button type="button" className="btn-shimmer" onClick={exportCsv} disabled={total === 0}>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => void load()}
+              disabled={loading}
+              title="Volver a pedir la bandeja al servidor"
+            >
+              {loading ? "Actualizando…" : pending > 0 ? `Actualizar · ${pending}` : "Actualizar"}
+            </button>
+            <button type="button" className="btn-shimmer" onClick={() => void exportCsv()} disabled={total === 0 || exporting}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span className="btn-shimmer-label">Exportar CSV</span>
+              <span className="btn-shimmer-label">{exporting ? "Exportando…" : "Exportar CSV"}</span>
             </button>
           </div>
         </div>
+        {/* El resumen va antes que los filtros, igual que en el Overview: las
+            tarjetas cuentan SIEMPRE lo global (`lead_stats`), no lo filtrado, asi
+            que ponerlas debajo de las píldoras sugería que cambiaban al filtrar
+            y no lo hacen. Título → resumen → filtros → tabla es el orden que ya
+            usa el resto del panel.
+            Reutilizan `MetricCard` del Overview para que el estilo sea el del
+            proyecto y no otro tarjeta-más. Todas se derivan de `stats`/`allTotal`,
+            que el servidor ya envía con la página: ni una fila más leída a D1. */}
+        {allTotal > 0 && (
+          <div className="metrics-grid">
+            <MetricCard
+              label="Total capturados"
+              icon={<IconLeads />}
+              value={allTotal.toLocaleString("es-AR")}
+              trendLabel="en total"
+              trendSuffix="para este agente"
+            />
+            <MetricCard
+              label="Tasa de conversión"
+              icon={<IconCheck />}
+              value={`${pctOf("convertido")}%`}
+              progress={pctOf("convertido")}
+            />
+            <MetricCard
+              label="Sin responder"
+              icon={<IconMessage />}
+              value={`${pctOf("nuevo")}%`}
+              progress={pctOf("nuevo")}
+            />
+            <MetricCard
+              label="En espera"
+              icon={<IconClock />}
+              value={`${pctOf("contactado") + pctOf("calificado")}%`}
+              progress={pctOf("contactado") + pctOf("calificado")}
+            />
+          </div>
+        )}
         <div className="leads-status-filter" role="tablist" aria-label="Filtrar por estado">
           <button
             type="button"
@@ -1142,6 +1455,7 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
             onClick={() => handleStatusFilter("")}
           >
             Todos
+            <span className="lead-filter-pill-n">{allTotal}</span>
           </button>
           {STATUSES.map((s) => (
             <button
@@ -1153,41 +1467,10 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
               onClick={() => handleStatusFilter(s)}
             >
               {s}
+              <span className="lead-filter-pill-n">{stats[s.toLowerCase()] ?? 0}</span>
             </button>
           ))}
         </div>
-        {!loading && !loadError && (
-          <div className="leads-kpis">
-            <div className="leads-kpi">
-              <div className="leads-kpi-head">
-                <span>Total capturados</span>
-                <span className="leads-kpi-icon"><IconLeads /></span>
-              </div>
-              <span className="leads-kpi-value">{total}</span>
-            </div>
-            <div className="leads-kpi">
-              <div className="leads-kpi-head">
-                <span>Pendientes (Nuevo)</span>
-                <span className="leads-kpi-icon"><IconMessage /></span>
-              </div>
-              <span className="leads-kpi-value leads-kpi-accent">{stats.nuevo}</span>
-            </div>
-            <div className="leads-kpi">
-              <div className="leads-kpi-head">
-                <span>Contactados</span>
-                <span className="leads-kpi-icon"><IconClock /></span>
-              </div>
-              <span className="leads-kpi-value">{stats.contactado}</span>
-            </div>
-            <div className="leads-kpi">
-              <div className="leads-kpi-head">
-                <span>Convertidos</span>
-                <span className="leads-kpi-icon"><IconCheck /></span>
-              </div>
-              <span className="leads-kpi-value leads-kpi-good">{stats.convertido}</span>
-            </div>
-          </div>
-        )}
         {content}
         {!loading && !loadError && total > 0 && (
           <div className="leads-footer">
@@ -1311,8 +1594,7 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
             setViewLead(null);
           }}
           onNotesUpdated={(id, notes) => {
-            leadListCache.clear();
-            setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, notes } : l)));
+                setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, notes } : l)));
           }}
         />
       )}

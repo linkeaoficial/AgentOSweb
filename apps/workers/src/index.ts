@@ -284,8 +284,8 @@ async function captureLead(agent: AgentRow, sessionId: string, message: string, 
   }
   try {
     await env.DB.prepare(
-      `INSERT INTO leads (id, agent_id, name, email, phone, notes, interest, session_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO leads (id, agent_id, name, email, phone, notes, interest, session_id, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
     )
       .bind(crypto.randomUUID(), agent.id, name, email, phone, null, message.slice(0, 300), sessionId)
       .run();
@@ -1027,19 +1027,23 @@ async function handleOverview(request: Request, agentId: string, env: Env) {
     .first<AgentRow>();
   if (!agent) return json({ error: "Agente no existe" }, 404, origin);
 
-  const [convos, msgs, recentRes, faqHitsRes] = await env.DB.batch([
-    env.DB.prepare("SELECT COUNT(*) AS total FROM conversations WHERE agent_id = ?").bind(agentId),
-    env.DB.prepare(
-      "SELECT COUNT(*) AS total FROM messages m JOIN conversations c ON m.conversation_id = c.id WHERE c.agent_id = ?"
-    ).bind(agentId),
+  // Contadores O(1): una lectura de PK en `agent_stats` en vez de dos COUNT(*).
+  // Medido antes: 39 filas para contar conversaciones y 424 para contar mensajes,
+  // porque el JOIN obligaba a recorrer `messages` buscando su conversacion una
+  // por una. Los triggers de 0007 mantienen los dos valores exactos.
+  const [stats, recentRes, faqHitsRes] = await env.DB.batch([
+    env.DB.prepare("SELECT conversations, messages FROM agent_stats WHERE agent_id = ?").bind(agentId),
+    // `idx_conversations_recent` evita que esto lea y ordene todas las
+    // conversaciones del agente para quedarse con 5.
     env.DB.prepare(
       "SELECT session_id, updated_at FROM conversations WHERE agent_id = ? ORDER BY updated_at DESC LIMIT 5"
     ).bind(agentId),
     env.DB.prepare("SELECT faq_label, hits FROM faq_hits WHERE agent_id = ? ORDER BY hits DESC").bind(agentId),
   ]);
 
-  const convosTotal = (convos.results?.[0] as { total?: number } | undefined)?.total ?? 0;
-  const msgsTotal = (msgs.results?.[0] as { total?: number } | undefined)?.total ?? 0;
+  const agentStats = stats.results?.[0] as { conversations?: number; messages?: number } | undefined;
+  const convosTotal = agentStats?.conversations ?? 0;
+  const msgsTotal = agentStats?.messages ?? 0;
   const recent =
     (recentRes.results as { session_id: string; updated_at: string }[] | undefined)?.map((r) => ({
       session_id: r.session_id,
@@ -1071,6 +1075,31 @@ async function handleOverview(request: Request, agentId: string, env: Env) {
 // ── Prospectos (leads): listar y actualizar estado ─────────────────────────────
 const LEAD_STATUSES = ["Nuevo", "Contactado", "Calificado", "Convertido", "Archivado"];
 
+// Columnas del prospecto para el listado y el sondeo en vivo. `last_activity` es
+// un subquery correlacionado (indice idx_leads_session cubre el agent_id/session_id)
+// que corre UNA VEZ POR FILA DEVUELTA, no por fila de la tabla: por eso importa que
+// el listado devuelva solo la pagina pedida.
+const LEAD_COLUMNS = `l.id, l.name, l.email, l.phone, l.notes, l.interest, l.session_id,
+       l.status, l.created_at, l.updated_at,
+       (SELECT m.created_at FROM messages m
+        JOIN conversations c ON c.id = m.conversation_id
+        WHERE c.agent_id = l.agent_id AND c.session_id = l.session_id
+        ORDER BY m.created_at DESC LIMIT 1) AS last_activity`;
+
+type LeadRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
+  interest: string | null;
+  session_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string | null;
+  last_activity: string | null;
+};
+
 async function handleLeadList(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
   const user = await resolveUser(request, env);
@@ -1082,7 +1111,12 @@ async function handleLeadList(request: Request, agentId: string, env: Env) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") || "").trim().slice(0, 100);
   const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
-  const pageSize = Math.min(100000, Math.max(1, parseInt(url.searchParams.get("page_size") || "10", 10) || 10));
+  // Tope duro de 100 filas por pagina. Antes se aceptaba page_size=100000 para que
+  // el panel filtrara en el navegador; D1 factura por filas LEIDAS, asi que esa
+  // pagina descargaba la tabla entera del agente en cada refresco y en cada sondeo
+  // de 30 s. El filtrado ahora ocurre en SQL (WHERE con indice) y el cliente solo
+  // pinta la pagina que pide.
+  const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("page_size") || "10", 10) || 10));
   const statusFilter = (url.searchParams.get("status") || "").trim();
   // whitelist: el orden nunca interpola input del usuario directo
   const SORT_COLS: Record<string, string> = {
@@ -1093,47 +1127,151 @@ async function handleLeadList(request: Request, agentId: string, env: Env) {
   const sortBy = SORT_COLS[url.searchParams.get("sort_by") || "created_at"] || "l.created_at";
   const sortDir = url.searchParams.get("sort_dir") === "asc" ? "ASC" : "DESC";
 
+  // --- Sondeo en vivo (modo delta) -------------------------------------------------
+  // Devuelve SOLO lo creado o modificado despues del cursor. Sin COUNT, sin GROUP BY,
+  // sin la pagina de listado: una consulta acotada por idx_leads_agent_updated que
+  // devuelve 0 filas si no paso nada. Es lo que se llama cada 30 s, asi que su costo
+  // es el unico que importa mantener bajo.
+  //
+  // `since` se compara como texto porque el formato 'YYYY-MM-DD HH:MM:SS' ordena
+  // lexicograficamente igual que cronologicamente. El cursor SIEMPRE lo devuelve el
+  // servidor (en modo lista tambien, con strftime para no depender del reloj del
+  // navegador). Usar un ISO 8601 del cliente comparandolo contra ese formato daria
+  // resultados silenciosamente incorrectos.
+  //
+  // La comparacion es contra `updated_at` pelado, sin COALESCE ni `OR ... IS NULL`,
+  // porque solo asi el indice da un RANGO real: con cualquier otra cosa SQLite cae
+  // a `SEARCH ... (agent_id=?)`, que lee todos los leads del agente cada 30 s
+  // (verificado con EXPLAIN QUERY PLAN). Eso obliga a que `updated_at` nunca sea
+  // NULL, invariante que sostienen la migracion 0004 (backfill), los dos INSERT de
+  // leads y los dos UPDATE. Si alguna vez se agrega un INSERT que la olvide, ese
+  // prospecto no aparecera en el sondeo en vivo, pero SI en el listado normal y en
+  // "Actualizar", que no usan cursor.
+  const since = (url.searchParams.get("since") || "").trim().slice(0, 19);
+  if (since) {
+    const deltaLimit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10) || 50));
+    const delta = await env.DB.prepare(
+      `SELECT ${LEAD_COLUMNS}
+         FROM leads l
+        WHERE l.agent_id = ? AND l.updated_at > ?
+        ORDER BY l.updated_at ASC
+        LIMIT ?`
+    )
+      .bind(agentId, since, deltaLimit)
+      .all<LeadRow>();
+    const rows = delta.results ?? [];
+    // Cursor siguiente: la marca maxima de lo devuelto. Si una tanda masiva cambia
+    // mas filas que deltaLimit, el corte es por tiempo y podrian quedar fuera filas
+    // con la MISMA marca que la ultima: el cliente las deduplica por id y el boton
+    // "Actualizar" (que no usa cursor) siempre trae el estado exacto.
+    const nextCursor = rows.reduce((max, r) => {
+      const t = r.updated_at || r.created_at;
+      return t > max ? t : max;
+    }, since);
+    return json({ changed: rows, cursor: nextCursor }, 200, origin);
+  }
+
+  // ponytail: los contadores salen de `lead_stats` (migracion 0005), que los
+  // triggers de D1 mantienen exacta. Antes cada visita pagaba COUNT(*) + GROUP BY
+  // sobre TODOS los leads del agente: ~2N filas leidas. Ahora son ~5 filas por
+  // agente, sin importar cuantos leads tenga.
   const where = ["agent_id = ?"];
   const binds: unknown[] = [agentId];
-  if (q) {
-    where.push("(name LIKE ? OR email LIKE ? OR phone LIKE ? OR notes LIKE ? OR interest LIKE ? OR status LIKE ?)");
-    const like = `%${q}%`;
-    binds.push(like, like, like, like, like, like);
-  }
-  if (LEAD_STATUSES.includes(statusFilter as (typeof LEAD_STATUSES)[number])) {
+  const statusIsValid = LEAD_STATUSES.includes(statusFilter as (typeof LEAD_STATUSES)[number]);
+  // Se declara antes del `if (q)` porque los KPIs se leen en las dos ramas: con
+  // busqueda para pintar las pills y el total global, sin busqueda para el total
+  // filtrado. Es una lista de {status, c} de ~5 elementos por agente.
+  let byStatus: { status: string; c: number }[] = [];
+  const countOf = (status: string) => byStatus.find((r) => r.status === status)?.c ?? 0;
+  if (statusIsValid) {
     where.push("status = ?");
     binds.push(statusFilter);
   }
 
-  const totalRow = await env.DB.prepare(
-    `SELECT COUNT(*) AS c FROM leads WHERE ${where.join(" AND ")}`
-  )
-    .bind(...binds)
-    .first<{ c: number }>();
-  const total = Number(totalRow?.c) || 0;
+  // Busqueda. `LIKE '%texto%'` no puede aprovechar un indice btree porque el
+  // comodin inicial mata el prefijo: es un scan de los N leads del agente. FTS5
+  // con tokenizer trigram si lo indexa. Se consulta con `all_text LIKE ?` y no
+  // con MATCH a proposito: MATCH matchea tokens y devuelve mas filas de las que
+  // el usuario estaba viendo con LIKE (medido: 14 resultados donde LIKE daba 1).
+  // Los triggers 0005 mantienen el indice sincronizado en cada escritura.
+  //
+  // ponytail: el tokenizer trigram solo indexa terminos de 3 caracteres o mas,
+  // asi que parabusquedas de 1-2 caracteres se cae a LIKE, que para un termino
+  // tan corto no tiene el problema de selectividad que obliga a indexar.
+  const useFts = q.length >= 3;
+  const like = `%${q}%`;
+  const searchWhere = (col: string) => (useFts ? `f.all_text LIKE ?` : `${col} LIKE ?`);
 
-  const { results } = await env.DB.prepare(
-    `SELECT l.id, l.name, l.email, l.phone, l.notes, l.interest, l.session_id, l.status, l.created_at,
-            (SELECT m.created_at FROM messages m
-             JOIN conversations c ON c.id = m.conversation_id
-             WHERE c.agent_id = l.agent_id AND c.session_id = l.session_id
-             ORDER BY m.created_at DESC LIMIT 1) AS last_activity
-     FROM leads l WHERE ${where.join(" AND ")} ORDER BY ${sortBy} ${sortDir}, l.created_at DESC LIMIT ? OFFSET ?`
-  )
-    .bind(...binds, pageSize, (page - 1) * pageSize)
-    .all<{ id: string; name: string | null; email: string | null; phone: string | null; notes: string | null; interest: string | null; session_id: string | null; status: string; created_at: string; last_activity: string | null }>();
+  // Con busqueda el total sigue siendo un COUNT: FTS acota los candidatos pero
+  // "cuantos coinciden" hay que contarlos. Sin busqueda el total sale de
+  // `lead_stats`, o sea cero filas leidas.
+  let total: number;
+  let listSql: string;
+  let listBinds: unknown[];
 
-  const byStatus = await env.DB.prepare(
-    "SELECT status, COUNT(*) AS c FROM leads WHERE agent_id = ? GROUP BY status"
-  )
-    .bind(agentId)
-    .all<{ status: string; c: number }>();
-  const countOf = (status: string) => byStatus.results?.find((r) => r.status === status)?.c ?? 0;
+  if (q) {
+    const cols = ["name", "email", "phone", "notes", "interest", "status"];
+    const or = cols.map((c) => searchWhere(`l.${c}`)).join(" OR ");
+    // El OR tiene tantos `?` como columnas, y eso incluye el caso FTS donde las
+    // seis se reducen a la MISMA columna: un solo bind daria "datatype mismatch"
+    // y la busqueda devolveria error, no un resultado vacio. Por eso son N binds
+    // en ambos casos, y solo cambia a que columna apuntan.
+    const searchBinds = cols.map(() => like);
+    const from = useFts
+      ? `FROM leads l JOIN leads_fts f ON f.lead_id = l.id WHERE l.agent_id = ?`
+      : `FROM leads l WHERE l.agent_id = ?`;
+    listBinds = [agentId, ...searchBinds, ...binds.slice(1), pageSize, (page - 1) * pageSize];
+    listSql = `SELECT ${LEAD_COLUMNS} ${from} AND (${or})${
+      statusIsValid ? " AND l.status = ?" : ""
+    } ORDER BY ${sortBy} ${sortDir}, l.created_at DESC LIMIT ? OFFSET ?`;
+    const totalRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS c ${from} AND (${or})${statusIsValid ? " AND l.status = ?" : ""}`
+    )
+      .bind(agentId, ...searchBinds, ...binds.slice(1))
+      .first<{ c: number }>();
+    total = Number(totalRow?.c) || 0;
+  } else {
+    listBinds = [...binds, pageSize, (page - 1) * pageSize];
+    listSql = `SELECT ${LEAD_COLUMNS} FROM leads l WHERE ${where.join(
+      " AND "
+    )} ORDER BY ${sortBy} ${sortDir}, l.created_at DESC LIMIT ? OFFSET ?`;
+    // Sin busqueda el total es el contador cacheado: si hay filtro de estado sale
+    // de esa fila de `lead_stats`, y si no, de la suma de las ~5 filas del agente.
+    const statsRows = await env.DB.prepare("SELECT status, n FROM lead_stats WHERE agent_id = ?")
+      .bind(agentId)
+      .all<{ status: string; n: number }>();
+    byStatus = (statsRows.results ?? []).map((r) => ({ status: r.status, c: Number(r.n) || 0 }));
+    total = statusIsValid ? countOf(statusFilter) : byStatus.reduce((s, r) => s + r.c, 0);
+  }
+
+  // Los KPIs por estado y el total global salen siempre de `lead_stats`, nunca de
+  // un GROUP BY sobre `leads`. Con busqueda activa se lee aqui, una sola vez y
+  // compartido por el KPI y por `allTotal`; sin busqueda ya se leyo arriba, y por
+  // eso esto va antes del SELECT de la pagina para no encadenar tres esperas.
+  if (q) {
+    const statsRows = await env.DB.prepare("SELECT status, n FROM lead_stats WHERE agent_id = ?")
+      .bind(agentId)
+      .all<{ status: string; n: number }>();
+    byStatus = (statsRows.results ?? []).map((r) => ({ status: r.status, c: Number(r.n) || 0 }));
+  }
+
+  const { results } = await env.DB.prepare(listSql).bind(...listBinds).all<LeadRow>();
+
+  // Cursor inicial del sondeo en vivo, generado por el servidor en el mismo formato
+  // que escribe D1. Asi el cliente nunca tiene que convertir una fecha su propia.
+  // ponytail: `strftime` no lee filas, asi que va aparte en lugar de pegarse al
+  // SELECT de la pagina. Si D1 lo hiciera facturable seria una fila por visita.
+  const clock = await env.DB.prepare("SELECT strftime('%Y-%m-%d %H:%M:%S','now') AS now")
+    .first<{ now: string }>();
 
   return json(
     {
       leads: results ?? [],
       total,
+      // Suma de `byStatus`, que viene sin filtros: el total real del agente. Se
+      // calcula de las rows ya leidas de `lead_stats`, no es un COUNT extra.
+      allTotal: byStatus.reduce((sum, r) => sum + r.c, 0),
+      cursor: clock?.now ?? "",
       stats: {
         nuevo: countOf("Nuevo"),
         contactado: countOf("Contactado"),
@@ -1171,6 +1309,10 @@ async function handleLeadStatus(request: Request, leadId: string, env: Env) {
     binds.push(notes);
   }
   if (sets.length === 0) return json({ error: "Nada para actualizar." }, 400, origin);
+  // Marca de cambio para el sondeo en vivo. Sin esto un prospecto que pasa de
+  // "Nuevo" a "Contactado" es invisible para el delta, que solo veria altas.
+  // Fragmento literal, no bind: no viene del cliente.
+  sets.push("updated_at = CURRENT_TIMESTAMP");
   binds.push(leadId, user.id);
   await env.DB.prepare(
     `UPDATE leads SET ${sets.join(", ")} WHERE id = ?
@@ -1216,6 +1358,36 @@ async function handleLeadHistory(request: Request, agentId: string, env: Env) {
   );
 }
 
+async function handleLeadHistoryDelete(request: Request, agentId: string, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  // Mismo filtro que la lectura: solo el dueno del agente borra su historial.
+  const owned = await env.DB.prepare("SELECT id FROM agents WHERE id = ? AND user_id = ?")
+    .bind(agentId, user.id)
+    .first<{ id: string }>();
+  if (!owned) return json({ error: "Agente no existe" }, 403, origin);
+  const sessionId = new URL(request.url).searchParams.get("session_id");
+  if (!sessionId) return json({ error: "Falta session_id" }, 400, origin);
+  const convo = await env.DB.prepare(
+    "SELECT id FROM conversations WHERE agent_id = ? AND session_id = ?"
+  )
+    .bind(agentId, sessionId)
+    .first<{ id: string }>();
+  if (!convo) return json({ error: "La conversacion no existe" }, 404, origin);
+
+  // Se cuenta antes porque el CASCADE ocurre en la misma sentencia.
+  const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE conversation_id = ?")
+    .bind(convo.id)
+    .first<{ n: number }>();
+  await env.DB.prepare("DELETE FROM conversations WHERE id = ?").bind(convo.id).run();
+  // `conversations` es 1 y no `meta.changes`: D1 devuelve 4 en este caso porque
+  // ese numero tambien suma las filas que tocaron los triggers y el CASCADE.
+  // Aqui el WHERE es una PK que acabamos de comprobar que existe, asi que la
+  // conversacion borrada es exactamente una.
+  return json({ deleted: { conversations: 1, messages: Number(n?.n) || 0 } }, 200, origin);
+}
+
 async function handleLeadBulk(request: Request, env: Env) {
   const origin = request.headers.get("Origin") || "*";
   const user = await resolveUser(request, env);
@@ -1239,7 +1411,7 @@ async function handleLeadBulk(request: Request, env: Env) {
       return json({ error: `Estado inválido. Válidos: ${LEAD_STATUSES.join(", ")}` }, 400, origin);
     }
     await env.DB.prepare(
-      `UPDATE leads SET status = ? WHERE id IN (${placeholders})
+      `UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})
        AND agent_id IN (SELECT id FROM agents WHERE user_id = ?)`
     ).bind(status, ...ids, user.id).run();
     return json({ ok: true, status }, 200, origin);
@@ -1294,8 +1466,8 @@ async function handleLeadForm(request: Request, env: Env) {
 
   try {
     await env.DB.prepare(
-      `INSERT INTO leads (id, agent_id, name, email, phone, notes, interest, session_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO leads (id, agent_id, name, email, phone, notes, interest, session_id, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
     )
       .bind(
         crypto.randomUUID(),
@@ -1523,26 +1695,13 @@ async function handleAdminUsers(request: Request, env: Env) {
     return json({ error: "No autorizado" }, 403, origin);
   }
 
-  const { results } = await env.DB.prepare(
-    `SELECT 0 AS orphan, l.createdAt AS created, l.id, l.email AS login_email,
-            l.role, u.name, u.plan, u.agent_limit, u.messages_limit, u.messages_used,
-            u.plan_expires_at, u.downgraded_from, u.expiry_notice_at,
-            (CASE WHEN u.telegram_chat_id IS NOT NULL AND u.telegram_chat_id <> '' THEN 1 ELSE 0 END) AS has_telegram,
-            (CASE WHEN u.webhook_url IS NOT NULL AND u.webhook_url <> '' THEN 1 ELSE 0 END) AS has_webhook,
-            (SELECT COUNT(*) FROM agents a WHERE a.user_id = l.id) AS agents,
-            (SELECT GROUP_CONCAT(a.name, ' | ') FROM agents a WHERE a.user_id = l.id) AS agent_names
-       FROM "user" l LEFT JOIN users u ON u.id = l.id
-     UNION ALL
-     SELECT 1, NULL, u2.id, u2.email, NULL, u2.name, u2.plan,
-             u2.agent_limit, u2.messages_limit, u2.messages_used, u2.plan_expires_at,
-             u2.downgraded_from, u2.expiry_notice_at,
-            (CASE WHEN u2.telegram_chat_id IS NOT NULL AND u2.telegram_chat_id <> '' THEN 1 ELSE 0 END),
-            (CASE WHEN u2.webhook_url IS NOT NULL AND u2.webhook_url <> '' THEN 1 ELSE 0 END),
-            (SELECT COUNT(*) FROM agents a WHERE a.user_id = u2.id),
-            (SELECT GROUP_CONCAT(a.name, ' | ') FROM agents a WHERE a.user_id = u2.id)
-       FROM users u2 WHERE NOT EXISTS (SELECT 1 FROM "user" l2 WHERE l2.id = u2.id)
-     ORDER BY orphan, created DESC`
-  ).all();
+  const url = new URL(request.url);
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
+  // Tope duro de 100, igual que en prospectos: `page_size` nunca descarga la
+  // tabla entera para que el navegador filtre.
+  const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("page_size") || "10", 10) || 10));
+  const planFilter = (url.searchParams.get("plan") || "").trim();
+  const expiryFilter = url.searchParams.get("expiring") === "1";
 
   type Row = {
     id: string;
@@ -1564,7 +1723,114 @@ async function handleAdminUsers(request: Request, env: Env) {
     created: string | number | null;
   };
 
-  const users = ((results ?? []) as unknown as Row[]).map((r) => ({
+  // Antes esto era un solo SELECT con `UNION ALL` y `ORDER BY orphan, created
+  // DESC`, que D1 resolvia con TEMP B-TREE: ordenaba en memoria TODOS los
+  // clientes en cada visita (51.63 ms con 10.000 usuarios) y los devolvia todos
+  // al navegador. El indice de 0006 no lo arregla por si solo, porque el
+  // ORDER BY global de un UNION sigue materializando las dos ramas: medido,
+  // 51.63 -> 49.80 ms. Lo que lo arregla es dejar de ordenar el conjunto entero
+  // y paginar cada rama con su propio indice.
+  //
+  // Los filtros (plan, "vence esta semana") van en SQL, no en el navegador: si
+  // se filtran en el cliente hay que traer a TODOS los clientes para descartar
+  // los que no tocan el filtro.
+  const where: string[] = [];
+  const binds: unknown[] = [];
+  if (planFilter) {
+    where.push("u.plan = ?");
+    binds.push(planFilter);
+  }
+  if (expiryFilter) {
+    // Mismo criterio que `daysLeft(...) <= 7 && >= 0` del panel, translated a SQL:
+    // vence dentro de 7 dias, incluidos hoy, y no una fecha ya pasada.
+    where.push("u.plan_expires_at IS NOT NULL AND u.plan_expires_at >= date('now') AND u.plan_expires_at <= datetime('now', '+7 days')");
+  }
+  const filterSql = where.length ? ` AND ${where.join(" AND ")}` : "";
+
+  // Los dos COUNT acotan el paginador. No son gratis: leen TODA la tabla.
+  // Medido en local con 10.000 cuentas y los indices de 0006 puestos:
+  //   loginTotal   3.27 ms   SCAN l USING COVERING INDEX (10.000 entradas)
+  //   orphanTotal  3.01 ms   SCAN u2 + una sonda por fila
+  //   la pagina en si 0.023 ms   SCAN l USING INDEX idx_user_created  <- la que si corta
+  //   carga completa del panel ~7 ms
+  // Crecen con el TOTAL de cuentas, no con los mensajes: es el mismo orden de
+  // problema que ya se arreglo en el Overview, pero aqui es un panel de admin
+  // (se consulta poco y solo lo ve una persona), no una vista por agente.
+  // ponytail: COUNT sobre todas las cuentas. Subir a contadores en una tabla
+  //   `user_stats` con triggers (mismo patron que agent_stats y lead_stats) el
+  //   dia que pese. La otra via, pasar el paginador a "hay mas" con pageSize+1
+  //   y dejar de devolver `total`, NO es gratis: `total` es lo que pinta los
+  //   numeros de pagina y el "Mostrando X-Y de Z cuentas" del pie, asi que
+  //   quitandolo se pierde UX, no solo coste. Con 3 cuentas hoy ninguna de las
+  //   dos merece el riesgo de meter triggers en la tabla `user` de Better Auth.
+  const loginTotal = Number(
+    (
+      await env.DB.prepare(`SELECT COUNT(*) AS c FROM "user" l LEFT JOIN users u ON u.id = l.id WHERE 1=1${filterSql}`)
+        .bind(...binds)
+        .first<{ c: number }>()
+    )?.c
+  ) || 0;
+  const orphanTotal = Number(
+    (
+      await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM users u2 WHERE NOT EXISTS (SELECT 1 FROM "user" l2 WHERE l2.id = u2.id)${
+          planFilter ? " AND u2.plan = ?" : ""
+        }${expiryFilter ? " AND u2.plan_expires_at IS NOT NULL AND u2.plan_expires_at >= date('now') AND u2.plan_expires_at <= datetime('now', '+7 days')" : ""}`
+      )
+        .bind(...(planFilter ? [planFilter] : []))
+        .first<{ c: number }>()
+    )?.c
+  ) || 0;
+  const total = loginTotal + orphanTotal;
+
+  // La pagina se reparte entre las dos ramas: primero los que tienen login (que
+  // son los casi todos y los unicos que pueden paginarse por indice), y si la
+  // pagina cae en la zona de los huerfanos se leen desde ahi.
+  const results: Row[] = [];
+  if (loginTotal > 0) {
+    const { results: pageRows } = await env.DB.prepare(
+      `SELECT l.createdAt AS created, l.id, l.email AS login_email, l.role,
+              u.name, u.plan, u.agent_limit, u.messages_limit, u.messages_used,
+              u.plan_expires_at, u.downgraded_from, u.expiry_notice_at,
+              (CASE WHEN u.telegram_chat_id IS NOT NULL AND u.telegram_chat_id <> '' THEN 1 ELSE 0 END) AS has_telegram,
+              (CASE WHEN u.webhook_url IS NOT NULL AND u.webhook_url <> '' THEN 1 ELSE 0 END) AS has_webhook,
+              (SELECT COUNT(*) FROM agents a WHERE a.user_id = l.id) AS agents,
+              (SELECT GROUP_CONCAT(a.name, ' | ') FROM agents a WHERE a.user_id = l.id) AS agent_names
+         FROM "user" l LEFT JOIN users u ON u.id = l.id
+        WHERE 1=1${filterSql}
+        ORDER BY l.createdAt DESC
+        LIMIT ? OFFSET ?`
+    )
+      .bind(...binds, pageSize, (page - 1) * pageSize)
+      .all<Row>();
+    results.push(...((pageRows ?? []) as Row[]));
+  }
+  // Los huerfanos (cuentas legacy que nunca pasaron por Better Auth) van al final,
+  // igual que antes, para que no queden invisibles. Son raros, asi que solo se
+  // tocan si la pagina llega a su zona.
+  const firstOrphanPage = Math.floor(loginTotal / pageSize) + 1;
+  if (orphanTotal > 0 && page >= firstOrphanPage) {
+    const { results: orphanRows } = await env.DB.prepare(
+      `SELECT NULL AS created, u2.id, u2.email AS login_email, NULL AS role,
+              u2.name, u2.plan, u2.agent_limit, u2.messages_limit, u2.messages_used,
+              u2.plan_expires_at, u2.downgraded_from, u2.expiry_notice_at,
+              (CASE WHEN u2.telegram_chat_id IS NOT NULL AND u2.telegram_chat_id <> '' THEN 1 ELSE 0 END) AS has_telegram,
+              (CASE WHEN u2.webhook_url IS NOT NULL AND u2.webhook_url <> '' THEN 1 ELSE 0 END) AS has_webhook,
+              (SELECT COUNT(*) FROM agents a WHERE a.user_id = u2.id) AS agents,
+              (SELECT GROUP_CONCAT(a.name, ' | ') FROM agents a WHERE a.user_id = u2.id) AS agent_names
+         FROM users u2
+        WHERE NOT EXISTS (SELECT 1 FROM "user" l2 WHERE l2.id = u2.id)${
+          planFilter ? " AND u2.plan = ?" : ""
+        }${expiryFilter ? " AND u2.plan_expires_at IS NOT NULL AND u2.plan_expires_at >= date('now') AND u2.plan_expires_at <= datetime('now', '+7 days')" : ""}
+        ORDER BY u2.created_at DESC
+        LIMIT ? OFFSET ?`
+    )
+      .bind(...(planFilter ? [planFilter] : []), pageSize, (page - firstOrphanPage) * pageSize)
+      .all<Row>();
+    results.push(...((orphanRows ?? []) as Row[]));
+  }
+
+  const users = results.map((r) => ({
     id: r.id,
     email: r.login_email,
     name: r.name,
@@ -1587,7 +1853,59 @@ async function handleAdminUsers(request: Request, env: Env) {
     agent_names: r.agent_names ?? null,
   }));
 
-  return json({ users }, 200, origin);
+  // El badge del boton "vence esta semana" necesita el numero de los que cumplen
+  // ESE filtro (mas el de plan, si hay uno elegido).
+  //
+  // Se cuenta sobre `users`, sin unirse a `"user"`, por dos razones:
+  //  1. Es el mismo dominio que el filtro del listado y que el cron de vencimiento
+  //     (L2119, `FROM users` sin join): una cuenta huerfana que vence la semana
+  //     que viene la degrada el cron, aparece en el filtro... y el badge no la
+  //     contaba, porque partia de `"user"`. Medido: badge 1, filtro 2, cron 2.
+  //     Con plan=agency encima el badge decia 0 y existia 1 cuenta.
+  //  2. Cada cuenta con vencimiento tiene fila en `users` (ahi vive la fecha), y
+  //     un login sin fila en `users` tampoco tiene fecha que contar, asi que la
+  //     union de las dos ramas del filtro es exactamente `FROM users`.
+  // `idx_users_plan_expires` cubre la ventana de 7 dias.
+  const expiryCount = Number(
+    (
+      await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM users
+          WHERE plan_expires_at IS NOT NULL
+            AND plan_expires_at >= date('now')
+            AND plan_expires_at <= datetime('now', '+7 days')
+            ${planFilter ? " AND plan = ?" : ""}`
+      )
+        .bind(...(planFilter ? [planFilter] : []))
+        .first<{ c: number }>()
+    )?.c
+  ) || 0;
+
+  // Conteos por plan para las pilloras del panel. Se piden SIN el filtro de plan
+  // aplicado a propósito: si no, al elegir "Free" las otras pilloras caerían a
+  // cero y el filtro parecería roto. Usa idx_users_plan, asi que no es un scan.
+  // Solo cuando el cliente los pide: es un dato que el navegador recalcula en
+  // cada render de la fila, no algo que el listado necesite.
+  let planCounts: Record<string, number> = {};
+  if (url.searchParams.get("counts") === "1") {
+    const counts = await env.DB.prepare(
+      `SELECT plan, COUNT(*) AS c FROM users GROUP BY plan`
+    ).all<{ plan: string | null; c: number }>();
+    const byPlan = counts.results ?? [];
+    planCounts = Object.fromEntries(byPlan.map((r) => [r.plan ?? "free", Number(r.c) || 0]));
+    // Sin fila `users` significa plan free, y el panel agrupa ahi los que no
+    // tienen ninguno asignado, asi que se cuenta tambien desde "user".
+    const orphanLogin = Number(
+      (
+        await env.DB.prepare(
+          `SELECT COUNT(*) AS c FROM "user" l LEFT JOIN users u ON u.id = l.id WHERE u.id IS NULL`
+        )
+          .first<{ c: number }>()
+      )?.c
+    ) || 0;
+    planCounts.free = (planCounts.free ?? 0) + orphanLogin;
+  }
+
+  return json({ users, total, expiryCount, planCounts, page, pageSize }, 200, origin);
 }
 
 // El cliente cerro el aviso de renovacion. Solo se marca la SUYA: se usa el
@@ -1932,10 +2250,13 @@ export default {
     if (url.pathname === "/api/leads/bulk" && request.method === "POST") {
       return handleLeadBulk(request, env);
     }
-    const historyMatch = url.pathname.match(/^\/api\/leads\/([^/]+)\/history$/);
-    if (historyMatch && request.method === "GET") {
-      return handleLeadHistory(request, historyMatch[1], env);
-    }
+const historyMatch = url.pathname.match(/^\/api\/leads\/([^/]+)\/history$/);
+  if (historyMatch && request.method === "GET") {
+    return handleLeadHistory(request, historyMatch[1], env);
+  }
+  if (historyMatch && request.method === "DELETE") {
+    return handleLeadHistoryDelete(request, historyMatch[1], env);
+  }
     if (leadsMatch) {
       if (request.method === "GET") {
         return handleLeadList(request, leadsMatch[1], env);

@@ -69,18 +69,38 @@ function formatEventDate(raw: string): string {
   });
 }
 
-// Los cupos se guardan como texto y los planes en crudo; mostrar 'null' o
-// 'pro' pelado a un dueño es ruido.
-function fmtValue(field: string | null, v: string | null): string {
-  if (v === null || v === "" || v === "null") return "∅";
-  if (field === "plan") return PLAN_LABELS[v] ?? v;
+// Los cupos son números y los planes texto; 'null' o un plan en crudo a un dueño
+// es ruido. `plan` es especial: aunque el campo venga como 'plan', también
+// cambian de plan por el downgrade, donde el campo es null.
+function fmtValue(field: string | null, v: string | null, action: string): string {
+  const isPlan = field === "plan" || action === "downgrade";
+  if (v === null || v === "" || v === "null") {
+    if (isPlan) return "sin plan";
+    if (field === "plan_expires_at") return "sin fecha";
+    if (field === "messages_limit" || field === "agent_limit") return "límite del plan";
+    return "sin valor";
+  }
+  if (isPlan) return PLAN_LABELS[v] ?? v;
   if (field === "plan_expires_at") {
     const d = new Date(`${v}T00:00:00`);
     return Number.isNaN(d.getTime())
       ? v
       : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
   }
+  // Los límites se leen mucho mejor con el separador de miles del locale.
+  if (field === "messages_limit" || field === "agent_limit") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toLocaleString("es-AR") : v;
+  }
   return v;
+}
+
+// Etiqueta del campo en castellano; para el downgrade no hay campo pero el
+// valor de atrás adelante sí es un plan, así que se lee igual que "Plan".
+function fieldLabel(ev: PlanEvent): string | null {
+  if (ev.field) return FIELD_LABELS[ev.field] ?? ev.field;
+  if (ev.action === "downgrade") return "Plan";
+  return null;
 }
 
 export default function PlanHistoryModal({ open, account, onClose }: PlanHistoryModalProps) {
@@ -133,10 +153,13 @@ export default function PlanHistoryModal({ open, account, onClose }: PlanHistory
   return (
     <ModalShell open={open} onClose={onClose} ariaLabel={`Historial de ${who}`} innerClassName="logout-modal history-modal">
       <div className="history-modal-head">
-        <div>
+        <div className="history-modal-title">
           <h2>Historial</h2>
           <p className="history-modal-who" title={account?.email ?? undefined}>
             {account?.email || "sin email de login"}
+            {events !== null && !error
+              ? ` · ${total} ${total === 1 ? "movimiento" : "movimientos"}`
+              : null}
           </p>
         </div>
         <button className="lead-drawer-close" type="button" onClick={onClose} aria-label="Cerrar">
@@ -148,7 +171,13 @@ export default function PlanHistoryModal({ open, account, onClose }: PlanHistory
       </div>
 
       {events === null ? (
-        <p className="acct-hint">Cargando…</p>
+        /* Mismo esqueleto que el resto del panel, pero con la forma de las
+           fichas del historial para que no salte el layout al llenarse. */
+        <div aria-busy="true" aria-label="Cargando historial">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="faq-skeleton-row" style={{ height: 64, borderRadius: 12, marginBottom: 6 }} />
+          ))}
+        </div>
       ) : error ? (
         <>
           <p className="acct-hint" style={{ marginTop: 0 }}>
@@ -166,25 +195,41 @@ export default function PlanHistoryModal({ open, account, onClose }: PlanHistory
         </p>
       ) : (
         <>
-          <ol className="acct-events">
-            {rows.map((ev) => (
-              <li key={ev.id} className="acct-event">
-                <span className="acct-event-when">{formatEventDate(ev.created_at)}</span>
-                <span className="acct-event-what">{EVENT_LABELS[ev.action] ?? ev.action}</span>
-                <span className="acct-event-detail">
-                  {ev.from_value || ev.to_value ? (
-                    <>
-                      {ev.field ? <em>{FIELD_LABELS[ev.field] ?? ev.field}</em> : null}
-                      {ev.field ? " · " : null}
-                      {ev.from_value ? <s>{fmtValue(ev.field, ev.from_value)}</s> : "∅"}
-                      {" → "}
-                      {fmtValue(ev.field, ev.to_value)}
-                    </>
-                  ) : null}
-                  {ev.actor === "system" ? <span className="acct-event-actor">automático</span> : null}
-                </span>
-              </li>
-            ))}
+          <ol className="hist-list">
+            {rows.map((ev) => {
+              const label = fieldLabel(ev);
+              const hasChange = ev.from_value !== null || ev.to_value !== null;
+              return (
+                <li key={ev.id} className="hist-row" data-action={ev.action}>
+                  <span className="hist-dot" aria-hidden="true" />
+                  <div className="hist-body">
+                    <div className="hist-head">
+                      <strong className="hist-what">{EVENT_LABELS[ev.action] ?? ev.action}</strong>
+                      <time className="hist-when">{formatEventDate(ev.created_at)}</time>
+                    </div>
+                    {hasChange ? (
+                      <div className="hist-change">
+                        {label ? <span className="hist-field">{label}</span> : null}
+                        <span className="hist-val" data-side="from">
+                          {fmtValue(ev.field, ev.from_value, ev.action)}
+                        </span>
+                        <span className="hist-arrow" aria-hidden="true">
+                          →
+                        </span>
+                        <span className="hist-val" data-side="to">
+                          {fmtValue(ev.field, ev.to_value, ev.action)}
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className="hist-meta">
+                      <span className="hist-badge" data-actor={ev.actor}>
+                        {ev.actor === "system" ? "automático" : ev.actor === "user" ? "cliente" : "dueño"}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
 
           {total > PAGE_SIZE && (
@@ -234,13 +279,15 @@ export default function PlanHistoryModal({ open, account, onClose }: PlanHistory
           {total === 100 ? (
             <p className="acct-hint">Se muestran los 100 movimientos más recientes.</p>
           ) : null}
+
+          {/* Solo aparece cuando HAY historial: dejarlo también en el estado
+              vacío o de error repetía un consejo que no aportaba. */}
+          <p className="acct-hint">
+            Cada cambio queda con su fecha y su valor anterior, para poder mostrarlo cuando un
+            cliente reclame.
+          </p>
         </>
       )}
-
-      <p className="acct-hint">
-        Esto es lo que podés mostrar cuando un cliente dice que pagó: cada cambio queda con su fecha
-        y su valor anterior.
-      </p>
     </ModalShell>
   );
 }

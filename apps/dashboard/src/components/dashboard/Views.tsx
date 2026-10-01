@@ -51,7 +51,9 @@ function CodeScript({ className, agentId, origin }: { className: string; agentId
 
 const CHIPS = ["WordPress", "Shopify", "Wix", "Webflow", "Squarespace", "React", "Next.js", "Vue", "Nuxt", "Astro", "HTML", "Ghost"];
 
-function MetricCard({
+// Exportada para que Prospectos reutilice la MISMA tarjeta del Overview en vez
+// de inventar un segundo estilo de KPI que se vea ajeno al resto del panel.
+export function MetricCard({
   label,
   icon,
   value,
@@ -62,8 +64,8 @@ function MetricCard({
   label: string;
   icon: ReactNode;
   value: ReactNode;
-  trendLabel: string;
-  trendSuffix: string;
+  trendLabel?: string;
+  trendSuffix?: string;
   progress?: number;
 }) {
   return (
@@ -77,11 +79,11 @@ function MetricCard({
         <div className="progress-bar-container">
           <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
         </div>
-      ) : (
+      ) : trendLabel !== undefined ? (
         <div className="metric-footer">
           <span className="trend-up">{trendLabel}</span> {trendSuffix}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

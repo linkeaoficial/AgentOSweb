@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useToast } from "./notifications";
 import { Dropdown } from "./AgentsView";
 import { pageNumbers } from "./LeadsView";
+import ConfirmModal from "./ConfirmModal";
 import PlanHistoryModal from "./PlanHistoryModal";
 import type { PlanDefault } from "./BillingView";
 
@@ -134,13 +135,26 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expiryDraft, setExpiryDraft] = useState("");
   const [savingExpiry, setSavingExpiry] = useState(false);
-  // Filtros de la tabla. Los dos son de cliente, no del worker: `users` ya trae
-  // `plan` y `plan_expires_at` de todas las cuentas, asi que filtrar aca evita un
-  // endpoint nuevo y un viaje de ida y vuelta por cada tecla.
+  // Filtros de la tabla. Van al servidor: antes se filtraban aca, lo que obligaba
+  // a traer TODOS los clientes (con dos subqueries de agentes cada uno) para
+  // descartar los que no tocaban el filtro. D1 factura filas leidas, asi que a
+  // 10.000 clientes eso eran ~30.000 filas por visita para pintar 10.
   const [expiryFilter, setExpiryFilter] = useState(false);
   const [planFilter, setPlanFilter] = useState("");
+  // `total` y `expiryCount` los devuelve el worker ya filtrados, asi que el
+  // paginador y el badge cuentan lo mismo que se ve, sin recalcular en cliente.
+  const [total, setTotal] = useState(0);
+  const [expiryCount, setExpiryCount] = useState(0);
+  // Cuantas cuentas hay de cada plan, para los numeros de las pilloras. Los cuenta
+  // el worker sobre la tabla entera, no la pagina: en cliente solo se ve una decena.
+  const [planCounts, setPlanCounts] = useState<Record<string, number>>({});
+  // Total de cuentas sin importar el plan: es el número de la píldora "Todos".
+  const planAll = Object.values(planCounts).reduce((a, b) => a + (Number(b) || 0), 0);
   // Historial: vive en su propio modal (PlanHistoryModal), no en el drawer.
   const [historyFor, setHistoryFor] = useState<AdminUser | null>(null);
+  // Renovar cambia el contrato de una cuenta (sumar meses), así que pide
+  // confirmación antes: un clic distraído no debería poder hacerlo.
+  const [renew, setRenew] = useState<{ u: AdminUser; months: 1 | 3 } | null>(null);
 
   const openDetail = useCallback((u: AdminUser) => {
     setDetail(u);
@@ -160,12 +174,43 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/users", { cache: "no-store" });
-      const data = (await res.json().catch(() => ({}))) as { users?: AdminUser[]; error?: string };
+      const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) });
+      if (planFilter) params.set("plan", planFilter);
+      if (expiryFilter) params.set("expiring", "1");
+      // Los conteos por plan van SIEMPRE sin el filtro de plan: si no, al elegir
+      // "Free" las otras pilloras caeran a cero y el filtro parecera roto.
+      params.set("counts", "1");
+      const res = await fetch(`/api/admin/users?${params}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as {
+        users?: AdminUser[];
+        total?: number;
+        expiryCount?: number;
+        planCounts?: Record<string, number>;
+        error?: string;
+      };
       if (!res.ok) throw new Error(data.error || "No se pudo cargar la lista de clientes");
       const list = data.users ?? [];
+      const serverTotal = data.total ?? list.length;
       setUsers(list);
-      setDrafts(Object.fromEntries(list.map((u) => [u.id, u.plan ?? "free"])));
+      setTotal(serverTotal);
+      // Si la página actual se quedó sin resultados (borraron cuentas desde otra
+      // sesión, sin cambiar filtros), el servidor devuelve vacío y la tabla se
+      // queda en blanco aunque el paginador marque "página 3". Se vuelve a la 1.
+      const lastPage = Math.max(1, Math.ceil(serverTotal / PAGE_SIZE));
+      if (serverTotal > 0 && page > lastPage) {
+        setPage(lastPage);
+        return;
+      }
+      if (serverTotal === 0) setPage(1);
+      setExpiryCount(data.expiryCount ?? 0);
+      setPlanCounts(data.planCounts ?? {});
+      // Solo la pagina visible necesita borrador: si `drafts` guardara todos los
+      // clientes habria que traerlos todos para poder editar cualquiera.
+      setDrafts((prev) => {
+        const next = { ...prev };
+        for (const u of list) next[u.id] = u.plan ?? "free";
+        return next;
+      });
       setLoadError(null);
     } catch (e) {
       // Sin esto, una consulta fallida deja users=[] y la vista muestra
@@ -176,7 +221,7 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, planFilter, expiryFilter]);
 
   useEffect(() => {
     void load();
@@ -240,29 +285,16 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
   );
 
   // Los dos filtros se combinan (AND), no se pisan: "Pro" + "vence esta semana"
-  // es una pregunta real ("¿qué clientes pro se me vencen esta semana?"), y
-  // por eso se filtran sobre la misma lista en vez de un switch. El Set evita
-  // un O(n²) de `includes` adentro del `filter`.
-  const expiringSoon = useMemo(
-    () => users.filter((u) => {
-      const d = daysLeft(u.plan_expires_at);
-      return d !== null && d >= 0 && d <= 7;
-    }),
-    [users]
-  );
-
-  const expiringIds = useMemo(() => new Set(expiringSoon.map((u) => u.id)), [expiringSoon]);
-
-  const byPlan = useMemo(
-    () => (planFilter ? users.filter((u) => (u.plan ?? "free") === planFilter) : users),
-    [users, planFilter]
-  );
-
-  const visible = expiryFilter ? byPlan.filter((u) => expiringIds.has(u.id)) : byPlan;
-  const total = visible.length;
+  // es una pregunta real ("¿qué clientes pro se me vencen esta semana?"), y por
+  // eso se mandan juntos al worker en vez de ser un switch.
+  //
+  // Lo que se pinta ES la pagina que pidio el servidor: `users` ya viene
+  // filtrada y paginada, asi que no hay ni `filter` ni `slice` aca. Antes habia
+  // un O(n) en cliente por cada render y, sobre todo, habia que traer todas las
+  // cuentas para poder hacerlos.
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageNumber = Math.min(page, totalPages);
-  const rows = visible.slice((pageNumber - 1) * PAGE_SIZE, pageNumber * PAGE_SIZE);
+  const rows = users;
   const projected =
     totalPages > 5
       ? [1, ...(pageNumber > 3 ? [0] : []), ...pageNumbers(pageNumber, totalPages), ...(pageNumber < totalPages - 2 ? [0] : []), totalPages]
@@ -289,7 +321,7 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
             aria-pressed={expiryFilter}
           >
             {expiryFilter ? "Ver todas" : "Vence esta semana"}
-            {expiringSoon.length > 0 ? <span className="admin-filter-count">{expiringSoon.length}</span> : null}
+            {expiryCount > 0 ? <span className="admin-filter-count">{expiryCount}</span> : null}
           </button>
           <button className="btn-ghost" type="button" onClick={() => void load()} disabled={loading}>
             {loading ? "Cargando…" : "Actualizar"}
@@ -305,7 +337,16 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
           // Contar por plan va sobre `users` y no sobre `byPlan`: si no, al
           // elegir "Free" los otros contadores caerían a cero y el filtro
           // parecería roto en vez de mostrar el cruce.
-          const n = p ? users.filter((u) => (u.plan ?? "free") === p).length : users.length;
+          //
+          // Con la lista pagada, `users` es solo la pagina actual, asi que contar
+          // aca daría "3" en vez de "2400" y el filtro prometeria una cuenta que
+          // no aparece. El total real de cada plan lo cuenta el worker.
+          // La píldora "Todos" no tiene plan, así que su número no está en
+          // `planCounts`: es la suma de todos los planes (cuentas sin fila en
+          // `users` ya entran como "free"). Buscar `planCounts[""]` devolvía
+          // undefined y pintaba 0 siempre. `total` es el fallback mientras
+          // llegan los conteos, para no mostrar 0 en la primera carga.
+          const n = p ? planCounts[p] ?? 0 : planAll || total;
           return (
             <button
               key={p || "all"}
@@ -363,7 +404,11 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
           ) : null}
         </div>
       ) : (
-        <div className="panel-card">
+        <div className={`panel-card${loading && users.length > 0 ? " is-refreshing" : ""}`}>
+          {/* Igual que Prospectos: con filas visibles, recargar una página o
+              cambiar un filtro atenúa la tabla en vez de vaciarla. Antes solo se
+              veía el esqueleto en la primera carga, así que al cambiar de página
+              las filas cambiaban de golpe sin señal de que venían del servidor. */}
           {/* Sin .leads-table-wrap: trae overflow:auto (que recortaría el desplegable
               del plan) y border-radius (que el header cuadrado del spoilearía).
               El marco lo pone el .panel-card de arriba. */}
@@ -605,15 +650,15 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                       className="btn-primary"
                       type="button"
                       disabled={savingExpiry}
-                      onClick={() => void putExpiry({ renew_months: 1 })}
+                      onClick={() => setRenew({ u: detail, months: 1 })}
                     >
-                      {savingExpiry ? "Guardando…" : "Renovar +1 mes"}
+                      Renovar +1 mes
                     </button>
                     <button
                       className="btn-ghost"
                       type="button"
                       disabled={savingExpiry}
-                      onClick={() => void putExpiry({ renew_months: 3 })}
+                      onClick={() => setRenew({ u: detail, months: 3 })}
                     >
                       +3 meses
                     </button>
@@ -654,7 +699,17 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                 <section className="lead-drawer-sec">
                   <div className="lead-drawer-row">
                     <span>Historial</span>
-                    <button className="btn-ghost" type="button" onClick={() => setHistoryFor(detail)}>
+                    <button
+                      className="btn-ghost"
+                      type="button"
+                      onClick={() => {
+                        // Un modal por vez: el drawer se cierra y recién ahi abre
+                        // el historial, para no apilar dos overlays de fondo
+                        // oscuro (que ademas se escalan en opacidad).
+                        setHistoryFor(detail);
+                        setDetail(null);
+                      }}
+                    >
                       Ver historial
                     </button>
                   </div>
@@ -690,6 +745,47 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
         account={historyFor}
         onClose={() => setHistoryFor(null)}
       />
+
+      {renew ? (
+        <ConfirmModal
+          open
+          title={`Renovar ${renew.months === 1 ? "1 mes" : "3 meses"}`}
+          description={
+            <>
+              Se {renew.months === 1 ? "suma 1 mes" : "suman 3 meses"} al vencimiento actual
+              {renew.u.plan_expires_at ? (
+                <>
+                  {" "}
+                  (<strong>{formatDate(renew.u.plan_expires_at)}</strong>)
+                </>
+              ) : null}
+              . La fecha nueva la calcula el sistema.
+              {renew.u.downgraded_from ? (
+                <>
+                  {" "}
+                  Esta cuenta había caído a Free, así que además se le devuelve su plan{" "}
+                  <strong>{PLAN_LABELS[renew.u.downgraded_from] ?? renew.u.downgraded_from}</strong>.
+                </>
+              ) : null}
+            </>
+          }
+          confirmLabel={savingExpiry ? "Renovando…" : "Renovar"}
+          loadingText="Renovando…"
+          tone="neutral"
+          icon={
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="17" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+              <path d="M12 14v4M10 16h4" />
+            </svg>
+          }
+          onClose={() => setRenew(null)}
+          onConfirm={async () => {
+            await putExpiry({ renew_months: renew.months });
+            setRenew(null);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
