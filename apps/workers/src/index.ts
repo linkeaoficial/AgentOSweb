@@ -2166,6 +2166,29 @@ async function resetMonthlyQuota(env: Env): Promise<void> {
   await env.DB.prepare("UPDATE users SET messages_used = 0").run();
 }
 
+// ── Rate limit de /api/auth/*: la IP del visitante, sin confiar en el cliente ──
+// El rate limiter de Better Auth (3 intentos / 10 s en sign-in y sign-up) decide
+// por IP, y la IP se resuelve de una cabecera. El worker es público: si aceptara
+// `x-client-ip` tal cual, cualquiera que pegue directo al worker podría mandar
+// una IP distinta en cada POST y evadir el límite por completo (y de paso tapar
+// el de los demás). Por eso la cabecera solo cuenta si el proxy del panel la
+// firma con OWNER_TOKEN (que el navegador nunca ve). Sin firma válida se borra
+// la cabecera y Better Auth cae en su cubo compartido por path: molestia para el
+// atacante, nunca un bypass.
+//
+// Reenviar el request con `new Request(request, { headers })` en vez de armar uno
+// nuevo desde cero: preserva el body (un stream) sin necesitar `duplex`, que
+// rompería los POST de sign-in/sign-up.
+function authRequest(request: Request, env: Env): Request {
+  if (!request.headers.has("x-client-ip")) return request;
+  const headers = new Headers(request.headers);
+  // `isOwnerAuthorized` devuelve true cuando OWNER_TOKEN no está configurado
+  // (modo dev), y eso dejaría el bypass abierto. Acá se exige el token posta:
+  // sin él, la cabecera no se confía y el limiter queda en modo cubo compartido.
+  if (!env.OWNER_TOKEN || !isOwnerAuthorized(request, env)) headers.delete("x-client-ip");
+  return new Request(request, { headers });
+}
+
 export default {
   async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
     // Los cupos se cortan solos al vencer el plan (effectivePlan), pero el registro
@@ -2191,7 +2214,7 @@ export default {
     if (url.pathname.startsWith("/api/auth/")) {
       const { createAuth, ensureAuthMigrations } = await import("./auth");
       await ensureAuthMigrations(env);
-      return createAuth(env).handler(request);
+      return createAuth(env).handler(authRequest(request, env));
     }
 
     // Multi-agente: listar y crear (antes del matcher /api/agent/:id)

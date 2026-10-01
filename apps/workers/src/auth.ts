@@ -38,15 +38,42 @@ export function createAuth(env: AuthEnv) {
     secret: env.AUTH_SECRET ?? (env.AUTH_BASE_URL?.startsWith("http://") ? "dev-auth-secret" : undefined),
     database: env.DB,
     trustedOrigins: ["http://localhost:3000", "http://127.0.0.1:3000", baseURL],
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+    },
+    // Rate limit de /api/auth/*. El default de Better Auth es
+    // `enabled: options.rateLimit?.enabled ?? isProduction`, e `isProduction`
+    // sale de NODE_ENV — que en un Worker nunca está seteado (wrangler.toml
+    // declara ENVIRONMENT, no NODE_ENV). O sea: apagado salvo que lo pidas
+    // explícitamente. Verificado en vivo el 01-oct-2026: 6 sign-in seguidos
+    // dieron 6×401 y ningún 429.
+    //
+    // Reglas por defecto de Better Auth: /sign-in, /sign-up, /change-password
+    // y /change-email → 3 intentos cada 10 s.
+    //
+    // ponytail: storage "memory" (el default sin secondaryStorage) es por
+    // instancia: un atacante que reparta requests entre isolates ve el límite
+    // multiplicado. El salto a D1 exige la tabla `rateLimit`, que NO está en
+    // el schema de Better Auth (getMigrations no la crea) — hay que
+    // crearla a mano en una migración 0008 y setear storage: "database".
+    rateLimit: { enabled: true },
     advanced: {
       trustedProxyHeaders: true,
       cookiePrefix: "aow_auth",
       useSecureCookies: false, // Fase 2E: activar en HTTPS de producción
       defaultCookieAttributes: { sameSite: "lax", httpOnly: true, path: "/" },
-    },
-    emailAndPassword: {
-      enabled: true,
-      minPasswordLength: 8,
+      // La IP que importa es la del visitante, pero el worker nunca la ve
+      // directo: el login llega por el proxy del panel (Next.js), así que
+      // `cf-connecting-ip` en el Worker es la IP de salida del proxy.
+      // El proxy la reenvía en `x-client-ip` (cabecera propia: Cloudflare
+      // pisa las suyas al entrar en su red) y es lo único que leemos.
+      // Sin este bloque, Better Auth cae en su bucket compartido por path
+      // ("no-trusted-ip"): todos los usuarios del SaaS comparten 3 intentos
+      // cada 10 s, así que un atacante puede dejar sin login a todo el mundo.
+      // XFF queda fuera a propósito: `getIPFromHeader` devuelve null si el
+      // header trae más de un salto y no hay `trustedProxies` configurado.
+      ipAddress: { ipAddressHeaders: ["x-client-ip"] },
     },
     socialProviders,
     session: { expiresIn: 60 * 60 * 24 * 7 }, // 7 días
