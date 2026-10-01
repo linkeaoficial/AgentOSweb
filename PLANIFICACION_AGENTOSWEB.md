@@ -20,11 +20,11 @@
 ---
 
 ## 0. ✅ ESTADO REAL IMPLEMENTADO (sep-2026) — lo que YA funciona en producción
-⚠️ Esta sección está desactualizada frente al trabajo del 24-28-sep-2026. La fuente viva del backlog está en `AGENTOSWEB_PENDIENTES.md`; el código real es `apps/` + `database/schema.sql`. Las migraciones viven en **dos** lugares según su origen: las versionadas del worker en `apps/workers/migrations/` (D1 las registra por nombre en `d1_migrations`, así que cada archivo corre **una sola vez** y no son idempotentes) y las de datos sueltos en `database/*.sql` (aplicadas a mano por `wrangler d1 execute`).
+⚠️ Esta sección está desactualizada frente al trabajo del 24-sep-2026 a 01-oct-2026. La fuente viva del backlog está en `AGENTOSWEB_PENDIENTES.md`; el código real es `apps/` + `database/schema.sql`. Las migraciones viven en **dos** lugares según su origen: las versionadas del worker en `apps/workers/migrations/` (D1 las registra por nombre en `d1_migrations`, así que cada archivo corre **una sola vez** y no son idempotentes) y las de datos sueltos en `database/*.sql` (aplicadas a mano por `wrangler d1 execute`).
 
 ### Estado del 24-25-sep-2026: el producto ya captura y gestiona prospectos de punta a punta
 - **Bandeja de Prospectos profesional** (24-sep-2026, ~90/100 vs competencia): captura automática por regex (email/teléfono/nombre) controlada por agente (`lead_capture` + `lead_fields`), formulario embebido en el chat al detectar interés, `interest` separado de `notes`, búsqueda + paginación server-side (debounce 300ms), sort por columnas, filtro por estado (pills), avatar + fecha en la fila, filas clickeables, KPIs, bulk select/acciones con FAB pegada a pantalla, export CSV (respeta filtro), drawer lateral con nota editable + historial de conversación (overlay tipo widget, sin flash, con cache y export .txt), alertas a Telegram/webhook. *El detalle completo está en `AGENTOSWEB_PENDIENTES.md`.*
-- Queda en backlog real: login multi-cliente + pago (requiere rediseño de Planes & Facturación), landing pública, botón "Probar modelo", auditoría periódica de modelos, fase 2 (kanban, atributos custom, webhooks, scoring).
+- Queda en backlog real: **FASE 2E — endurecer login** (único pendiente de prioridad máxima: rate limit en `/api/auth/*`, cookies `Secure`, rotación de sesión), pago y rediseño de Planes & Facturación (el pago sigue manual), landing pública (hoy solo existe el `package.json`, no hay páginas), botón "Probar modelo", auditoría periódica de modelos, fase 2 (kanban, atributos custom, webhooks, scoring).
 
 ### Lo que está DESPLEGADO y verificado en vivo
 
@@ -33,14 +33,15 @@
 ### Lo que está DESPLEGADO y verificado en vivo
 - **Worker API en Cloudflare** (`apps/workers/src/index.ts`, single-file, `wrangler deploy`). URL prod: `https://agentosweb-api.linkeaoficial2025.workers.dev`. Endpoints:
   - Públicos (widget): `GET /api/agent/:id` (config visual + prompts), `POST /api/chat` (chat + FAQ auto-respuesta), `POST /api/leads` (formulario del widget), `GET /` (health).
-  - Protegidos (`resolveUser`: `X-Owner-Token` = superadmin **o** cookie de sesión Better Auth + rol): `GET /api/agent/:id/config`, `PUT /api/agent/:id`, `DELETE /api/agent/:id`, `GET|POST /api/agents`, `GET /api/overview/:id`, `GET /api/leads/:agentId`, `PATCH|DELETE /api/leads/:id`, `GET /api/leads/:agentId/history`, `POST /api/leads/bulk`, `PUT /api/user` (**solo admin/superadmin**), `GET /api/admin/users` (**solo admin/superadmin**).
+  - Protegidos (`resolveUser`: `X-Owner-Token` = superadmin **o** cookie de sesión Better Auth + rol): `GET /api/agent/:id/config`, `PUT /api/agent/:id`, `DELETE /api/agent/:id`, `GET|POST /api/agents`, `GET /api/overview/:id`, `GET /api/leads/:agentId`, `PATCH|DELETE /api/leads/:id`, `GET|DELETE /api/leads/:agentId/history`, `POST /api/leads/bulk`, `PUT /api/user` (**solo admin/superadmin**), `GET /api/admin/users` (**solo admin/superadmin**).
 - **Motor IA administrada: Workers AI de Cloudflare** (dominante) + **BYOK** con Chat Completions multi-proveedor: workers-ai, openai, groq, deepseek, gemini, mistral, qwen, nvidia, openrouter, omnirouter, unorouter, cerebras, custom. *Los proveedores NOMBRE de "Groq Llama 3.3 / OpenAI GPT-4o Mini" de las secciones 1-3 son del blueprint; hoy predomina Workers AI.* Modelo managed default: `@cf/meta/llama-3.3-70b-instruct-fp8-fast` (const) o `openai/gpt-oss-120b` (var `DEFAULT_MODEL`); agentes nuevos nacen managed `@cf/meta/llama-3.1-8b-instruct-fast`.
-- **D1** (`agentosweb-db`): tablas `users` (con `agent_limit`), `agents` (con **`faqs` JSON, `chat_base_url`, `bubble_logo_url`**, además del blueprint), `leads`, `conversations`, `messages`, **`faq_hits`**. Índices compuestos. `schema.sql` es la fuente de verdad (ver §4 actualizado).
+- **D1** (`agentosweb-db`): tablas `users` (con `agent_limit`, `messages_limit`, `plan_expires_at`, `downgraded_from`), `agents` (con **`faqs` JSON, `chat_base_url`, `bubble_logo_url`**, además del blueprint), `leads` (+ `status`, `interest`, `session_id`, `notes`, `updated_at`), `conversations`, `messages`, **`faq_hits`**, **`plan_events`** (historial de cambios de plan), **`agent_stats`** y **`lead_stats`** (agregados por triggers → contadores O(1)) y el virtual **`leads_fts`** (búsqueda full-text). Índices compuestos. `schema.sql` es la fuente de verdad (ver §4 actualizado).
 - **KV** `AGENT_CACHE`: cache del agente (TTL 1h) + bloqueo de cupo (5 min); invalida al `PUT`.
 - **Cupos por plan** (`PLAN_DEFAULTS`): free 1 ag/20 msgs · starter 1/1500 · pro 3/6000 · agency 10/25000. `users.agent_limit`/`messages_limit` = override (NULL = plan). BYOK no consume cupo. Reset mensual vía cron. `PUT /api/user` → **solo admin/superadmin** (el cliente solicita, el admin aplica).
 - **Widget** (`apps/widget/src/index.ts` → `widget.js` ~1 archivo, Vanilla TS, sin frameworks): Shadow DOM, dual-view (portada FAQ + chat), tema claro/oscuro (`default_theme` desde config), botón flotante (`position`, `primary_color`, `bubble_logo_url` para Agency), FAQ auto-respuesta **tolerante** (ver FAQ matching abajo), historial de sesión (últimos 6), indicador de escritura, pacing 1.000 ms. ⚠️ **El script se sirve desde el panel** (`public/widget.js` + rewrite `/w/:id/widget.js`) y **debe quedar fuera del login**: está en `PUBLIC_PATHS` de `src/middleware.ts` porque si el middleware lo captura, el visitante recibe el HTML de `/login` y el widget nunca carga (pasó el 25-sep-2026).
 - **Panel dashboard** (`apps/dashboard`, Next.js 15 + React 19): login real con **Better Auth** (cookie `aow_auth.session_token`, redirect por middleware sin tocar la DB), `Mis Agentes` multi-agente con selector/crear/renombrar/eliminar, editor de identidad/apariencia, Modo clave propia (BYOK) con catálogo de modelos y citado descifrado, base de conocimiento (scratchpad), Vista previa en vivo, Overview (conversaciones + FAQ hits), Planes & Facturación (plan + cupos), **Prospectos** (bandeja completa server-side), **Clientes** (solo `role=admin`: lista de cuentas, rol, plan y cuotas de todos los clientes, más un drawer de detalle por cuenta con alta, vencimiento del plan editable, barras de cuota y lista de agentes), modo oscuro persistente.
-- **Seguridad (25-sep-2026):** `OWNER_TOKEN` (superadmin, timing-safe) + `ENCRYPTION_KEY` + `aow_auth.session_token` (Better Auth, HttpOnly+Lax) aplicados. `resolveUser` resuelve por token **o** por sesión con rol; los handlers scoping filtran por `user_id`. `domainAllowed` compara host exacto. **Login multi-cliente = HECHO** (FASE 2A/2B/2C).
+- **Seguridad (25-sep-2026):** `OWNER_TOKEN` (superadmin, timing-safe) + `ENCRYPTION_KEY` + `aow_auth.session_token` (Better Auth, HttpOnly+Lax) aplicados. `resolveUser` resuelve por token **o** por sesión con rol; los handlers scoping filtran por `user_id`. `domainAllowed` compara host exacto. **Login multi-cliente = HECHO** (FASE 2A/2B/2C/2D). **FASE 2E (endurecer login) sigue abierta** — ver `AGENTOSWEB_PENDIENTES.md`.
+- **Contadores O(1) + borrado de mensajes (01-oct-2026):** `agent_stats`/`lead_stats`/`leads_fts` alimentados por triggers (migraciones `0005` y `0007`) hacen el Overview y Prospectos constantes (476 filas leídas → 1), y `DELETE /api/leads/:agentId/history?session_id=` borra una conversación desde el panel con confirmación en dos pasos. `OWNER_TOKEN` ya **no** la manda el panel: solo queda como superadmin del worker.
 
 ### Bugfix/detalle reciente (22-sep-2026)
 - **FAQ auto-respuesta tolerante:** con FAQ de 4+ keywords, permite que falte 1 keyword (natural); 1-3 keywords siguen exactas. Verificado: "funciona el efecto cristal en safari" responde la FAQ fija, no la IA.
@@ -134,8 +135,10 @@ Permite a cualquier negocio transformar su atención web en menos de 2 minutos i
 > - `agents` hoy además tiene `bubble_logo_url` (marca blanca, solo Agency), `chat_base_url` (proveedor "custom"), `faqs` (JSON: label, msg, answer), `lead_capture`/`lead_fields` (control de captura), `byok_provider`/`byok_model` (memoria BYOK) y `agent_limit` en `users`.
 > - `leads` tiene además `status` (Nuevo/Contactado/Calificado/Convertido/Archivado), `interest` (mensaje real del visitante) y `session_id` (para el historial de conversación).
 > - Existe la tabla `faq_hits` (contador de veces que se respondió cada FAQ).
+> - **Tablas nuevas que NO están en el bloque de abajo:** `plan_events` (historial de cambios de plan), `agent_stats` y `lead_stats` (agregados alimentados por triggers → los contadores del panel son O(1)) y el virtual `leads_fts` (búsqueda full-text de prospectos).
 > - **Las tablas de Better Auth (`user`, `session`, `account`, `verification`) NO están en ningún `.sql`**: las crea `apps/workers/src/auth.ts` en runtime vía `getMigrations`/`runMigrations` al primer hit. No hay que crearlas a mano, pero conviene saberlo antes de reconstruir una base.
-> - Los índices que la app usa están versionados en `apps/workers/migrations/0001_indexes.sql` (el bloque SQL de abajo es la copia legible, kept en sync con producción).
+> - Las migraciones versionadas son `apps/workers/migrations/0001` → `0007` (índices, `plan_expires`, `plan_events`, `leads.updated_at`, `lead_stats`+FTS, índices de `users`, `agent_stats`). D1 las registra por nombre, así que cada archivo corre **una sola vez** y no son idempotentes.
+> - ⚠️ **El bloque SQL de abajo es el esquema ORIGINAL del blueprint, no el vigente.** La fuente real es `database/schema.sql`, que sí está a día: usá ese para reconstruir la base, no este.
 > - Aunque `agents.mode` default del schema es `'byok'`, **los agentes NUEVOS nacen `'managed'`** (el worker los inserta con `mode='managed'`, `chat_provider='workers-ai'`); el managed usa Workers AI de Cloudflare, y `chat_provider` admite: workers-ai, openai, groq, deepseek, gemini, mistral, qwen, nvidia, openrouter, omnirouter, unorouter, cerebras, custom.
 
 ```sql
@@ -265,7 +268,7 @@ agentosweb/
 │   │   ├── package.json
 │   │   └── tsconfig.json
 │   │
-│   ├── 📁 landing/                # Landing page pública + vitrina de features (Next.js 15) — ⚠️ NO CREADA aún (backlog)
+│   ├── 📁 landing/                # Landing page pública (Next.js 15) — ⚠️ SOLO existe el package.json placeholder, sin src/ ni páginas (backlog)
 │   │   ├── 📁 src/
 │   │   │   └── 📁 app/
 │   │   │       ├── layout.tsx     # SEO, branding y analytics
@@ -528,7 +531,7 @@ El dashboard se despliega en **Cloudflare Pages** mediante el adaptador `@cloudf
 
 ## 10. 🗺️ ROADMAP DE EJECUCIÓN RÁPIDA (4 SEMANAS)
 
-> ✅ **Cumplido (sep-2026).** Las semanas 1-3 y gran parte de la 4 están hechas y desplegadas (D1+KV worker, widget, dashboard, facturación manual). Ver **§0 ESTADO REAL**. Quedan como **backlog**: landing pública, leads, login multi-cliente + pago, rediseño visual de Planes & Facturación (ver `AGENTOSWEB_PENDIENTES.md`).
+> ✅ **Cumplido (sep-2026).** Las semanas 1-3 y gran parte de la 4 están hechas y desplegadas (D1+KV worker, widget, dashboard, facturación manual). Ver **§0 ESTADO REAL**. De lo que este bloque dejaba pendiente, **leads** y **login multi-cliente** ya están hechos (FASE 2A-2D). Quedan como **backlog**: landing pública, endurecer login (FASE 2E) y rediseño de Planes & Facturación (ver `AGENTOSWEB_PENDIENTES.md`).
 
 * 🟢 **Semana 1: Infraestructura Perimetral y D1**
   * Desplegar base D1 (`schema.sql`) y configurar bindings de KV.
