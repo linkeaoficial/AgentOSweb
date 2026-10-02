@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { IconCheck, IconBolt, IconWhatsApp } from "./icons";
 import { useToast } from "./notifications";
+import PlanHistoryModal from "./PlanHistoryModal";
 
 export interface PlanDefault {
   agents: number;
@@ -10,11 +11,16 @@ export interface PlanDefault {
 }
 
 export interface BillingOwner {
+  id: string;
+  email: string | null;
   name: string | null;
+  role?: string | null;
   plan: string | null;
   agent_limit: number;
   messages_limit: number;
   messages_used: number;
+  plan_expires_at?: string | null;
+  support_whatsapp?: string | null;
 }
 
 interface BillingViewProps {
@@ -31,9 +37,13 @@ const PLAN_INFO: { id: string; name: string; byok: number | null; managed: numbe
   { id: "agency", name: "Agency", byok: 149, managed: 249, accent: "#fbbf24", features: ["Marca blanca total", "Dominios ilimitados", "Soporte prioritario"] },
 ];
 
-// Número de WhatsApp para coordinar pagos (formato internacional, sin "+" ni espacios).
-// TODO: reemplazar por el número real del negocio.
-const BILLING_WHATSAPP = "5491122334455";
+// Vencimiento: la base devuelve 'YYYY-MM-DD' y Date lo leería como UTC, asi que
+// se parsea a medianoche local para que no corra un día para atrás.
+function formatExpiry(raw: string): string {
+  const d = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 export default function BillingView({ owner, planDefaults, agentsCount, onSaved }: BillingViewProps) {
   const toast = useToast();
@@ -42,6 +52,11 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
   const [messagesLimit, setMessagesLimit] = useState<number>(20);
   const [saving, setSaving] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // El cliente ve su facturación en solo lectura: los cupos los ajusta el
+  // dueño desde Clientes. Fallo cerrado: sin owner (cargando) queda en lectura.
+  const canEdit = owner?.role === "admin";
 
   useEffect(() => {
     if (!owner) return;
@@ -63,6 +78,11 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
     },
     [planDefaults]
   );
+
+  const openContact = useCallback((plan: string) => {
+    setSelectedPlan(plan);
+    setPayModalOpen(true);
+  }, []);
 
   const ownerLimit = owner?.messages_limit ?? planDefaults[owner?.plan ?? ""]?.messages ?? 0;
   const dirty = Boolean(
@@ -109,8 +129,11 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
   }, [selectedPlan, save]);
 
   const selected = PLAN_INFO.find((p) => p.id === selectedPlan);
+  // El número vive en el worker (secret SUPPORT_WHATSAPP): con el de constantes
+  // un cambio de número obligaba a redesplegar el panel.
+  const whatsapp = owner?.support_whatsapp ?? "";
   const whatsappText = encodeURIComponent(
-    `Hola! Quiero dar de alta el plan ${selected?.name ?? selectedPlan} de AgentOSweb ($${selected?.managed ?? 0}/mes, IA administrada). ¿Cómo coordinamos el pago?`
+    `Hola! Quiero ${owner?.plan === selectedPlan ? "renovar" : "pasar al"} plan ${selected?.name ?? selectedPlan} de AgentOSweb ($${selected?.managed ?? 0}/mes, IA administrada). ¿Cómo coordinamos el pago?`
   );
 
   const used = owner?.messages_used ?? 0;
@@ -118,14 +141,22 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const agentPct = owner && owner.agent_limit > 0 ? Math.min(100, Math.round((agentsCount / owner.agent_limit) * 100)) : 0;
 
+  // Identidad estable: PlanHistoryModal relee cuando cambia `load`, y un objeto
+  // literal por render dispararía un fetch en bucle con el modal abierto.
+  const historyAccount = useMemo(
+    () => (owner ? { id: owner.id, email: owner.email, name: owner.name } : null),
+    [owner]
+  );
+
   return (
     <section className="view-section active" id="view-billing">
       <div className="agents-header">
         <div className="agents-heading">
           <h2>Planes &amp; Facturación</h2>
           <p className="subtitle" style={{ marginBottom: 0 }}>
-            Asigná el plan de la cuenta y ajustá los cupos de agentes y mensajes. Los valores del plan se aplican
-            solos, pero podés personalizarlos por cliente.
+            {canEdit
+              ? "Asigná el plan de la cuenta y ajustá los cupos de agentes y mensajes. Los valores del plan se aplican solos, pero podés personalizarlos por cliente."
+              : "Tu plan, tu consumo de este mes y el historial de cambios. Para modificar cupos o contratar un plan, coordiná el pago y lo aplicamos."}
           </p>
         </div>
       </div>
@@ -139,7 +170,10 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
               key={p.id}
               type="button"
               className={`plan-card ${selectedPlan === p.id ? "selected" : ""}`}
-              onClick={() => applyPlan(p.id)}
+              onClick={() => {
+                if (canEdit) applyPlan(p.id);
+                else if (!isCurrent) openContact(p.id);
+              }}
             >
               <div className="plan-card-head">
                 <span className="plan-dot" style={{ background: p.accent }} />
@@ -173,6 +207,11 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                   </li>
                 ))}
               </ul>
+              {!canEdit && !isCurrent && (
+                <span className="plan-price-alt" style={{ marginTop: 8 }}>
+                  Coordinar cambio →
+                </span>
+              )}
             </button>
           );
         })}
@@ -180,65 +219,73 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
 
       <div className="plan-editor">
         <div className="panel-card">
-          <h3>Cupos de la cuenta</h3>
-          <p className="subtitle">Elegí un plan arriba para rellenar los valores, o editá los cupos a mano.</p>
+          <h3>{canEdit ? "Cupos de la cuenta" : "Tu plan"}</h3>
+          <p className="subtitle">
+            {canEdit
+              ? "Elegí un plan arriba para rellenar los valores, o editá los cupos a mano."
+              : "Consumo del mes en curso y vencimiento de tu plan."}
+          </p>
 
           <div className="plan-form">
-            <div className="form-group">
-              <label className="form-label" htmlFor="plan-select">
-                Plan
-              </label>
-              <select
-                id="plan-select"
-                className="form-select"
-                value={selectedPlan}
-                onChange={(e) => applyPlan(e.target.value)}
-              >
-                {PLAN_INFO.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {canEdit && (
+              <>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="plan-select">
+                    Plan
+                  </label>
+                  <select
+                    id="plan-select"
+                    className="form-select"
+                    value={selectedPlan}
+                    onChange={(e) => applyPlan(e.target.value)}
+                  >
+                    {PLAN_INFO.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="plan-form-row">
-              <div className="form-group">
-                <label className="form-label" htmlFor="plan-agents">
-                  Límite de agentes
-                </label>
-                <input
-                  id="plan-agents"
-                  className="form-input"
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={agentLimit}
-                  onChange={(e) => setAgentLimit(Number(e.target.value))}
-                />
-                <span className="plan-field-hint">
-                  {planDefault ? `Plan ${PLAN_INFO.find((p) => p.id === selectedPlan)?.name}: ${planDefault.agents}` : ""}
-                </span>
-              </div>
+                <div className="plan-form-row">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="plan-agents">
+                      Límite de agentes
+                    </label>
+                    <input
+                      id="plan-agents"
+                      className="form-input"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={agentLimit}
+                      onChange={(e) => setAgentLimit(Number(e.target.value))}
+                    />
+                    <span className="plan-field-hint">
+                      {planDefault ? `Plan ${PLAN_INFO.find((p) => p.id === selectedPlan)?.name}: ${planDefault.agents}` : ""}
+                    </span>
+                  </div>
 
-              <div className="form-group">
-                <label className="form-label" htmlFor="plan-messages">
-                  Mensajes por mes
-                </label>
-                <input
-                  id="plan-messages"
-                  className="form-input"
-                  type="number"
-                  min={1}
-                  max={1000000}
-                  value={messagesLimit}
-                  onChange={(e) => setMessagesLimit(Number(e.target.value))}
-                />
-                <span className="plan-field-hint">
-                  {planDefault ? `Plan ${PLAN_INFO.find((p) => p.id === selectedPlan)?.name}: ${planDefault.messages.toLocaleString()}` : ""}
-                </span>
-              </div>
-            </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="plan-messages">
+                      Mensajes por mes
+                    </label>
+                    <input
+                      id="plan-messages"
+                      className="form-input"
+                      type="number"
+                      min={1}
+                      max={1000000}
+                      value={messagesLimit}
+                      onChange={(e) => setMessagesLimit(Number(e.target.value))}
+                    />
+                    <span className="plan-field-hint">
+                      {planDefault ? `Plan ${PLAN_INFO.find((p) => p.id === selectedPlan)?.name}: ${planDefault.messages.toLocaleString()}` : ""}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="plan-usage">
               <div className="plan-usage-row">
@@ -259,29 +306,44 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
               <div className="progress-bar-container">
                 <div className="progress-bar-fill" style={{ width: `${agentPct}%` }} />
               </div>
+              {owner?.plan_expires_at && (
+                <div className="plan-usage-row" style={{ marginTop: 10 }}>
+                  <span>Vencimiento del plan</span>
+                  <strong>{formatExpiry(owner.plan_expires_at)}</strong>
+                </div>
+              )}
             </div>
 
             <div className="plan-actions">
-              <button className="btn-primary" onClick={handleSaveClick} disabled={saving || !dirty} aria-busy={saving}>
-                {saving ? (
-                  <>
-                    <span className="btn-spinner" />
-                    Guardando…
-                  </>
-                ) : (
-                  <>
-                    <IconBolt />
-                    {(PLAN_INFO.find((p) => p.id === selectedPlan)?.managed ?? 0) > 0
-                      ? `Contratar plan ${PLAN_INFO.find((p) => p.id === selectedPlan)?.name}`
-                      : "Guardar plan y cupos"}
-                  </>
-                )}
+              {canEdit ? (
+                <button className="btn-primary" onClick={handleSaveClick} disabled={saving || !dirty} aria-busy={saving}>
+                  {saving ? (
+                    <>
+                      <span className="btn-spinner" />
+                      Guardando…
+                    </>
+                  ) : (
+                    <>
+                      <IconBolt />
+                      {(PLAN_INFO.find((p) => p.id === selectedPlan)?.managed ?? 0) > 0
+                        ? `Contratar plan ${PLAN_INFO.find((p) => p.id === selectedPlan)?.name}`
+                        : "Guardar plan y cupos"}
+                    </>
+                  )}
+                </button>
+              ) : null}
+              <button className="btn-ghost" type="button" onClick={() => setHistoryOpen(true)}>
+                Ver historial
               </button>
-              {!dirty && <span className="plan-saved-hint">Sin cambios pendientes</span>}
+              {canEdit && !dirty && <span className="plan-saved-hint">Sin cambios pendientes</span>}
             </div>
           </div>
         </div>
       </div>
+
+      {historyAccount && (
+        <PlanHistoryModal open={historyOpen} account={historyAccount} onClose={() => setHistoryOpen(false)} />
+      )}
 
       {payModalOpen && selected && (
         <div className="modal-backdrop open" onClick={() => setPayModalOpen(false)}>
@@ -311,18 +373,27 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                 <strong>{planDefaults[selected.id]?.agents ?? 1} agentes · {(planDefaults[selected.id]?.messages ?? 0).toLocaleString()} msgs/mes</strong>
               </div>
             </div>
-            <a
-              className="pay-whatsapp-btn"
-              href={`https://wa.me/${BILLING_WHATSAPP}?text=${whatsappText}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <IconWhatsApp />
-              Coordinar por WhatsApp
-            </a>
-            <button type="button" className="pay-apply-btn" onClick={() => { setPayModalOpen(false); void save(); }} disabled={saving}>
-              Ya coordiné · Aplicar plan ahora
-            </button>
+            {whatsapp && (
+              <a
+                className="pay-whatsapp-btn"
+                href={`https://wa.me/${whatsapp}?text=${whatsappText}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <IconWhatsApp />
+                Coordinar por WhatsApp
+              </a>
+            )}
+            {canEdit && (
+              <button type="button" className="pay-apply-btn" onClick={() => { setPayModalOpen(false); void save(); }} disabled={saving}>
+                Ya coordiné · Aplicar plan ahora
+              </button>
+            )}
+            {!canEdit && (
+              <p className="subtitle" style={{ textAlign: "center", marginBottom: 0 }}>
+                Aplicamos el cambio apenas confirmemos el pago. Tus cupos actuales se mantienen hasta entonces.
+              </p>
+            )}
           </div>
         </div>
       )}

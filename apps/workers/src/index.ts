@@ -1599,6 +1599,9 @@ async function handleAgentList(request: Request, env: Env) {
   return json(
     {
       owner: {
+        // El propio id: el panel lo usa para pedir su historial en
+        // /api/admin/users/:id/events sin saberlo de antemano.
+        id: user.id,
         name: owner?.name ?? null,
         email: owner?.email ?? null,
         plan: owner?.plan ?? null,
@@ -1922,12 +1925,14 @@ async function handleUserNotice(request: Request, env: Env) {
 }
 
 // Historial de plan de una cuenta. Responde "¿que me contrataste y cuando?",
-// que antes no se podia contestar con evidencia. Solo admin, como todo lo de
-// /api/admin.
+// que antes no se podia contestar con evidencia. Admin mira cualquier cuenta;
+// el cliente solo la suya: la facturacion propia es de solo lectura y el
+// `userId` lo arma el panel con el `id` que vino en su propio payload de
+// /api/agents, asi que cualquier otro id choca con el de la sesion y cae 403.
 async function handleUserEvents(request: Request, env: Env, userId: string) {
   const origin = request.headers.get("Origin") || "*";
   const user = await resolveUser(request, env);
-  if (!user || !(user.superadmin || user.role === "admin")) {
+  if (!user || !(user.superadmin || user.role === "admin" || userId === user.id)) {
     return json({ error: "No autorizado" }, 403, origin);
   }
   const { results } = await env.DB.prepare(

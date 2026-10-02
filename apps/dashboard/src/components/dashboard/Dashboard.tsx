@@ -44,6 +44,9 @@ const PLACEHOLDER_VIEWS: Record<string, { icon: ReactNode; title: string; descri
 };
 
 export interface AgentOwner {
+  // El propio id de la cuenta: va con el payload para poder pedir el historial
+  // de plan propio sin adivinarlo.
+  id: string;
   name: string | null;
   email: string | null;
   plan: string | null;
