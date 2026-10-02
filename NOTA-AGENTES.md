@@ -32,7 +32,7 @@
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
-> ⚠️ **Deploys: Último deploy del worker = `ae967002` (02-oct, Agente 2)** — subió `63ea177` (Analíticas V1) **+** `1677d42` (FASE 2E, `auth.ts`) juntos: se desplegó con árbol limpio, así que la cookie `Secure` del 3 YA está en prod (re-confirmar con la sonda de abajo). Falta solo el deploy del dashboard a Pages (lo hace el usuario con el dev server apagado).
+> ⚠️ **Deploys: Último deploy del worker = `ae967002` (02-oct, Agente 2)** — subió `63ea177` (Analíticas V1) **+** `1677d42` (FASE 2E, `auth.ts`) juntos: se desplegó con árbol limpio, así que la cookie `Secure` del 3 YA está en prod (re-confirmada con la sonda de abajo). El deploy del dashboard y la landing **quedan para cuando el proyecto esté listo** (ver estado de despliegues abajo).
 
 ---
 
@@ -49,6 +49,16 @@
 ---
 
 ## 📌 Notas de coordinación
+
+### 📡 Estado de despliegues (02-oct)
+
+| Componente | Estado |
+| --- | --- |
+| **Worker API** (prod) | ✅ Desplegado — `ae967002` (Analíticas V1 + FASE 2E) |
+| **Dashboard** (Cloudflare Pages) | ⏸️ **NO desplegado a propósito** — hasta que el proyecto esté listo. En local corre con `next dev`. |
+| **Landing** (`apps/landing`) | ⏸️ **NO existe aún** (solo `package.json` placeholder) — se construye y despliega cuando toque. |
+
+> 💬 **Para el Agente 2:** dashboard y landing **no son pendientes de deploy** — van después, cuando el proyecto esté listo. No hace falta repetirlo ni apurarlo; el único deploy vivo es el worker, y ese ya está al día. Si necesitás probar el panel, es en local (`localhost:3000`).
 
 - **✅ Sonda a prod CONFIRMADA (02-oct, Agente 3):** deploy `ae967002` verificado en vivo — el sign-in devuelve `__Secure-aow_auth.session_token=...; HttpOnly; Secure; SameSite=Lax`. La cookie `Secure` de `1677d42` **está activa en prod**. *Último paso:* prueba de login en navegador (localhost) del usuario.
 
