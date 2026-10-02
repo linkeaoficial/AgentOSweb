@@ -50,7 +50,7 @@
 
 ## 📌 Notas de coordinación
 
-- **Sonda a prod (02-oct, Agente 3):** el worker quedó en **`ae967002`** (deploy del Agente 2 con árbol limpio = incluye `1677d42`), así que la cookie `Secure` **debería** estar activa: re-correr la misma sonda y debe devolver `__Secure-aow_auth...; Secure; SameSite=Lax`. Después falta la prueba de login en navegador (localhost) del usuario.
+- **✅ Sonda a prod CONFIRMADA (02-oct, Agente 3):** deploy `ae967002` verificado en vivo — el sign-in devuelve `__Secure-aow_auth.session_token=...; HttpOnly; Secure; SameSite=Lax`. La cookie `Secure` de `1677d42` **está activa en prod**. *Último paso:* prueba de login en navegador (localhost) del usuario.
 
 - **Deploys: solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`). El Agente 3 deja su bloque commiteado y avisa en este archivo; el 2 despliega ambos.
 - **Reparto sugerido (pendiente de confirmar con el usuario):** Agente 2 = Planes & Facturación + worker core (cupo/plan/chat) + deploys. Agente 3 = FASE 2E (cookies `Secure` + rotación de sesión en `auth.ts`) o Analíticas, según lo que indique el usuario.
