@@ -30,7 +30,7 @@
 
 ## 🔴 En vuelo (trabajo sin commitear)
 
-- [3] `Topbar.tsx`, `globals.css` — cintillo de plan sin puntito verde + tarjeta de plan marcada sin ring de sombra (02-oct-2026)
+_Nadie por ahora._
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
@@ -38,6 +38,7 @@
 
 ## ✅ Hecho (últimos bloques, referencia rápida)
 
+- `9b35bda` cintillo de plan sin puntito verde + tarjeta marcada sin ring de sombra — **3**
 - `580f0f7` fila de captura arriba en tarjetas, alerta de cupo al 80% e historial mensual de uso (`0010`) — **2**
 - `82b25ae` rediseño de Planes & Facturación, Agency a 8, BYOK desde Starter — **2**
 - `d112507` fix captura de prospectos: `lead_fields` default `name,email,phone` (migración `0008`) — **2**
