@@ -1617,8 +1617,15 @@ async function handleAgentList(request: Request, env: Env) {
   ).bind(user.id).all();
 
   const owner = await env.DB.prepare(
-    "SELECT email, name, plan, agent_limit, messages_limit, messages_used, plan_expires_at, downgraded_from, expiry_notice_at FROM users WHERE id = ?"
-  ).bind(user.id).first<OwnerRow & { downgraded_from: string | null; expiry_notice_at: string | null }>();
+    `SELECT email, name, plan, agent_limit, messages_limit, messages_used, plan_expires_at, downgraded_from, expiry_notice_at,
+       (SELECT json_group_array(json_object('month', month, 'messages', messages))
+          FROM (SELECT month, messages FROM usage_history WHERE user_id = users.id ORDER BY month DESC LIMIT 6)) AS usage_history
+     FROM users WHERE id = ?`
+  )
+    .bind(user.id)
+    .first<
+      OwnerRow & { downgraded_from: string | null; expiry_notice_at: string | null; usage_history: string | null }
+    >();
 
   // `expiry_notice` viaja ya resuelto para que el panel no repita la regla de
   // "vencio" ni la comparacion de fechas: el cliente solo muestra u oculta el
@@ -1647,6 +1654,8 @@ async function handleAgentList(request: Request, env: Env) {
         downgraded_from: owner?.downgraded_from ?? null,
         show_expiry_notice: showExpiryNotice,
         support_whatsapp: env.SUPPORT_WHATSAPP ?? null,
+        // Orden del subquery (DESC): el panel lo pinta tal cual.
+        usage_history: JSON.parse(owner?.usage_history ?? "[]"),
       },
       plan_defaults: PLAN_DEFAULTS,
       agents: results ?? [],
@@ -2200,6 +2209,14 @@ async function downgradeExpired(env: Env): Promise<number> {
 }
 
 async function resetMonthlyQuota(env: Env): Promise<void> {
+  // Snapshot del mes que termina ANTES de poner el contador a cero (corre solo
+  // el día 1 UTC, así que 'now -1 day' es el mes anterior). Es lo que alimenta
+  // el historial de uso del panel; los meses en 0 no se guardan (ruido).
+  await env.DB.prepare(
+    `INSERT INTO usage_history (user_id, month, messages)
+     SELECT id, strftime('%Y-%m', 'now', '-1 day'), messages_used FROM users WHERE messages_used > 0
+     ON CONFLICT(user_id, month) DO UPDATE SET messages = excluded.messages`
+  ).run();
   await env.DB.prepare("UPDATE users SET messages_used = 0").run();
 }
 

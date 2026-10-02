@@ -38,6 +38,19 @@ CREATE TABLE IF NOT EXISTS plan_events (
     CREATE INDEX IF NOT EXISTS idx_plan_events_user ON plan_events(user_id, created_at DESC);
     
 -- ==========================================================
+-- ⏱️ 1.5 USO MENSUAL (snapshot del contador antes del reinicio)
+-- ==========================================================
+-- El cron del día 1 guarda cuántos mensajes se usaron en el mes que cerró
+-- antes de poner messages_used = 0; es lo que el panel muestra como "Uso de
+-- meses anteriores". Sin esto el mes quedaba borrado al reiniciar.
+CREATE TABLE IF NOT EXISTS usage_history (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  month TEXT NOT NULL,                        -- 'YYYY-MM' en UTC (el mes que cerró el cron)
+  messages INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, month)
+);
+
+-- ==========================================================
 -- 🤖 2. AGENTES (Configuración del Chatbot)
 -- ==========================================================
 CREATE TABLE IF NOT EXISTS agents (

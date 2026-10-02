@@ -24,6 +24,8 @@ export interface BillingOwner {
   // Plan del que cayó la cuenta por vencimiento (ya quedó en free).
   downgraded_from?: string | null;
   support_whatsapp?: string | null;
+  // Últimos meses con uso (snapshot que escribe el cron del día 1), desc.
+  usage_history?: { month: string; messages: number }[];
 }
 
 interface BillingViewProps {
@@ -47,9 +49,11 @@ const PLAN_INFO: { id: string; name: string; byok: number | null; managed: numbe
 // eso "Varios agentes" recién desde Pro y "Marca blanca" solo en Agency.
 const FEATURE_ROWS: { label: string; plans: string[] }[] = [
   { label: "Widget embebible con chat 24/7", plans: ["free", "starter", "pro", "agency"] },
+  // El buque insignia arriba de todo (pedido 02-oct-2026): la captura es lo
+  // que vende el producto, no un feature más al final de la lista.
+  { label: "Captura de prospectos y formularios", plans: ["free", "starter", "pro", "agency"] },
   { label: "IA administrada (Workers AI)", plans: ["free", "starter", "pro", "agency"] },
   { label: "Tu propia API key (BYOK, sin consumir cupo)", plans: ["starter", "pro", "agency"] },
-  { label: "Captura de prospectos y formularios", plans: ["free", "starter", "pro", "agency"] },
   { label: "Varios agentes en la cuenta", plans: ["pro", "agency"] },
   { label: "Marca blanca (logo propio en la burbuja)", plans: ["agency"] },
 ];
@@ -73,6 +77,13 @@ function daysUntil(raw: string): number | null {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.round((d.getTime() - today.getTime()) / 86400000);
+}
+
+// "2026-09" -> "sep 2026".
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  if (!y || !m || m < 1 || m > 12) return ym;
+  return new Date(y, m - 1, 1).toLocaleDateString("es-AR", { month: "short", year: "numeric" });
 }
 
 export default function BillingView({ owner, planDefaults, agentsCount, onSaved }: BillingViewProps) {
@@ -177,6 +188,12 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
   const downgradeLabel = down ? PLAN_INFO.find((p) => p.id === down)?.name ?? null : null;
   const expiryDays = owner?.plan_expires_at ? daysUntil(owner.plan_expires_at) : null;
   const expired = expiryDays !== null && expiryDays < 0;
+
+  // Historial mensual, mes más reciente primero (el worker manda los últimos 6).
+  const usageHistory = useMemo(
+    () => [...(owner?.usage_history ?? [])].sort((a, b) => b.month.localeCompare(a.month)),
+    [owner?.usage_history]
+  );
 
   // Identidad estable: PlanHistoryModal relee cuando cambia `load`, y un objeto
   // literal por render dispararía un fetch en bucle con el modal abierto.
@@ -386,6 +403,15 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
               <div className="progress-bar-container">
                 <div className="progress-bar-fill" style={{ width: `${pct}%`, background: barColor(pct) }} />
               </div>
+              {/* Aviso proactivo al 80%: el cliente se entera ANTES del bloqueo,
+                  no cuando el agente ya responde con el mensaje de cupo. */}
+              {pct >= 80 && limit > 0 && (
+                <div className={`plan-quota-warn${pct >= 100 ? " is-full" : ""}`} role="status">
+                  {pct >= 100
+                    ? "Cupo de mensajes agotado: el agente responde con el aviso de límite hasta el próximo reinicio del mes. Subí de plan o activá BYOK para seguir sin cortes."
+                    : `Vas por el ${pct}% del cupo de mensajes (${used.toLocaleString()} de ${limit.toLocaleString()}). Al llegar al límite el agente responde con el aviso de cupo: subí de plan o activá BYOK para seguir sin cortes.`}
+                </div>
+              )}
               <div className="plan-usage-row" style={{ marginTop: 10 }}>
                 <span>Agentes creados</span>
                 <strong>
@@ -409,6 +435,26 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                 </div>
               )}
             </div>
+
+            {usageHistory.length > 0 && (
+              <div className="usage-hist">
+                <div className="plan-usage-row" style={{ marginTop: 14 }}>
+                  <span>Uso de meses anteriores</span>
+                </div>
+                {usageHistory.map((h) => {
+                  const hp = limit > 0 ? Math.min(100, Math.round((h.messages / limit) * 100)) : 0;
+                  return (
+                    <div className="usage-hist-row" key={h.month}>
+                      <span className="usage-hist-label">{monthLabel(h.month)}</span>
+                      <div className="progress-bar-container">
+                        <div className="progress-bar-fill" style={{ width: `${hp}%`, background: barColor(hp) }} />
+                      </div>
+                      <strong>{h.messages.toLocaleString()}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="plan-actions">
               {canEdit ? (

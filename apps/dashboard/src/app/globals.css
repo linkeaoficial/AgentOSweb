@@ -6549,6 +6549,56 @@ body.dark-mode .nav-backdrop {
             filter: brightness(1.08);
         }
 
+        /* Aviso de cupo al 80% (y rojo al 100%): mismo lenguaje de color que
+           las barras del semáforo, plano como todo el panel. */
+        .plan-quota-warn {
+            margin-top: 10px;
+            padding: 9px 12px;
+            border: 1px solid color-mix(in srgb, #d97706 35%, var(--border-color));
+            border-radius: 10px;
+            background: color-mix(in srgb, #d97706 8%, var(--bg-surface));
+            font-size: 12.5px;
+            line-height: 1.45;
+            color: var(--text-main);
+        }
+
+        .plan-quota-warn.is-full {
+            border-color: color-mix(in srgb, #dc2626 35%, var(--border-color));
+            background: color-mix(in srgb, #dc2626 8%, var(--bg-surface));
+        }
+
+        /* Historial de uso mensual (snapshot del cron del día 1). */
+        .usage-hist {
+            margin-top: 4px;
+        }
+
+        .usage-hist-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .usage-hist-label {
+            width: 64px;
+            flex: none;
+            color: var(--text-muted);
+        }
+
+        .usage-hist-row .progress-bar-container {
+            flex: 1;
+        }
+
+        .usage-hist-row strong {
+            width: 64px;
+            flex: none;
+            text-align: right;
+            font-weight: 600;
+            color: var(--text-main);
+            font-variant-numeric: tabular-nums;
+        }
+
         .plan-actions {
             display: flex;
             align-items: center;

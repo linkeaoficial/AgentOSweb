@@ -60,6 +60,8 @@ export interface AgentOwner {
   // El worker ya resuelve si toca avisar: vencido + bajado + no visto aun.
   show_expiry_notice?: boolean;
   support_whatsapp?: string | null;
+  // Últimos meses con uso (snapshot del cron), mes más reciente primero.
+  usage_history?: { month: string; messages: number }[];
 }
 
 const PLAN_LABELS: Record<string, string> = { free: "Free", starter: "Starter", pro: "Pro", agency: "Agency" };

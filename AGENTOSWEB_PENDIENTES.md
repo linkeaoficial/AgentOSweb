@@ -125,11 +125,7 @@
 
 ## 🎨 Rediseño del módulo "Planes & Facturación" (moderno, pero con NUESTRO branding)
 
-> **Estado: EN ESPERA (decisión 24-sep-2026).** Este módulo hoy es **admin interno** (cambia plan y cupos de la cuenta, sin pago real). Con el login multi-cliente se reconstruye de cero (lógica de pago real, solicitud vs aplicación, etc.), así que **el rediseño visual grande queda pospuesto hasta esa tarea** — rediseñar la versión admin hoy es trabajo que se descarta.
->
-> **Opción rápida si molesta el aspecto (hacer al tocar este pendiente):** "domesticar" el CSS existente en vez de rediseñar — alinear `BillingView.tsx` + CSS `.plan-*` a los tokens del panel: borde `1px var(--border-color)` + `--card-shadow` (sin `translateY` ni anillo azul), pesos `600` en títulos/precios (no 800/900), radios `--radius-brand`, textos con `--text-muted`. Eso unifica el look sin tocar funcionalidad, y se descarta igual al reconstruir con multi-cliente.
->
-> **Regla número uno:** seguimos **nuestra marca**. Nada de Bento Grid, Liquid Glass, glassmorphism, neón ni sombras fuertes. El objetivo no es verse "como las grandes", es verse **como el resto de nuestro panel**, solo que bien pulido y moderno dentro de lo que ya somos.
+> **Estado: HECHO (01-02 oct 2026, commits `82b25ae` / `d112507`, worker `5004c4bb`).** Se hizo sobre la vista multi-cliente ya existente, con los criterios de abajo (plano, sin elevación, mismos tokens del panel). Quedó: pill "Popular" en Starter, resaltado de filas que cambian vs el plan actual, chip de días restantes, banner de vencido, píldora "Plan X activo" + "Mejorar plan" en el topbar y resumen de cambio en el modal de pago. Los pagos siguen manuales por WhatsApp (decisión mantenida).
 
 ### Problema detectado (por qué "no quedó bien")
 La vista actual (`BillingView.tsx` + CSS `.plan-*`) quedó **más pesada** que el resto del dashboard. Inconsistencias concretas:
@@ -266,6 +262,13 @@ La vista actual (`BillingView.tsx` + CSS `.plan-*`) quedó **más pesada** que e
 - [x] **Borrar una conversación desde el panel — HECHO (01-oct-2026)**: `DELETE /api/leads/:agentId/history?session_id=` (worker + proxy GET/DELETE), con confirmación en dos pasos dentro del overlay del historial e invalidación de `histCache`. 400/404/200 probados.
 - [x] **Espaciado y orden del panel — HECHO (01-oct-2026)**: hueco arriba de Prospectos 28→18px (`.dashboard-columns`), tarjetas antes que los filtros en Prospectos, gap entre tarjetas de Mis Agentes 24→32px (skeleton y vista real se mueven juntos para seguir imitándose) y **61 líneas de CSS muerto** (`.leads-kpi*`, 9 reglas sin uso) borradas. Sin regresiones: `tsc`/`eslint` limpios, cero errores de consola y red en la pasada E2E.
 - [x] **`pnpm-lock.yaml` sincronizado — HECHO (01-oct-2026, commit `80c15c0`)**: faltaba `better-auth`, que sí declara `apps/workers/package.json` → una instalación limpia con `--frozen-lockfile` **fallaba**. Solo adiciones, ningún `package.json` cambió.
+- [x] **Captura de prospectos: `name` en el default — HECHO (02-oct-2026, `d112507`, migración `0008`)**: `lead_fields` arrancaba `email,phone` → escribir "me llamo Juan" no creaba lead. Default nuevo `name,email,phone` en `DEFAULT_LEAD_FIELDS` (fallbacks + INSERTs) y en `schema.sql`; la `0008` corrige filas existentes (aplicada en remoto).
+- [x] **Planes: fila de captura arriba, alerta de cupo al 80% e historial mensual de uso — HECHO (02-oct-2026, `5004c4bb`)**:
+  - "Captura de prospectos y formularios" subió a la segunda fila de las tarjetas (antes era la 4ª).
+  - Aviso en "Tu plan" al llegar al 80% del cupo de mensajes (ámbar) y al 100% (rojo, con el texto de cupo agotado): el cliente se entera **antes** del bloqueo.
+  - Historial "Uso de meses anteriores": tabla `usage_history` (migración `0010`; **la `rateLimit` pendiente en el backlog pasa a ser `0011`**), snapshot en el cron del día 1 antes de poner `messages_used = 0` (meses en 0 no se guardan), `GET /api/agents` devuelve los últimos 6. **El primer dato usable aparece al primer reinicio (01-nov)**, no hay meses anteriores que sembrar.
+  - Aplicado también lo faltante de D1 en remote: `0005`, `0006`, `0007` (estaban pendientes, el código desplegado ya las exige) + `0009` (Agency 10→8, ya sin filas con override 10).
+- [x] **Coordinación a 2 agentes — HECHO (02-oct-2026)**: `NOTA-AGENTES.md` manda — identidades `2:`/`3:`, solo el Agente 2 despliega (`wrangler deploy` + migraciones D1), "En vuelo" antes de tocar nada.
 
 ## 🔑 Secretos de entorno (cómo queda la seguridad en producción)
 
@@ -287,7 +290,7 @@ La vista actual (`BillingView.tsx` + CSS `.plan-*`) quedó **más pesada** que e
 ## 📝 Notas rápidas
 
 - Facturación: **decisión tomada, se mantiene manual** (sin pasarela automática por el momento).
-- **Planes & Facturación ya no es "admin interno":** desde FASE 2D el `PUT /api/user` exige rol admin, y desde **FASE 2F** la vista deja al cliente en solo lectura (cupos y plan los administra el dueño, desde **Clientes** o desde esta misma pantalla con su sesión de admin). *Sigue pendiente* solo el rediseño visual 🎨.
+- **Planes & Facturación ya no es "admin interno":** desde FASE 2D el `PUT /api/user` exige rol admin, y desde **FASE 2F** la vista deja al cliente en solo lectura (cupos y plan los administra el dueño, desde **Clientes** o desde esta misma pantalla con su sesión de admin). El rediseño visual **ya está hecho** (01-02 oct 2026, ver sección 🎨).
 - Streaming: **descartado por el momento** (agrega complejidad al worker sin necesidad; hoy el widget ya muestra indicador de escritura).
 - Proveedor DeepSeek: expone solo `deepseek-flash` (DeepSeek-V4.1-Flash), que es el modelo recomendado.
 - Elegir proveedor en Modo clave propia: DeepSeek queda primero y por defecto; al elegir "Otro (URL personalizada)" se limpia el modelo y se exige URL base al guardar.
