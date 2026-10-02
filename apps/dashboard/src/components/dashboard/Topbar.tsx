@@ -30,7 +30,6 @@ export default function Topbar({ pageTitle, isDark, onToggleTheme, onNavigate, o
         {planLabel && (
           <div className="topbar-plan">
             <span className="topbar-plan-pill" title="Plan activo de la cuenta">
-              <span className="topbar-plan-dot" />
               Plan {planLabel}
             </span>
             {planLabel !== "Agency" && (

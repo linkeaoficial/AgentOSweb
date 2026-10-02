@@ -502,7 +502,6 @@ body.dark-mode .nav-backdrop {
         .topbar-plan-pill {
             display: inline-flex;
             align-items: center;
-            gap: 7px;
             padding: 7px 12px;
             border-radius: 999px;
             border: 1px solid color-mix(in srgb, var(--primary-color) 30%, var(--border-color));
@@ -511,14 +510,6 @@ body.dark-mode .nav-backdrop {
             font-size: 12px;
             font-weight: 600;
             white-space: nowrap;
-        }
-
-        .topbar-plan-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #16a34a;
-            box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 22%, transparent);
         }
 
         .topbar-plan-btn {
@@ -6258,16 +6249,16 @@ body.dark-mode .nav-backdrop {
             }
 
             /* Hover plano, igual que .metric-card del panel: solo cambia el borde.
-               El seleccionado se distingue con un ring tintado, sin elevarse. */
+               La marcada se distingue con borde de marca + tinte de fondo:
+               sin ring ni sombra en los bordes (la sombra es la de tarjeta de todas). */
             .plan-card:hover {
                 border-color: var(--primary-color);
             }
 
             .plan-card.selected {
                 border-color: var(--primary-color);
-                box-shadow:
-                    0 0 0 3px color-mix(in srgb, var(--primary-color) 14%, transparent),
-                    var(--card-shadow);
+                background-color: color-mix(in srgb, var(--primary-color) 5%, var(--bg-surface));
+                box-shadow: var(--card-shadow);
             }
 
         .plan-card:focus-visible {

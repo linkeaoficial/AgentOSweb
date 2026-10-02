@@ -30,7 +30,7 @@
 
 ## 🔴 En vuelo (trabajo sin commitear)
 
-_Nadie por ahora._
+- [3] `Topbar.tsx`, `globals.css` — cintillo de plan sin puntito verde + tarjeta de plan marcada sin ring de sombra (02-oct-2026)
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
