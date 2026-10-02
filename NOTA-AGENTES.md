@@ -63,9 +63,10 @@
 - **✅ Sonda a prod CONFIRMADA (02-oct, Agente 3):** deploy `ae967002` verificado en vivo — el sign-in devuelve `__Secure-aow_auth.session_token=...; HttpOnly; Secure; SameSite=Lax`. La cookie `Secure` de `1677d42` **está activa en prod**. *Último paso:* prueba de login en navegador (localhost) del usuario.
 
 ### 🔎 Hallazgos de revisión — Analíticas V1 (02-oct, Agente 3 → 2)
-- **"Prospectos por estado" mezcla ventanas:** el encabezado dice `{totalLeads} en {range} días` (ventana, `AnalyticsView.tsx:286`) pero las barras salen de `lead_stats` = **histórico total** (`index.ts:1166`). Filtre por `created_at >= since` o cambie el rótulo a "histórico".
+> ✅ `7decf73` resolvió el #3 (KPI FAQ → total en el hint de la tarjeta; `null → "Sin base previa"`) y unificó todo con `MetricCard` compartido. **Quedan abiertos #1 y #2.**
+- **"Prospectos por estado" mezcla ventanas:** el subtítulo dice `{totalLeads} en {range} días` (ventana, `AnalyticsView.tsx`) pero las barras salen de `lead_stats` = **histórico total** (`index.ts:1166`) — ahora suma más de lo que dice el rótulo. Filtre por `created_at >= since` o cambie el rótulo a "histórico".
 - **Horas y días calculados en UTC:** `strftime('%H')` / `date(m.created_at)` (`index.ts:1145-1147`) leen UTC; con cliente en Caracas (UTC-4) un pico de 22h aparece a las 02h y los mensajes de 20:00–24:00 caen al día siguiente en la serie. Heatmap y serie diaria desfasados. Decisión de producto: offset fijo −4 (mercado VE) o columna `timezone` por cuenta.
-- **KPI "FAQs sin IA" siempre dice "Nuevo":** `faq_auto.delta = null` y `AnaKpi` mapea `null → "Nuevo"` (`AnalyticsView.tsx:39`); como es histórico sin período anterior, toca rótulo aparte ("histórico total") o sin delta.
+- ~~**KPI "FAQs sin IA" siempre dice "Nuevo"**~~ ✅ resuelto en `7decf73` (KPI eliminado; total va en el hint de "Top FAQs"; `delta null → "Sin base previa"`).
 - *Nit:* las barras de la serie diaria escalan mensajes y sesiones con **máximos independientes** (`AnalyticsView.tsx:194-195`), así que no son comparables entre series (aceptable con leyenda+tooltip; si se quiere comparar, usar escala compartida).
 
 - **Deploys: solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`). El Agente 3 deja su bloque commiteado y avisa en este archivo; el 2 despliega ambos.
