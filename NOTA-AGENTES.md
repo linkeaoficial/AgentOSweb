@@ -38,6 +38,8 @@
 
 ## ✅ Hecho (últimos bloques, referencia rápida)
 
+- `92cb215` **Auditoría responsive del panel + 2 fixes en Analíticas móvil** — **3** · *Todo el panel revisado (bloque "RESPONSIVE MÓVIL CONSOLIDADO" ya cubre sidebar→hamburguesa, tablas→tarjetas, grids, auth, topbar). Fixes: serie diaria con `overflow-x: auto` (90 días se cortaba en pantallas angostas) y ejes del heatmap con `minmax(0,1fr)` (rótulos "6h/12h/18h" desalineaban las columnas). *Pendiente:* captura de teléfono del usuario para validación visual.*
+- `7decf73` Analíticas al estilo del panel: `MetricCard` compartido, `h3` 16/600, skeleton, `es-AR` — **2**
 - `63ea177` **Analíticas V1 completa** + muro para Free: selector 7/30/90 días, 6 KPIs con delta vs. período anterior, serie diaria, heatmap día×hora, embudo sesiones→mensajes→prospectos, top FAQs, prospectos por estado; endpoint `GET /api/analytics/:agentId` + proxy; gate **Starter+** (`403 plan_required` en Free); migración `0011` (`idx_messages_created`, local+remoto) — **2** · *E2E local 200/403 con datos sembrados y prod 200 con `agent-demo` (8 sesiones, 74 mensajes, heat 7×24); deploy `ae967002`.*
 
 - `1677d42` **FASE 2E**: cookie `Secure` (`auth.ts`) + vista Configuración con "Cambiar contraseña" y rotación de sesiones (`SettingsView.tsx`) — **3** · *E2E: sesión vieja muere, nueva viva, `INVALID_PASSWORD` mapeado; verificado local con `wrangler dev` (Set-Cookie con `Secure` + `__Secure-`). **Pendiente post-deploy:** login en navegador del usuario para confirmar que Chrome/Firefox aceptan la cookie Secure en localhost.*
