@@ -492,6 +492,57 @@ body.dark-mode .nav-backdrop {
             color: var(--primary-color);
         }
 
+        /* Píldora "Plan X" (con punto verde) + atajo "Mejorar plan". */
+        .topbar-plan {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .topbar-plan-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--primary-color) 30%, var(--border-color));
+            background: color-mix(in srgb, var(--primary-color) 9%, transparent);
+            color: var(--text-main);
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .topbar-plan-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #16a34a;
+            box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 22%, transparent);
+        }
+
+        .topbar-plan-btn {
+            border: none;
+            cursor: pointer;
+            padding: 8px 15px;
+            border-radius: 999px;
+            background: var(--primary-gradient);
+            color: #ffffff;
+            font-size: 12.5px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--primary-color) 80%, transparent);
+            transition: filter 0.18s ease, transform 0.18s ease;
+        }
+
+        .topbar-plan-btn:hover {
+            filter: brightness(1.07);
+        }
+
+        .topbar-plan-btn:active {
+            transform: translateY(1px);
+        }
+
         /* Ã°Å¸â€Âµ Indicador de notificaciÃƒÂ³n profesional (Azul elÃƒÂ©ctrico con brillo suave) */
         .notif-badge {
             position: absolute;
@@ -666,9 +717,9 @@ body.dark-mode .nav-backdrop {
             /* El "hueco arriba": las tarjetas de KPI traen 24px de padding
                interno bajo su ultima linea, y encima el gap de 28px del
                .view-section, asi que entre "Consumo Mensual" y "Codigo de
-               Instalacion" quedaban ~52px de blanco. Se sube 10px. El hueco de
-               abajo (hacia "Instalacion en 3 pasos") sigue en 28px: solo se
-               toca el de arriba, que era el que se veia. */
+               Instalacion" quedaban ~52px de blanco. Se sube 10px. El de abajo
+               (hacia "Instalacion en 3 pasos") baja otros 10px en
+               .install-progress-banner para que los dos huecos midan 18px. */
             margin-top: -10px;
         }
 
@@ -922,10 +973,12 @@ body.dark-mode .nav-backdrop {
             background: var(--bg-surface);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-brand);
-padding: 22px 26px;
+            padding: 22px 26px;
             box-shadow: var(--card-shadow);
             position: relative;
             overflow: hidden;
+            /* Igual que .dashboard-columns: 28px del .view-section - 10px = 18px */
+            margin-top: -10px;
             transition: border-color 0.25s ease, background-color 0.3s ease;
         }
 
@@ -3827,10 +3880,20 @@ padding: 22px 26px;
             color: var(--text-muted);
         }
 
-        .pay-summary-row strong {
+            .pay-summary-row strong {
             color: var(--text-main);
             font-weight: 600;
             text-align: right;
+        }
+
+        /* Fila "Cambio" del modal: resumen Free → Pro antes de coordinar. */
+        .pay-summary-row.pay-change {
+            padding-top: 8px;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        .pay-summary-row.pay-change strong {
+            color: var(--primary-color);
         }
 
         .pay-whatsapp-btn {
@@ -4088,7 +4151,8 @@ padding: 22px 26px;
             /* Ocultar notif/tema/avatar del topbar (ya estÃ¡n en el hamburguesa) */
             header.topbar .topbar-actions .topbar-btn#notif-btn,
             header.topbar .topbar-actions .topbar-btn#theme-btn,
-            header.topbar .topbar-actions .user-menu-wrap {
+            header.topbar .topbar-actions .user-menu-wrap,
+            header.topbar .topbar-actions .topbar-plan {
                 display: none;
             }
 
@@ -6173,7 +6237,7 @@ padding: 22px 26px;
         .plan-cards {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 14px;
+            gap: 16px;
             margin: 20px 0 26px;
         }
 
@@ -6184,21 +6248,31 @@ padding: 22px 26px;
             text-align: left;
             padding: 18px 16px;
             background-color: var(--bg-surface);
-            border: 1.5px solid var(--border-color);
+            border: 1px solid var(--border-color);
             border-radius: var(--radius-brand);
             color: var(--text-main);
             cursor: pointer;
-            transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-        }
+                box-shadow: var(--card-shadow);
+                position: relative;
+                transition: border-color 0.18s ease, box-shadow 0.18s ease;
+            }
 
-        .plan-card:hover {
-            border-color: var(--primary-color);
-            transform: translateY(-2px);
-        }
+            /* Hover plano, igual que .metric-card del panel: solo cambia el borde.
+               El seleccionado se distingue con un ring tintado, sin elevarse. */
+            .plan-card:hover {
+                border-color: var(--primary-color);
+            }
 
-        .plan-card.selected {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+            .plan-card.selected {
+                border-color: var(--primary-color);
+                box-shadow:
+                    0 0 0 3px color-mix(in srgb, var(--primary-color) 14%, transparent),
+                    var(--card-shadow);
+            }
+
+        .plan-card:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
         }
 
         .plan-card-head {
@@ -6209,7 +6283,7 @@ padding: 22px 26px;
 
         .plan-card-head h3 {
             font-size: 15px;
-            font-weight: 700;
+            font-weight: 600;
             letter-spacing: -0.2px;
         }
 
@@ -6223,13 +6297,32 @@ padding: 22px 26px;
         .plan-current-badge {
             margin-left: auto;
             font-size: 10.5px;
-            font-weight: 700;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.4px;
             padding: 3px 8px;
             border-radius: 999px;
             color: var(--primary-color);
             background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+        }
+
+        /* Pill "Popular" (Starter): sobresale del borde superior, al centro. */
+        .plan-popular {
+            position: absolute;
+            top: -11px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            background: var(--primary-gradient);
+            box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--primary-color) 70%, transparent);
+            z-index: 2;
+            pointer-events: none;
         }
 
         .plan-price {
@@ -6240,8 +6333,8 @@ padding: 22px 26px;
         }
 
         .plan-price strong {
-            font-size: 24px;
-            font-weight: 800;
+            font-size: 22px;
+            font-weight: 700;
             letter-spacing: -0.6px;
         }
 
@@ -6288,7 +6381,7 @@ padding: 22px 26px;
             align-items: flex-start;
             gap: 7px;
             font-size: 12.5px;
-            color: var(--text-muted);
+            color: var(--text-main);
             line-height: 1.35;
         }
 
@@ -6298,7 +6391,67 @@ padding: 22px 26px;
             color: var(--primary-color);
         }
 
-        .plan-editor {
+        /* Feature que el plan NO incluye: solo ✗ en gris, sin tachar (el
+           tachado sobre un flex con svg queda desalineado). */
+        .plan-features li.is-off {
+            color: var(--text-muted);
+        }
+
+        .plan-features li.is-off svg {
+            color: var(--text-muted);
+            opacity: 0.75;
+        }
+
+        /* Fila que CAMBIA frente al plan actual (solo en la tarjeta evaluada):
+           ganancia en primario, pérdida en ámbar (semáforo del panel). */
+        .plan-features li.is-change {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .plan-features li.is-off.is-change {
+            color: #d97706;
+        }
+
+        .plan-features li.is-off.is-change svg {
+            color: #d97706;
+            opacity: 1;
+        }
+
+        /* CTA al pie de la tarjeta (la tarjeta entera es el botón). */
+        .plan-cta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: auto;
+            padding: 9px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-subtle);
+            color: var(--text-main);
+            font-size: 12.5px;
+            font-weight: 600;
+            transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+        }
+
+            .plan-cta.is-selected {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: #ffffff;
+        }
+
+        .plan-cta.is-muted {
+            background: transparent;
+            color: var(--text-muted);
+        }
+
+            @media (prefers-reduced-motion: reduce) {
+                .plan-card {
+                    transition: none;
+                }
+            }
+
+            .plan-editor {
             margin-bottom: 24px;
         }
 
@@ -6337,6 +6490,63 @@ padding: 22px 26px;
 
         .plan-usage-row strong {
             color: var(--text-main);
+        }
+
+        /* Días restantes del plan, junto a la fecha (chip). */
+        .plan-expiry-days {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: var(--primary-color);
+            background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+        }
+
+        .plan-expiry-days.is-soon {
+            color: #d97706;
+            background: color-mix(in srgb, #d97706 14%, transparent);
+        }
+
+        /* Cuenta vencida (bajada a Free o vencimiento detectado). */
+        .plan-expired-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 13px 16px;
+            border: 1px solid color-mix(in srgb, #dc2626 35%, var(--border-color));
+            border-radius: 14px;
+            background: color-mix(in srgb, #dc2626 7%, var(--bg-surface));
+            font-size: 13px;
+            color: var(--text-main);
+        }
+
+        .plan-expired-text strong {
+            color: #dc2626;
+        }
+
+        .plan-expired-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: #16a34a;
+            color: #ffffff;
+            font-size: 12.5px;
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: filter 0.18s ease;
+        }
+
+        .plan-expired-btn:hover {
+            filter: brightness(1.08);
         }
 
         .plan-actions {

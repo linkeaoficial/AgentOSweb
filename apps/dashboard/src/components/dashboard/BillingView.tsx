@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { IconCheck, IconBolt, IconWhatsApp } from "./icons";
+import { IconCheck, IconX, IconBolt, IconWhatsApp } from "./icons";
 import { useToast } from "./notifications";
+import ModalShell from "./ModalShell";
 import PlanHistoryModal from "./PlanHistoryModal";
 
 export interface PlanDefault {
@@ -20,6 +21,8 @@ export interface BillingOwner {
   messages_limit: number;
   messages_used: number;
   plan_expires_at?: string | null;
+  // Plan del que cayó la cuenta por vencimiento (ya quedó en free).
+  downgraded_from?: string | null;
   support_whatsapp?: string | null;
 }
 
@@ -30,12 +33,30 @@ interface BillingViewProps {
   onSaved: () => void;
 }
 
-const PLAN_INFO: { id: string; name: string; byok: number | null; managed: number; accent: string; features: string[] }[] = [
-  { id: "free", name: "Free", byok: null, managed: 0, accent: "#94a3b8", features: ["IA administrada de prueba", "Branding AgentOSweb", "Sin BYOK ni marca blanca"] },
-  { id: "starter", name: "Starter", byok: 19, managed: 39, accent: "#60a5fa", features: ["IA administrada o tu API Key", "BYOK ilimitado", "Ideal para empezar"] },
-  { id: "pro", name: "Pro", byok: 49, managed: 89, accent: "#a78bfa", features: ["Sin marca de agua", "Modo BYOK", "Alertas a Telegram"] },
-  { id: "agency", name: "Agency", byok: 149, managed: 249, accent: "#fbbf24", features: ["Marca blanca total", "Dominios ilimitados", "Soporte prioritario"] },
+const PLAN_INFO: { id: string; name: string; byok: number | null; managed: number; accent: string }[] = [
+  { id: "free", name: "Free", byok: null, managed: 0, accent: "#94a3b8" },
+  { id: "starter", name: "Starter", byok: 19, managed: 39, accent: "#60a5fa" },
+  { id: "pro", name: "Pro", byok: 49, managed: 89, accent: "#a78bfa" },
+  { id: "agency", name: "Agency", byok: 149, managed: 249, accent: "#fbbf24" },
 ];
+
+// Filas comparables: la MISMA lista en las 4 tarjetas, con ✓ o ✗ según el plan.
+// Verificado contra el código (01-oct-2026): gates por plan en el worker =
+// `bubble_logo_url` (Agency), BYOK (Starter+, 403 al guardar en plan Free) y
+// el cupo de agentes (402 al superar `agent_limit`, que en Starter es 1), por
+// eso "Varios agentes" recién desde Pro y "Marca blanca" solo en Agency.
+const FEATURE_ROWS: { label: string; plans: string[] }[] = [
+  { label: "Widget embebible con chat 24/7", plans: ["free", "starter", "pro", "agency"] },
+  { label: "IA administrada (Workers AI)", plans: ["free", "starter", "pro", "agency"] },
+  { label: "Tu propia API key (BYOK, sin consumir cupo)", plans: ["starter", "pro", "agency"] },
+  { label: "Captura de prospectos y formularios", plans: ["free", "starter", "pro", "agency"] },
+  { label: "Varios agentes en la cuenta", plans: ["pro", "agency"] },
+  { label: "Marca blanca (logo propio en la burbuja)", plans: ["agency"] },
+];
+
+// Semáforo de las barras, igual al de Clientes (AdminView): verde ≤70%,
+// ámbar <90%, rojo ≥90%.
+const barColor = (p: number) => (p >= 90 ? "#dc2626" : p >= 70 ? "#d97706" : "#16a34a");
 
 // Vencimiento: la base devuelve 'YYYY-MM-DD' y Date lo leería como UTC, asi que
 // se parsea a medianoche local para que no corra un día para atrás.
@@ -43,6 +64,15 @@ function formatExpiry(raw: string): string {
   const d = new Date(`${raw}T00:00:00`);
   if (Number.isNaN(d.getTime())) return raw;
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+// Días que faltan para el vencimiento (0 = hoy, negativo = vencido).
+function daysUntil(raw: string): number | null {
+  const d = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - today.getTime()) / 86400000);
 }
 
 export default function BillingView({ owner, planDefaults, agentsCount, onSaved }: BillingViewProps) {
@@ -141,6 +171,13 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
   const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const agentPct = owner && owner.agent_limit > 0 ? Math.min(100, Math.round((agentsCount / owner.agent_limit) * 100)) : 0;
 
+  // Vencimiento: cuenta caída (downgraded_from) o por vencer (chip de días).
+  const currentInfo = PLAN_INFO.find((p) => p.id === (owner?.plan ?? "free"));
+  const down = owner?.downgraded_from ?? null;
+  const downgradeLabel = down ? PLAN_INFO.find((p) => p.id === down)?.name ?? null : null;
+  const expiryDays = owner?.plan_expires_at ? daysUntil(owner.plan_expires_at) : null;
+  const expired = expiryDays !== null && expiryDays < 0;
+
   // Identidad estable: PlanHistoryModal relee cuando cambia `load`, y un objeto
   // literal por render dispararía un fetch en bucle con el modal abierto.
   const historyAccount = useMemo(
@@ -161,10 +198,40 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
         </div>
       </div>
 
+      {(down || expired) && currentInfo && (
+        <div className="plan-expired-banner" role="status">
+          <div className="plan-expired-text">
+            <strong>
+              {down
+                ? `Tu plan ${downgradeLabel ?? currentInfo.name} venció y la cuenta pasó a Free.`
+                : `Tu plan ${currentInfo.name} venció${owner?.plan_expires_at ? ` el ${formatExpiry(owner.plan_expires_at)}` : ""}.`}
+            </strong>{" "}
+            {canEdit
+              ? "Elegí el plan arriba y aplicá para reactivarlo."
+              : "Reactivalo y recuperás tus cupos de agentes y mensajes."}
+          </div>
+          {!canEdit && whatsapp && (
+            <a
+              className="plan-expired-btn"
+              href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(
+                `Hola! Quiero reactivar mi plan ${downgradeLabel ?? currentInfo.name} de AgentOSweb. ¿Cómo coordinamos?`
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <IconWhatsApp />
+              Reactivar
+            </a>
+          )}
+        </div>
+      )}
+
       <div className="plan-cards">
         {PLAN_INFO.map((p) => {
           const d = planDefaults[p.id] ?? { agents: 1, messages: 0 };
           const isCurrent = owner?.plan === p.id;
+          const curPlan = owner?.plan ?? "free";
+          const evaluating = p.id === selectedPlan && !isCurrent;
           return (
             <button
               key={p.id}
@@ -175,6 +242,7 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                 else if (!isCurrent) openContact(p.id);
               }}
             >
+              {p.id === "starter" && <span className="plan-popular">Popular</span>}
               <div className="plan-card-head">
                 <span className="plan-dot" style={{ background: p.accent }} />
                 <h3>{p.name}</h3>
@@ -200,18 +268,39 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                 </span>
               </div>
               <ul className="plan-features">
-                {p.features.map((f) => (
-                  <li key={f}>
-                    <IconCheck />
-                    {f}
-                  </li>
-                ))}
+                {FEATURE_ROWS.map((row) => {
+                  const has = row.plans.includes(p.id);
+                  const changed = has !== row.plans.includes(curPlan);
+                  const cls = [!has && "is-off", evaluating && changed && "is-change"]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <li key={row.label} className={cls || undefined}>
+                      {has ? <IconCheck /> : <IconX />}
+                      {row.label}
+                    </li>
+                  );
+                })}
               </ul>
-              {!canEdit && !isCurrent && (
-                <span className="plan-price-alt" style={{ marginTop: 8 }}>
-                  Coordinar cambio →
-                </span>
-              )}
+              <span
+                className={`plan-cta${
+                  canEdit
+                    ? selectedPlan === p.id
+                      ? " is-selected"
+                      : ""
+                    : isCurrent
+                      ? " is-muted"
+                      : ""
+                }`}
+              >
+                {canEdit
+                  ? selectedPlan === p.id
+                    ? "Seleccionado"
+                    : "Elegir plan"
+                  : isCurrent
+                    ? "Plan actual"
+                    : "Coordinar cambio"}
+              </span>
             </button>
           );
         })}
@@ -295,7 +384,7 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                 </strong>
               </div>
               <div className="progress-bar-container">
-                <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
+                <div className="progress-bar-fill" style={{ width: `${pct}%`, background: barColor(pct) }} />
               </div>
               <div className="plan-usage-row" style={{ marginTop: 10 }}>
                 <span>Agentes creados</span>
@@ -304,12 +393,19 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
                 </strong>
               </div>
               <div className="progress-bar-container">
-                <div className="progress-bar-fill" style={{ width: `${agentPct}%` }} />
+                <div className="progress-bar-fill" style={{ width: `${agentPct}%`, background: barColor(agentPct) }} />
               </div>
               {owner?.plan_expires_at && (
                 <div className="plan-usage-row" style={{ marginTop: 10 }}>
                   <span>Vencimiento del plan</span>
-                  <strong>{formatExpiry(owner.plan_expires_at)}</strong>
+                  <strong>
+                    {formatExpiry(owner.plan_expires_at)}
+                    {expiryDays !== null && expiryDays >= 0 && (
+                      <span className={`plan-expiry-days${expiryDays <= 7 ? " is-soon" : ""}`}>
+                        {expiryDays === 0 ? "vence hoy" : `en ${expiryDays} día${expiryDays === 1 ? "" : "s"}`}
+                      </span>
+                    )}
+                  </strong>
                 </div>
               )}
             </div>
@@ -345,57 +441,74 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
         <PlanHistoryModal open={historyOpen} account={historyAccount} onClose={() => setHistoryOpen(false)} />
       )}
 
-      {payModalOpen && selected && (
-        <div className="modal-backdrop open" onClick={() => setPayModalOpen(false)}>
-          <div className="pay-modal" role="dialog" aria-modal="true" aria-label={`Coordinar pago del plan ${selected.name}`} onClick={(e) => e.stopPropagation()}>
-            <div className="pay-modal-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2" />
-                <path d="M2 8h20" />
-              </svg>
+      {/* Montado siempre (como PlanHistoryModal) y abierto por estado: si se
+          montara ya con `.open` el navegador no pinta el estado inicial y la
+          transición de entrada no corre. */}
+      {selected && (
+        <ModalShell
+          open={payModalOpen}
+          onClose={() => setPayModalOpen(false)}
+          ariaLabel={`Coordinar pago del plan ${selected.name}`}
+          innerClassName="pay-modal"
+        >
+          <div className="pay-modal-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path d="M2 8h20" />
+            </svg>
+          </div>
+          <h2>Coordinar pago</h2>
+          <p>
+            El plan <strong>{selected.name}</strong> requiere una coordinación de pago. Enviás la solicitud por
+            WhatsApp y te la confirmamos a la brevedad.
+          </p>
+          <div className="pay-summary">
+            <div className="pay-summary-row">
+              <span>Plan</span>
+              <strong>{selected.name}</strong>
             </div>
-            <h2>Coordinar pago</h2>
-            <p>
-              El plan <strong>{selected.name}</strong> requiere una coordinación de pago. Enviás la solicitud por
-              WhatsApp y te la confirmamos a la brevedad.
-            </p>
-            <div className="pay-summary">
-              <div className="pay-summary-row">
-                <span>Plan</span>
-                <strong>{selected.name}</strong>
-              </div>
-              <div className="pay-summary-row">
-                <span>Costo</span>
-                <strong>${selected.managed}/mes</strong>
-              </div>
-              <div className="pay-summary-row">
-                <span>Cupos</span>
-                <strong>{planDefaults[selected.id]?.agents ?? 1} agentes · {(planDefaults[selected.id]?.messages ?? 0).toLocaleString()} msgs/mes</strong>
-              </div>
+            <div className="pay-summary-row">
+              <span>Costo</span>
+              <strong>${selected.managed}/mes</strong>
             </div>
-            {whatsapp && (
-              <a
-                className="pay-whatsapp-btn"
-                href={`https://wa.me/${whatsapp}?text=${whatsappText}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <IconWhatsApp />
-                Coordinar por WhatsApp
-              </a>
-            )}
-            {canEdit && (
-              <button type="button" className="pay-apply-btn" onClick={() => { setPayModalOpen(false); void save(); }} disabled={saving}>
-                Ya coordiné · Aplicar plan ahora
-              </button>
-            )}
-            {!canEdit && (
-              <p className="subtitle" style={{ textAlign: "center", marginBottom: 0 }}>
-                Aplicamos el cambio apenas confirmemos el pago. Tus cupos actuales se mantienen hasta entonces.
-              </p>
+            <div className="pay-summary-row">
+              <span>Cupos</span>
+              <strong>{planDefaults[selected.id]?.agents ?? 1} agentes · {(planDefaults[selected.id]?.messages ?? 0).toLocaleString()} msgs/mes</strong>
+            </div>
+            {currentInfo && currentInfo.id !== selected.id && (
+              <div className="pay-summary-row pay-change">
+                <span>Cambio</span>
+                <strong>
+                  {currentInfo.name} → {selected.name} · {planDefaults[currentInfo.id]?.agents ?? 1}→
+                  {planDefaults[selected.id]?.agents ?? 1} agentes ·{" "}
+                  {(planDefaults[currentInfo.id]?.messages ?? 0).toLocaleString()}→
+                  {(planDefaults[selected.id]?.messages ?? 0).toLocaleString()} msgs
+                </strong>
+              </div>
             )}
           </div>
-        </div>
+          {whatsapp && (
+            <a
+              className="pay-whatsapp-btn"
+              href={`https://wa.me/${whatsapp}?text=${whatsappText}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <IconWhatsApp />
+              Coordinar por WhatsApp
+            </a>
+          )}
+          {canEdit && (
+            <button type="button" className="pay-apply-btn" onClick={() => { setPayModalOpen(false); void save(); }} disabled={saving}>
+              Ya coordiné · Aplicar plan ahora
+            </button>
+          )}
+          {!canEdit && (
+            <p className="subtitle" style={{ textAlign: "center", marginBottom: 0 }}>
+              Aplicamos el cambio apenas confirmemos el pago. Tus cupos actuales se mantienen hasta entonces.
+            </p>
+          )}
+        </ModalShell>
       )}
     </section>
   );

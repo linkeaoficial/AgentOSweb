@@ -76,6 +76,23 @@ function isWorkersAI(agent: AgentRow) {
   return agent.mode === "managed" || agent.chat_provider === "workers-ai" || !agent.chat_api_key;
 }
 
+// El Free no habilita BYOK (gate al guardar en handleAgentUpdate + planes
+// vencidos): en el chat, un agente BYOK con plan Free se atiende con IA
+// administrada para que aplique el cupo de prueba. ponytail: 1 lectura D1 por
+// mensaje BYOK, aceptable al volumen actual.
+async function isFreePlan(env: Env, userId: string) {
+  const u = await env.DB.prepare("SELECT plan FROM users WHERE id = ?").bind(userId).first<{ plan: string | null }>();
+  return !u?.plan || u.plan === "free";
+}
+
+// Cupo agotado, según plan: el Free no se salta el cupo con BYOK, su salida es Starter.
+function cupoReply(plan: string | null): string {
+  if (!plan || plan === "free") {
+    return "Tu plan de prueba alcanzó el límite mensual de mensajes de IA administrada. Pasate al plan Starter ($19 con tu API key o $39 con IA administrada) para seguir sin límite. ¿Te ayudamos a activarlo?";
+  }
+  return "Tu plan alcanzó el límite mensual de mensajes de IA administrada. Contáctanos para subir tu plan o cambia a BYOK (tu API Key) y continúa sin límite.";
+}
+
 // 🔐 Cifrado simétrico (AES-256-GCM) para claves de API en reposo.
 // Formato almacenado: "e1:<iv_b64>.<cipher_b64>". Claves viejas sin el prefijo
 // se devuelven tal cual, así nunca se rompe lo ya guardado.
@@ -683,14 +700,17 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
     return json({ reply: faqReply, ...formPayload }, 200, origin);
   }
 
-  // 🎯 Control de cupo: solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado)
-  const CUPO_REPLY =
-    "Tu plan alcanzó el límite mensual de mensajes de IA administrada. Contáctanos para subir tu plan o cambia a BYOK (tu API Key) y continúa sin límite.";
+  // 🎯 Control de cupo: solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado).
+  // Free no usa BYOK: si el agente quedó en BYOK con plan Free (vencimiento o
+  // config previa al gate), se atiende con IA administrada y aplica el cupo.
+  const byokBlocked = !isWorkersAI(agent) && (await isFreePlan(env, agent.user_id));
+  const useManaged = isWorkersAI(agent) || byokBlocked;
   let managedLimit: number | null = null; // cupo efectivo del usuario si IA administrada
-  if (isWorkersAI(agent)) {
-    // KV evita releer D1 en cada intento: 5 min una vez agotado
+  if (useManaged) {
+    // KV evita releer D1 en cada intento: 5 min una vez agotado (valor = plan,
+    // para responder según el plan; "1" son entradas viejas = plan desconocido)
     const blocked = await env.AGENT_CACHE.get(`quota:${agent.user_id}`);
-    if (blocked) return json({ reply: CUPO_REPLY }, 200, origin);
+    if (blocked) return json({ reply: cupoReply(blocked === "1" ? null : blocked) }, 200, origin);
     const userInfo = await env.DB.prepare("SELECT messages_used, messages_limit, plan, plan_expires_at FROM users WHERE id = ?")
       .bind(agent.user_id)
       .first<{ messages_used: number; messages_limit: number | null; plan: string | null; plan_expires_at: string | null }>();
@@ -698,8 +718,8 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
       const limit = effectiveMessagesLimit(userInfo);
       managedLimit = limit;
       if (userInfo.messages_used >= limit) {
-        await env.AGENT_CACHE.put(`quota:${agent.user_id}`, "1", { expirationTtl: 300 });
-        return json({ reply: CUPO_REPLY }, 200, origin);
+        await env.AGENT_CACHE.put(`quota:${agent.user_id}`, userInfo.plan ?? "free", { expirationTtl: 300 });
+        return json({ reply: cupoReply(userInfo.plan) }, 200, origin);
       }
     }
   }
@@ -709,7 +729,12 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
 
   let botReply = "";
   try {
-    botReply = await infer(agent, messagesPayload, env);
+    // byokBlocked: Free con BYOK configurado se atiende como IA administrada.
+    botReply = await infer(
+      byokBlocked ? { ...agent, mode: "managed", chat_provider: "workers-ai", chat_api_key: null } : agent,
+      messagesPayload,
+      env
+    );
   } catch (err) {
     await env.AGENT_CACHE.put("last_groq_error", String(err), { expirationTtl: 600 });
     botReply = EMERGENCY_REPLY;
@@ -747,7 +772,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
           ),
         ]);
 // 🎯 Solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado)
-        if (isWorkersAI(agent) && managedLimit != null) {
+        if (useManaged && managedLimit != null) {
           // Incremento atómico: no suma si ya se alcanzó el límite (evita pasarse en ráfagas).
           await env.DB.prepare(
             `UPDATE users SET messages_used = messages_used + 1
@@ -962,15 +987,21 @@ async function handleAgentUpdate(request: Request, agentId: string, env: Env) {
   let updates: [string, unknown][] = [];
   if (body && typeof body === "object") {
     const b = body as Record<string, unknown>;
-    // Marca blanca: el logo de burbuja propio es exclusivo del plan Agency.
-    if ("bubble_logo_url" in b && b.bubble_logo_url != null) {
+    // Marca blanca (logo de burbuja) y BYOK: gates por plan, mismo patrón.
+    const setsBubble = "bubble_logo_url" in b && b.bubble_logo_url != null;
+    const setsByok = ("mode" in b && b.mode === "byok") || ("byok_provider" in b && b.byok_provider != null);
+    if (setsBubble || setsByok) {
       const owner = await env.DB.prepare(
         "SELECT u.plan FROM users u JOIN agents a ON a.user_id = u.id WHERE a.id = ?"
       )
         .bind(agentId)
         .first<{ plan: string | null }>();
-      if (owner?.plan !== "agency") {
+      const plan = owner?.plan ?? "free";
+      if (setsBubble && plan !== "agency") {
         return json({ error: "El logo de burbuja (marca blanca) es exclusivo del plan Agency" }, 403, origin);
+      }
+      if (setsByok && plan === "free") {
+        return json({ error: "BYOK (tu propia API key) está disponible desde el plan Starter" }, 403, origin);
       }
     }
     for (const key of Object.keys(EDITABLE_FIELDS)) {
@@ -1499,7 +1530,7 @@ export const PLAN_DEFAULTS: Record<string, { agents: number; messages: number }>
   free: { agents: 1, messages: 20 },
   starter: { agents: 1, messages: 1500 },
   pro: { agents: 3, messages: 6000 },
-  agency: { agents: 10, messages: 25000 },
+  agency: { agents: 8, messages: 25000 },
 };
 
 type OwnerRow = { email: string | null; name: string | null; plan: string | null; agent_limit: number | null; messages_limit: number | null; messages_used: number | null; plan_expires_at: string | null };

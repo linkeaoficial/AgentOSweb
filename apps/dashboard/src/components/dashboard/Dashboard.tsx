@@ -360,6 +360,7 @@ export default function Dashboard() {
           onOpenLogout={openLogout}
           ownerName={owner?.name ?? "Cuenta"}
           ownerEmail={owner?.email ?? null}
+          planLabel={owner ? PLAN_LABELS[owner.plan ?? "free"] ?? "Free" : null}
           switcher={<AgentSwitcher agents={agents} current={currentAgentId} onSelect={handleSelectAgent} onCreate={handleCreateAgent} />}
         />
 

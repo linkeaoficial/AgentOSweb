@@ -524,7 +524,7 @@ El dashboard se despliega en **Cloudflare Pages** mediante el adaptador `@cloudf
 | 🆓 **Free** | **$0 / mes** | 1 | 20 msgs administrados | Prueba: IA administrada, branding AgentOSweb. Sin BYOK ni marca blanca | 20% |
 | 🥉 **Starter** | **$19** con tu API (BYOK) · **$39** con IA administrada | 1 | 1.500 msgs administrados · BYOK ♾️ | Motor IA administrado o tu propia key | 96% |
 | 🥈 **Pro** | **$49** con tu API (BYOK) · **$89** con IA administrada | 3 | 6.000 msgs administrados · BYOK ♾️ | Sin marca de agua, Modo BYOK, alertas a Telegram | 95% |
-| 🥇 **Agency** | **$149** con tu API (BYOK) · **$249** con IA administrada | 10 | 25.000 msgs administrados · BYOK ♾️ | Marca blanca total, dominios autorizados ilimitados, soporte prioritario | 92% |
+| 🥇 **Agency** | **$149** con tu API (BYOK) · **$249** con IA administrada | 8 | 25.000 msgs administrados · BYOK ♾️ | Marca blanca total, dominios autorizados ilimitados, soporte prioritario | 92% |
 
 > 💳 **Facturación manual:** el pago se procesa manualmente (sin pasarela automatizada); el equipo activa el plan en la cuenta tras verificar la transferencia.
 
