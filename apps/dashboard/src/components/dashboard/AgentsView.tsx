@@ -933,7 +933,7 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
           lead_capture: d.lead_capture !== false,
           lead_fields: Array.isArray(d.lead_fields)
             ? d.lead_fields
-            : String(d.lead_fields ?? "email,phone").split(",").map((f) => f.trim()).filter(Boolean),
+            : String(d.lead_fields ?? "name,email,phone").split(",").map((f) => f.trim()).filter(Boolean),
         };
         setDraft(normalized);
         setOriginal(JSON.stringify(normalized));

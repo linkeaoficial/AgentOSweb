@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS agents (
   allowed_domains TEXT DEFAULT '*',          -- Dominios autorizados separados por coma
   rate_limit_per_minute INTEGER DEFAULT 20,
   lead_capture INTEGER DEFAULT 1,            -- 1 = captura prospectos (email/tel/nombre), 0 = solo responde
-  lead_fields TEXT NOT NULL DEFAULT 'email,phone', -- Campos a capturar: 'email', 'phone', 'name' (coma)
+  lead_fields TEXT NOT NULL DEFAULT 'name,email,phone', -- Campos a capturar: 'name', 'email', 'phone' (coma)
 
   is_active INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

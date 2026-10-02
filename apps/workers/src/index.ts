@@ -54,6 +54,7 @@ interface AgentRow {
 
 const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const DEFAULT_MODEL_FAST = "@cf/meta/llama-3.1-8b-instruct-fast";
+const DEFAULT_LEAD_FIELDS = "name,email,phone";
 
 // Proveedores BYOK compatibles con Chat Completions de OpenAI.
 // Gemini se sirve vía su endpoint OpenAI-compatible oficial.
@@ -180,9 +181,9 @@ async function ensureDefaultAgent(env: Env, userId: string, name?: string | null
   const existing = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ? LIMIT 1").bind(userId).first();
   if (existing) return;
   await env.DB.prepare(
-    "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model) VALUES (?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?)"
+    "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model, lead_fields) VALUES (?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?, ?)"
   )
-    .bind(crypto.randomUUID(), userId, "Mi Agente", "AgentOSweb", "", `Soy el asistente virtual de ${name || "tu negocio"}. ¿En qué te puedo colaborar hoy?`, DEFAULT_MODEL_FAST)
+    .bind(crypto.randomUUID(), userId, "Mi Agente", "AgentOSweb", "", `Soy el asistente virtual de ${name || "tu negocio"}. ¿En qué te puedo colaborar hoy?`, DEFAULT_MODEL_FAST, DEFAULT_LEAD_FIELDS)
     .run()
     .catch(() => {}); // nunca romper el listado por el agente por defecto
 }
@@ -264,7 +265,7 @@ const NAME_RE = /(?:me llamo|mi nombre es|nombre es|soy)\s+([A-ZÁÉÍÓÚÜÑ][
 
 async function captureLead(agent: AgentRow, sessionId: string, message: string, env: Env) {
   if (agent.lead_capture === 0) return; // solo responde: la captura está apagada para este agente
-  const fields = (agent.lead_fields || "email,phone").split(",").map((f) => f.trim());
+  const fields = (agent.lead_fields || DEFAULT_LEAD_FIELDS).split(",").map((f) => f.trim());
 
   const email = fields.includes("email") ? message.match(EMAIL_RE)?.[0]?.toLowerCase() || null : null;
   const phone = fields.includes("phone") ? message.match(PHONE_RE)?.[0]?.trim() || null : null;
@@ -635,7 +636,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
       return !id;
     })());
   const formPayload = wantsForm
-    ? { form: { fields: (agent.lead_fields || "email,phone").split(",").map((f) => f.trim()).filter(Boolean) } }
+    ? { form: { fields: (agent.lead_fields || DEFAULT_LEAD_FIELDS).split(",").map((f) => f.trim()).filter(Boolean) } }
     : {};
 
   const safeHistory: { role: string; content: string }[] = [];
@@ -836,7 +837,7 @@ async function handleAgentConfig(request: Request, agentId: string, env: Env) {
       byok_provider: agent.byok_provider,
       byok_model: agent.byok_model,
       lead_capture: agent.lead_capture === 0 ? false : true,
-      lead_fields: agent.lead_fields || "email,phone",
+      lead_fields: agent.lead_fields || DEFAULT_LEAD_FIELDS,
       faqs: getFaqs(agent),
     },
     200,
@@ -1445,7 +1446,7 @@ async function handleLeadForm(request: Request, env: Env) {
     return json({ error: "Demasiadas solicitudes. Intenta en un minuto." }, 429, origin);
   }
 
-  const fields = (agent.lead_fields || "email,phone").split(",").map((f) => f.trim());
+  const fields = (agent.lead_fields || DEFAULT_LEAD_FIELDS).split(",").map((f) => f.trim());
   const clean = (v?: string) => (typeof v === "string" ? v.trim().slice(0, 120) : "");
   const name = fields.includes("name") ? clean(body.name) : "";
   const email = fields.includes("email") ? clean(body.email).toLowerCase() : "";
@@ -1653,8 +1654,8 @@ async function handleAgentCreate(request: Request, env: Env) {
   const defaultPrompt = "";
   const defaultWelcome = `Soy el asistente virtual de ${name}. ¿En qué te puedo colaborar hoy?`;
   await env.DB.prepare(
-    "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model) VALUES (?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?)"
-  ).bind(id, user.id, name, name, defaultPrompt, defaultWelcome, DEFAULT_MODEL_FAST).run();
+    "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model, lead_fields) VALUES (?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?, ?)"
+  ).bind(id, user.id, name, name, defaultPrompt, defaultWelcome, DEFAULT_MODEL_FAST, DEFAULT_LEAD_FIELDS).run();
 
   return json({ ok: true, id }, 200, origin);
 }
