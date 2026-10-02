@@ -76,7 +76,7 @@ function AnalyticsWall({ onNavigate }: { onNavigate: (v: string) => void }) {
 }
 
 export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavigate: (v: string) => void }) {
-  const [range, setRange] = useState(30);
+  const [range, setRange] = useState(7);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [status, setStatus] = useState<Status>("loading");
 
