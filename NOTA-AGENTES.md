@@ -30,15 +30,15 @@
 
 ## 🔴 En vuelo (trabajo sin commitear)
 
-- [2] `apps/workers/src/index.ts` + `migrations/0011_messages_created_index.sql` + `AnalyticsView.tsx` + `Dashboard.tsx` + `globals.css` + `app/api/analytics/[id]/route.ts` + `database/schema.sql` + docs — **Analíticas V1 completa**: selector 7/30/90 días, 6 KPIs con delta vs. período anterior, serie diaria, heatmap día×hora, embudo, top FAQs, prospectos por estado; **gate Starter+ con muro para Free** (`403 plan_required`) (02-oct-2026)
-
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
-> ⚠️ **Deploys: condición CUMPLIDA (02-oct).** Ambos bloques commiteados y árbol limpio: `1677d42` (FASE 2E, `auth.ts`) + `63ea177` (Analíticas V1). **Se puede desplegar el worker con ambos** (`wrangler deploy` + `wrangler d1 migrations apply` para `0010`/`0011` si faltan). Tras el deploy, la sonda de abajo debe devolver `__Secure-aow_auth...; Secure`.
+> ⚠️ **Deploys: Último deploy del worker = `ae967002` (02-oct, Agente 2)** — subió `63ea177` (Analíticas V1) **+** `1677d42` (FASE 2E, `auth.ts`) juntos: se desplegó con árbol limpio, así que la cookie `Secure` del 3 YA está en prod (re-confirmar con la sonda de abajo). Falta solo el deploy del dashboard a Pages (lo hace el usuario con el dev server apagado).
 
 ---
 
 ## ✅ Hecho (últimos bloques, referencia rápida)
+
+- `63ea177` **Analíticas V1 completa** + muro para Free: selector 7/30/90 días, 6 KPIs con delta vs. período anterior, serie diaria, heatmap día×hora, embudo sesiones→mensajes→prospectos, top FAQs, prospectos por estado; endpoint `GET /api/analytics/:agentId` + proxy; gate **Starter+** (`403 plan_required` en Free); migración `0011` (`idx_messages_created`, local+remoto) — **2** · *E2E local 200/403 con datos sembrados y prod 200 con `agent-demo` (8 sesiones, 74 mensajes, heat 7×24); deploy `ae967002`.*
 
 - `1677d42` **FASE 2E**: cookie `Secure` (`auth.ts`) + vista Configuración con "Cambiar contraseña" y rotación de sesiones (`SettingsView.tsx`) — **3** · *E2E: sesión vieja muere, nueva viva, `INVALID_PASSWORD` mapeado; verificado local con `wrangler dev` (Set-Cookie con `Secure` + `__Secure-`). **Pendiente post-deploy:** login en navegador del usuario para confirmar que Chrome/Firefox aceptan la cookie Secure en localhost.*
 - `9b35bda` cintillo de plan sin puntito verde + tarjeta marcada sin ring de sombra — **3**
@@ -50,7 +50,7 @@
 
 ## 📌 Notas de coordinación
 
-- **Sonda a prod (02-oct, Agente 3):** sign-in directo al worker devuelve cookie **sin** `Secure` y sin prefijo `__Secure-` → `1677d42` (`auth.ts`) **aún no está desplegado**. Se confirma con la misma sonda cuando el worker responda `__Secure-aow_auth...; Secure; SameSite=Lax`. Después de eso falta la prueba de login en navegador (localhost) del usuario.
+- **Sonda a prod (02-oct, Agente 3):** el worker quedó en **`ae967002`** (deploy del Agente 2 con árbol limpio = incluye `1677d42`), así que la cookie `Secure` **debería** estar activa: re-correr la misma sonda y debe devolver `__Secure-aow_auth...; Secure; SameSite=Lax`. Después falta la prueba de login en navegador (localhost) del usuario.
 
 - **Deploys: solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`). El Agente 3 deja su bloque commiteado y avisa en este archivo; el 2 despliega ambos.
 - **Reparto sugerido (pendiente de confirmar con el usuario):** Agente 2 = Planes & Facturación + worker core (cupo/plan/chat) + deploys. Agente 3 = FASE 2E (cookies `Secure` + rotación de sesión en `auth.ts`) o Analíticas, según lo que indique el usuario.
