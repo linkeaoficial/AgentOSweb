@@ -1104,6 +1104,151 @@ async function handleOverview(request: Request, agentId: string, env: Env) {
   );
 }
 
+// ── Analíticas (V1): ventanas de 7/30/90 días con delta vs período anterior ──
+// Gate: plan Starter+ (mismo criterio que BYOK). Free recibe 403 plan_required
+// y el panel pinta el muro de mejora de plan.
+async function handleAnalytics(request: Request, agentId: string, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  const agent = await env.DB.prepare("SELECT id FROM agents WHERE id = ? AND user_id = ?")
+    .bind(agentId, user.id)
+    .first<{ id: string }>();
+  if (!agent) return json({ error: "Agente no existe" }, 404, origin);
+
+  const account = await env.DB.prepare("SELECT plan, plan_expires_at FROM users WHERE id = ?")
+    .bind(user.id)
+    .first<{ plan: string | null; plan_expires_at: string | null }>();
+  if (effectivePlan(account) === "free") {
+    return json(
+      { error: "Analíticas disponible desde el plan Starter", code: "plan_required", plan_required: "starter" },
+      403,
+      origin
+    );
+  }
+
+  const url = new URL(request.url);
+  const reqDays = Number(url.searchParams.get("days"));
+  const days = reqDays === 7 || reqDays === 90 ? reqDays : 30;
+  // Ventanas exactas de `days` fechas: la actual termina hoy y la anterior son
+  // las mismas `days` fechas inmediatamente anteriores, para deltas parejos.
+  const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+  const prevSince = new Date(Date.now() - (2 * days - 1) * 86400000).toISOString().slice(0, 10);
+
+  // Un escaneo de messages por ventana (rango cubierto por idx_messages_created)
+  // alimenta la serie diaria, la hora del día y el heatmap día×hora.
+  // ponytail: conversations/leads por día escanean las filas del agente por
+  // agent_id (índice de dueño, no de fecha); al volumen actual va bien, si una
+  // cuenta se pone grande se agrega (agent_id, created_at).
+  const [msgCur, conCur, leadCur, msgPrev, conPrev, leadPrev, statuses, topFaq, faqTotal] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT date(m.created_at) AS day, strftime('%H', m.created_at) AS h, COUNT(*) AS n
+         FROM messages m JOIN conversations c ON c.id = m.conversation_id
+        WHERE c.agent_id = ? AND m.created_at >= ?
+        GROUP BY day, h`
+    ).bind(agentId, since),
+    env.DB.prepare(
+      "SELECT date(created_at) AS day, COUNT(*) AS n FROM conversations WHERE agent_id = ? AND created_at >= ? GROUP BY day"
+    ).bind(agentId, since),
+    env.DB.prepare(
+      "SELECT date(created_at) AS day, COUNT(*) AS n FROM leads WHERE agent_id = ? AND created_at >= ? GROUP BY day"
+    ).bind(agentId, since),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id
+        WHERE c.agent_id = ? AND m.created_at >= ? AND m.created_at < ?`
+    ).bind(agentId, prevSince, since),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM conversations WHERE agent_id = ? AND created_at >= ? AND created_at < ?"
+    ).bind(agentId, prevSince, since),
+    env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM leads WHERE agent_id = ? AND created_at >= ? AND created_at < ?"
+    ).bind(agentId, prevSince, since),
+    env.DB.prepare("SELECT status, n FROM lead_stats WHERE agent_id = ?").bind(agentId),
+    env.DB.prepare("SELECT faq_label AS label, hits FROM faq_hits WHERE agent_id = ? ORDER BY hits DESC LIMIT 7").bind(
+      agentId
+    ),
+    env.DB.prepare("SELECT COALESCE(SUM(hits), 0) AS n FROM faq_hits WHERE agent_id = ?").bind(agentId),
+  ]);
+
+  type DayRow = { day: string; n: number };
+  const rows = <T>(r: { results?: unknown }): T[] => (r.results as T[] | undefined) ?? [];
+  const num = (r: { results?: unknown }): number => Number(rows<{ n: number }>(r)[0]?.n) || 0;
+
+  const msgDay = new Map<string, number>();
+  const hourly = new Array<number>(24).fill(0);
+  const heat = Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+  for (const r of rows<{ day: string; h: string; n: number }>(msgCur)) {
+    const n = Number(r.n) || 0;
+    msgDay.set(r.day, (msgDay.get(r.day) ?? 0) + n);
+    const h = Number(r.h);
+    if (h >= 0 && h < 24) {
+      hourly[h] += n;
+      // fecha 'YYYY-MM-DD' leída en UTC → día de la semana estable para todos.
+      const wd = new Date(`${r.day}T00:00:00Z`).getUTCDay();
+      heat[wd][h] += n;
+    }
+  }
+  const toMap = (rs: DayRow[]) => new Map(rs.map((r) => [r.day, Number(r.n) || 0]));
+  const conDay = toMap(rows<DayRow>(conCur));
+  const leadDay = toMap(rows<DayRow>(leadCur));
+
+  // Calendario completo de la ventana (sin huecos en la serie).
+  const dayList: string[] = [];
+  let t = Date.parse(`${since}T00:00:00Z`);
+  const end = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  while (t <= end && dayList.length < 400) {
+    dayList.push(new Date(t).toISOString().slice(0, 10));
+    t += 86400000;
+  }
+
+  const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+  const msgTotal = sum(msgDay);
+  const conTotal = sum(conDay);
+  const leadTotal = sum(leadDay);
+  const msgPrevN = num(msgPrev);
+  const conPrevN = num(conPrev);
+  const leadPrevN = num(leadPrev);
+  const delta = (cur: number, prev: number): number | null =>
+    prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? null : 0;
+  const conv = (leads: number, sessions: number) => (sessions > 0 ? Math.round((leads / sessions) * 1000) / 10 : 0);
+  const avg = (m: number, s: number) => (s > 0 ? Math.round((m / s) * 10) / 10 : 0);
+
+  return json(
+    {
+      days: dayList,
+      since,
+      daily: dayList.map((day) => ({
+        day,
+        messages: msgDay.get(day) ?? 0,
+        conversations: conDay.get(day) ?? 0,
+        leads: leadDay.get(day) ?? 0,
+      })),
+      hourly,
+      heat, // [0=domingo .. 6=sábado][hora]
+      kpis: {
+        sessions: { value: conTotal, delta: delta(conTotal, conPrevN) },
+        messages: { value: msgTotal, delta: delta(msgTotal, msgPrevN) },
+        per_session: {
+          value: avg(msgTotal, conTotal),
+          delta: delta(Math.round(avg(msgTotal, conTotal) * 10), Math.round(avg(msgPrevN, conPrevN) * 10)),
+        },
+        leads: { value: leadTotal, delta: delta(leadTotal, leadPrevN) },
+        conversion: {
+          value: conv(leadTotal, conTotal),
+          // delta en PUNTOS porcentuales, no en % relativo.
+          delta: Math.round((conv(leadTotal, conTotal) - conv(leadPrevN, conPrevN)) * 10) / 10,
+        },
+        // Histórico: faq_hits no guarda fecha, no hay período anterior que comparar.
+        faq_auto: { value: num(faqTotal), delta: null },
+      },
+      lead_statuses: rows<{ status: string; n: number }>(statuses),
+      top_faqs: rows<{ label: string; hits: number }>(topFaq),
+    },
+    200,
+    origin
+  );
+}
+
 // ── Prospectos (leads): listar y actualizar estado ─────────────────────────────
 const LEAD_STATUSES = ["Nuevo", "Contactado", "Calificado", "Convertido", "Archivado"];
 
@@ -2318,6 +2463,11 @@ export default {
     const overviewMatch = url.pathname.match(/^\/api\/overview\/([^/]+)$/);
     if (overviewMatch && request.method === "GET") {
       return handleOverview(request, overviewMatch[1], env);
+    }
+
+    const analyticsMatch = url.pathname.match(/^\/api\/analytics\/([^/]+)$/);
+    if (analyticsMatch && request.method === "GET") {
+      return handleAnalytics(request, analyticsMatch[1], env);
     }
 
     const leadsMatch = url.pathname.match(/^\/api\/leads\/([^/]+)$/);

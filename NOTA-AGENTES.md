@@ -30,7 +30,7 @@
 
 ## 🔴 En vuelo (trabajo sin commitear)
 
-- [2] `apps/workers/src/index.ts` + `migrations/0011_messages_created_index.sql` + `AnalyticsView.tsx` + `Dashboard.tsx` + `globals.css` + `app/api/analytics/route.ts` — Analíticas V1: mensajes por día/hora (30d), prospectos por estado, KPIs y top de FAQs (02-oct-2026)
+- [2] `apps/workers/src/index.ts` + `migrations/0011_messages_created_index.sql` + `AnalyticsView.tsx` + `Dashboard.tsx` + `globals.css` + `app/api/analytics/[id]/route.ts` + `database/schema.sql` + docs — **Analíticas V1 completa**: selector 7/30/90 días, 6 KPIs con delta vs. período anterior, serie diaria, heatmap día×hora, embudo, top FAQs, prospectos por estado; **gate Starter+ con muro para Free** (`403 plan_required`) (02-oct-2026)
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
@@ -51,6 +51,8 @@
 ---
 
 ## 📌 Notas de coordinación
+
+- **Sonda a prod (02-oct, Agente 3):** sign-in directo al worker devuelve cookie **sin** `Secure` y sin prefijo `__Secure-` → `1677d42` (`auth.ts`) **aún no está desplegado**. Se confirma con la misma sonda cuando el worker responda `__Secure-aow_auth...; Secure; SameSite=Lax`. Después de eso falta la prueba de login en navegador (localhost) del usuario.
 
 - **Deploys: solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`). El Agente 3 deja su bloque commiteado y avisa en este archivo; el 2 despliega ambos.
 - **Reparto sugerido (pendiente de confirmar con el usuario):** Agente 2 = Planes & Facturación + worker core (cupo/plan/chat) + deploys. Agente 3 = FASE 2E (cookies `Secure` + rotación de sesión en `auth.ts`) o Analíticas, según lo que indique el usuario.

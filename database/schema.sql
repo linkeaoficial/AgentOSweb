@@ -160,6 +160,10 @@ CREATE INDEX IF NOT EXISTS idx_conversations_recent ON conversations(agent_id, u
 -- Para cargar el hilo de chat en orden sin consumir CPU de ordenamiento:
 CREATE INDEX IF NOT EXISTS idx_messages_history ON messages(conversation_id, created_at ASC);
 
+-- Para la serie diaria/horaria de Analiticas (rango global de fechas, migracion 0011):
+CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at ASC);
+
+
 -- Para exportar prospectos ordenados por fecha en <5ms:
 CREATE INDEX IF NOT EXISTS idx_leads_dashboard ON leads(agent_id, created_at DESC);
 

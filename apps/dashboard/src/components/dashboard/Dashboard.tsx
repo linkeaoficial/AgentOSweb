@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import Image from "next/image";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 import { OverviewView, UnderConstructionView, getScript, type OverviewData } from "./Views";
+import { AnalyticsView } from "./AnalyticsView";
 import AgentsView from "./AgentsView";
 import BillingView, { type PlanDefault } from "./BillingView";
 import AdminView from "./AdminView";
@@ -16,7 +16,7 @@ import ConfirmModal from "./ConfirmModal";
 import RenewalModal from "./RenewalModal";
 import SettingsView from "./SettingsView";
 import { useToast } from "./notifications";
-import { IconAnalytics } from "./icons";
+import { IconOverview } from "./icons";
 import { API_BASE } from "./config";
 
 const TITLE_MAP: Record<string, string> = {
@@ -27,15 +27,6 @@ const TITLE_MAP: Record<string, string> = {
   "view-billing": "Planes & Facturación",
   "view-admin": "Clientes",
   "view-settings": "Configuración",
-};
-
-const PLACEHOLDER_VIEWS: Record<string, { icon: ReactNode; title: string; description: string }> = {
-  "view-analytics": {
-    icon: <IconAnalytics />,
-    title: "Analíticas e Insights de Comportamiento",
-    description:
-      "Estadísticas detalladas sobre volumen de interacciones por hora, temas más consultados y rendimiento general del agente de IA.",
-  },
 };
 
 export interface AgentOwner {
@@ -381,8 +372,15 @@ export default function Dashboard() {
             <LeadsView key={currentAgentId} agentId={currentAgentId} />
           ) : activeView === "view-settings" ? (
             <SettingsView />
+          ) : activeView === "view-analytics" ? (
+            <AnalyticsView agentId={currentAgentId} onNavigate={handleNavigate} />
           ) : (
-            <UnderConstructionView id={activeView} {...PLACEHOLDER_VIEWS[activeView]} />
+            <UnderConstructionView
+              id={activeView}
+              icon={<IconOverview />}
+              title="Próximamente"
+              description="Esta sección todavía está en construcción."
+            />
           )
         ) : (
           <div className="content-loading">

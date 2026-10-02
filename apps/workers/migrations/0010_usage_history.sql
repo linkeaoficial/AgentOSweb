@@ -7,7 +7,8 @@
 -- el snapshot si se re-corre).
 --
 -- Nota de numeracion: 0008 quedo para `lead_fields` y 0009 para Agency 10->8;
--- la tabla `rateLimit` pendiente en el backlog pasa a ser 0011.
+-- la tabla `rateLimit` pendiente en el backlog pasa a ser 0012 (0011 es el
+-- indice de messages.created_at de la V1 de analiticas).
 
 CREATE TABLE IF NOT EXISTS usage_history (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
