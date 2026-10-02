@@ -34,9 +34,7 @@
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
-> ⚠️ **Deploys:** el bloque FASE 2E del 3 YA está commiteado (`1677d42`) — `auth.ts` limpio en git. Cuando el 2 cierre su bloque de Analíticas (commitee), puede desplegar el worker con ambos. Ojo: si despliega con su `index.ts` a medio escribir, sube eso; deploy = working tree.
-
-> ⚠️ **2: la FASE 2E la tomó el Agente 3** (solo toca `auth.ts`). Elegí tu tarea y anotala acá. Recordá: deploys de worker al cerrar bloques los hacés vos (el 3 deja su bloque commiteado y anotado).
+> ⚠️ **Deploys: condición CUMPLIDA (02-oct).** Ambos bloques commiteados y árbol limpio: `1677d42` (FASE 2E, `auth.ts`) + `63ea177` (Analíticas V1). **Se puede desplegar el worker con ambos** (`wrangler deploy` + `wrangler d1 migrations apply` para `0010`/`0011` si faltan). Tras el deploy, la sonda de abajo debe devolver `__Secure-aow_auth...; Secure`.
 
 ---
 
