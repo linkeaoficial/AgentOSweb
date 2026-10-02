@@ -7390,7 +7390,9 @@ body.dark-mode .nav-backdrop {
 .ana-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .ana-legend .dot.msg { background: var(--primary-color); }
 .ana-legend .dot.con { background: #a78bfa; margin-left: 8px; }
-.ana-daily { display: flex; align-items: flex-end; gap: 2px; height: 170px; }
+/* overflow-x: en móvil 90 días no entran (min-width 2px × 90 + gaps > ancho
+   de la card) y el content-wrapper los cortaba sin aviso: ahora scrollea. */
+.ana-daily { display: flex; align-items: flex-end; gap: 2px; height: 170px; overflow-x: auto; }
 .ana-day { flex: 1 1 0; min-width: 2px; height: 100%; display: flex; align-items: flex-end; gap: 1px; }
 .ana-day .bar { flex: 1 1 0; border-radius: 3px 3px 0 0; min-height: 2px; }
 .ana-day .bar.msg { background: var(--primary-gradient); }
@@ -7424,7 +7426,9 @@ body.dark-mode .nav-backdrop {
 .ana-heat-max { font-size: 0.68rem; color: var(--text-muted); text-align: right; }
 .ana-heat-hours {
     display: grid;
-    grid-template-columns: 42px repeat(24, 1fr) 34px;
+    /* minmax(0, …): los rótulos "6h/12h/18h" fijaban un mínimo de columna y
+       las etiquetas se desalineaban de las celdas en pantallas angostas. */
+    grid-template-columns: 42px repeat(24, minmax(0, 1fr)) 34px;
     gap: 3px;
     font-size: 0.62rem;
     color: var(--text-muted);
@@ -7501,7 +7505,7 @@ body.dark-mode .nav-backdrop {
 
 @media (max-width: 900px) {
     .ana-grid-2 { grid-template-columns: 1fr; }
-    .ana-heat-row, .ana-heat-hours { grid-template-columns: 34px repeat(24, 1fr) 28px; gap: 2px; }
+    .ana-heat-row, .ana-heat-hours { grid-template-columns: 34px repeat(24, minmax(0, 1fr)) 28px; gap: 2px; }
     .ana-heat-cell { height: 12px; }
 }
 
