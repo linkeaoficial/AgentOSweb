@@ -61,7 +61,13 @@ export function createAuth(env: AuthEnv) {
     advanced: {
       trustedProxyHeaders: true,
       cookiePrefix: "aow_auth",
-      useSecureCookies: false, // Fase 2E: activar en HTTPS de producción
+        // FASE 2E: la cookie de sesión viaja con `Secure` (solo se envía por
+        // HTTPS). Better Auth lo infiere de `baseURL` (https) igual, pero va
+        // explícito para que nadie lo "limpie" sin saber. Los navegadores
+        // aceptan cookies Secure en http://localhost (origen trustworthy por
+        // spec), así que el dev en localhost sigue funcionando; solo se rompe
+        // si se prueba el panel desde una IP de red (LAN) por HTTP.
+        useSecureCookies: true,
       defaultCookieAttributes: { sameSite: "lax", httpOnly: true, path: "/" },
       // La IP que importa es la del visitante, pero el worker nunca la ve
       // directo: el login llega por el proxy del panel (Next.js), así que

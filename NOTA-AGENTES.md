@@ -30,9 +30,14 @@
 
 ## 🔴 En vuelo (trabajo sin commitear)
 
-_Nadie por ahora._
+- [3] `apps/workers/src/auth.ts` + `apps/dashboard/src/components/dashboard/Views.tsx` + `Dashboard.tsx` + **nuevo** `SettingsView.tsx` — FASE 2E: cookie `Secure` (ya verificada local: `Set-Cookie` con `Secure` + prefijo `__Secure-`) + UI "Cambiar contraseña" con `revokeOtherSessions: true` (rotación de sesiones). En `Views.tsx` solo se limpiaron dos props muertas de Consumo Mensual (02-oct-2026)
+- [2] `apps/workers/src/index.ts` + `migrations/0011_messages_created_index.sql` + `AnalyticsView.tsx` + `Dashboard.tsx` + `globals.css` + `app/api/analytics/route.ts` — Analíticas V1: mensajes por día/hora (30d), prospectos por estado, KPIs y top de FAQs (02-oct-2026)
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
+
+> ⚠️ **Deploys:** el 2 NO despliega hasta que el bloque de FASE 2E del 3 esté commiteado — `wrangler deploy` empaqueta el working tree, no el git; con `auth.ts` sucio se subiría su medio-trabajo a prod.
+
+> ⚠️ **2: la FASE 2E la tomó el Agente 3** (solo toca `auth.ts`). Elegí tu tarea y anotala acá. Recordá: deploys de worker al cerrar bloques los hacés vos (el 3 deja su bloque commiteado y anotado).
 
 ---
 

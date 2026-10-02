@@ -14,8 +14,9 @@ import AgentSwitcher, { type DashboardAgent } from "./AgentSwitcher";
 import DashboardFooter from "./Footer";
 import ConfirmModal from "./ConfirmModal";
 import RenewalModal from "./RenewalModal";
+import SettingsView from "./SettingsView";
 import { useToast } from "./notifications";
-import { IconAnalytics, IconSettings } from "./icons";
+import { IconAnalytics } from "./icons";
 import { API_BASE } from "./config";
 
 const TITLE_MAP: Record<string, string> = {
@@ -34,12 +35,6 @@ const PLACEHOLDER_VIEWS: Record<string, { icon: ReactNode; title: string; descri
     title: "Analíticas e Insights de Comportamiento",
     description:
       "Estadísticas detalladas sobre volumen de interacciones por hora, temas más consultados y rendimiento general del agente de IA.",
-  },
-  "view-settings": {
-    icon: <IconSettings />,
-    title: "Configuración General de la Cuenta",
-    description:
-      "Aquí gestionarás el nombre del negocio, dominios autorizados contra CORS, webhooks de notificación externa y claves de API privadas.",
   },
 };
 
@@ -384,6 +379,8 @@ export default function Dashboard() {
             <AdminView planDefaults={planDefaults} />
           ) : activeView === "view-leads" ? (
             <LeadsView key={currentAgentId} agentId={currentAgentId} />
+          ) : activeView === "view-settings" ? (
+            <SettingsView />
           ) : (
             <UnderConstructionView id={activeView} {...PLACEHOLDER_VIEWS[activeView]} />
           )

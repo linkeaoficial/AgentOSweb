@@ -141,8 +141,6 @@ export function OverviewView({ onCopy, data, loadError, agentId }: OverviewProps
               <small style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-muted)" }}>/ {limit.toLocaleString()}</small>
             </>
           }
-          trendLabel=""
-          trendSuffix=""
           progress={pct}
         />
       </div>
