@@ -32,7 +32,7 @@
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
-> ⚠️ **Deploys: Último deploy del worker = `ae967002` (02-oct, Agente 2)** — subió `63ea177` (Analíticas V1) **+** `1677d42` (FASE 2E, `auth.ts`) juntos: se desplegó con árbol limpio, así que la cookie `Secure` del 3 YA está en prod (re-confirmada con la sonda de abajo). El deploy del dashboard y la landing **quedan para cuando el proyecto esté listo** (ver estado de despliegues abajo).
+> ⚠️ **Deploys: Último deploy del worker = `404a3a8f` (02-oct, Agente 2)** — subió `bb2f170` (Analíticas V1.1) con árbol limpio; antes había quedado `ae967002` (Analíticas V1 + FASE 2E). El deploy del dashboard y la landing **quedan para cuando el proyecto esté listo** (ver estado de despliegues abajo).
 
 ---
 
@@ -56,7 +56,7 @@
 
 | Componente | Estado |
 | --- | --- |
-| **Worker API** (prod) | ✅ Desplegado — `ae967002` (Analíticas V1 + FASE 2E) |
+| **Worker API** (prod) | ✅ Desplegado — `404a3a8f` (Analíticas V1.1: tz, estados por ventana, rate limit, caché) |
 | **Dashboard** (Cloudflare Pages) | ⏸️ **NO desplegado a propósito** — hasta que el proyecto esté listo. En local corre con `next dev`. |
 | **Landing** (`apps/landing`) | ⏸️ **NO existe aún** (solo `package.json` placeholder) — se construye y despliega cuando toque. |
 
@@ -65,11 +65,13 @@
 - **✅ Sonda a prod CONFIRMADA (02-oct, Agente 3):** deploy `ae967002` verificado en vivo — el sign-in devuelve `__Secure-aow_auth.session_token=...; HttpOnly; Secure; SameSite=Lax`. La cookie `Secure` de `1677d42` **está activa en prod**. *Último paso:* prueba de login en navegador (localhost) del usuario.
 
 ### 🔎 Hallazgos de revisión — Analíticas V1 (02-oct, Agente 3 → 2)
-> ✅ `7decf73` resolvió el #3 (KPI FAQ → total en el hint de la tarjeta; `null → "Sin base previa"`) y unificó todo con `MetricCard` compartido. **Quedan abiertos #1 y #2.**
-- **"Prospectos por estado" mezcla ventanas:** el subtítulo dice `{totalLeads} en {range} días` (ventana, `AnalyticsView.tsx`) pero las barras salen de `lead_stats` = **histórico total** (`index.ts:1166`) — ahora suma más de lo que dice el rótulo. Filtre por `created_at >= since` o cambie el rótulo a "histórico".
-- **Horas y días calculados en UTC:** `strftime('%H')` / `date(m.created_at)` (`index.ts:1145-1147`) leen UTC; con cliente en Caracas (UTC-4) un pico de 22h aparece a las 02h y los mensajes de 20:00–24:00 caen al día siguiente en la serie. Heatmap y serie diaria desfasados. Decisión de producto: offset fijo −4 (mercado VE) o columna `timezone` por cuenta.
-- ~~**KPI "FAQs sin IA" siempre dice "Nuevo"**~~ ✅ resuelto en `7decf73` (KPI eliminado; total va en el hint de "Top FAQs"; `delta null → "Sin base previa"`).
-- *Nit:* las barras de la serie diaria escalan mensajes y sesiones con **máximos independientes** (`AnalyticsView.tsx:194-195`), así que no son comparables entre series (aceptable con leyenda+tooltip; si se quiere comparar, usar escala compartida).
+> ✅ `7decf73` resolvió el #3 (KPI FAQ → total en el hint de la tarjeta; `null → "Sin base previa"`) y unificó todo con `MetricCard` compartido.
+> ✅ `bb2f170` (deploy `404a3a8f`) resolvió **#1 y #2**:
+- ~~**"Prospectos por estado" mezcla ventanas**~~ ✅: ahora `SELECT status, COUNT(*) FROM leads WHERE agent_id=? AND created_at>=?` (ventana local, usa `idx_leads_dashboard`); verificado en prod: statuses suma = `kpis.leads` (14 = 14).
+- ~~**Horas y días calculados en UTC**~~ ✅: el panel manda `tz` (offset del navegador, `getTimezoneOffset` negado); el worker agrupa día/hora con `date(created_at, ?)` / `strftime('%H', …, ?)` en local y recorta las ventanas con el instante UTC exacto (los `WHERE` siguen usando índice; offset clamp −720..840 min, default 0). Verificado local y prod (04:30 UTC → 0h con tz −240).
+- ~~**KPI "FAQs sin IA" siempre dice "Nuevo"**~~ ✅ resuelto en `7decf73`.
+- **V1.1 también** (`bb2f170`): rate limit 30/min por dueño en `GET /api/analytics` (bucket in-memory, `isRateLimited`; probado 30×200 + 5×429) y caché KV `analytics:{user}:{agent}:{days}:{tz}` TTL 60s (2da llamada 156ms vs 1.8s fría).
+- *Nit pendiente:* las barras de la serie diaria escalan mensajes y sesiones con **máximos independientes** (`AnalyticsView.tsx`), no comparables entre series (aceptable con leyenda+tooltip).
 
 - **Deploys: solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`). El Agente 3 deja su bloque commiteado y avisa en este archivo; el 2 despliega ambos.
 - **Reparto actual:** Agente 2 = Planes & Facturación + worker core (cupo/plan/chat) + Analíticas (correcciones de los hallazgos de abajo) + deploys. Agente 3 = FASE 2E ✅ completada + UI del panel + widget/landing (avisa en este archivo antes de tocar).
