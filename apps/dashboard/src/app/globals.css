@@ -683,6 +683,11 @@ body.dark-mode .nav-backdrop {
             font-weight: 700;
         }
 
+        .trend-down {
+            color: #ef4444;
+            font-weight: 700;
+        }
+
         /* Barra de Consumo */
         .progress-bar-container {
             width: 100%;
@@ -7339,11 +7344,11 @@ body.dark-mode .nav-backdrop {
     align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 20px;
     flex-wrap: wrap;
 }
-.ana-header h2 { margin: 0; font-size: 1.35rem; }
-.ana-sub { margin: 4px 0 0; color: var(--text-muted); font-size: 0.85rem; }
+/* Mismo titulo que Prospectos/Mis Agentes: h3 16/600, no un h2 grueso. */
+.ana-header h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.2px; }
+.ana-sub { margin: 4px 0 0; color: var(--text-muted); font-size: 13.5px; line-height: 1.45; }
 .ana-ranges {
     display: flex;
     gap: 6px;
@@ -7365,44 +7370,21 @@ body.dark-mode .nav-backdrop {
 .ana-range.active { background: var(--primary-gradient); color: #fff; }
 .ana-range:hover:not(.active) { color: var(--text-color); }
 .ana-body { display: flex; flex-direction: column; gap: 18px; }
-.ana-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
-.ana-kpi {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.ana-kpi-label {
-    font-size: 0.76rem;
-    color: var(--text-muted);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-.ana-kpi-value { font-size: 1.55rem; font-weight: 800; }
-.ana-kpi-delta { font-size: 0.75rem; font-weight: 700; }
-.ana-kpi-delta.up { color: #16a34a; }
-.ana-kpi-delta.down { color: #dc2626; }
+/* Los KPIs no tienen estilo propio: son .metrics-grid + MetricCard del Overview
+   (regla del proyecto: una sola tarjeta KPI, ver LeadsView 1417). */
 .ana-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.ana-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 18px;
-    min-width: 0;
-}
+.ana-grid-2 > .panel-card { min-width: 0; }
 .ana-card-head {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
     margin-bottom: 14px;
     flex-wrap: wrap;
 }
-.ana-card-head h4 { margin: 0; font-size: 0.95rem; }
+/* Titulo/subtitulo dentro de las tarjetas: .panel-card h3 (15.5/600) y
+   p.subtitle (13.5 muted) — los del proyecto, no reglas nuevas. */
+.ana-card-head .subtitle { margin-bottom: 0; }
 .ana-hint { font-size: 0.76rem; color: var(--text-muted); }
 .ana-legend { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-muted); }
 .ana-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -7415,8 +7397,8 @@ body.dark-mode .nav-backdrop {
 .ana-day .bar.con { background: #a78bfa; }
 .ana-funnel { display: flex; flex-direction: column; gap: 16px; }
 .ana-funnel-meta { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; }
-.ana-funnel-label { font-weight: 700; }
-.ana-funnel-value { font-weight: 800; font-variant-numeric: tabular-nums; }
+.ana-funnel-label { font-weight: 600; }
+.ana-funnel-value { font-weight: 600; font-variant-numeric: tabular-nums; }
 .ana-funnel-track {
     height: 14px;
     background: color-mix(in srgb, var(--border-color) 60%, transparent);
@@ -7455,7 +7437,7 @@ body.dark-mode .nav-backdrop {
     align-items: center;
     font-size: 0.82rem;
 }
-.ana-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.ana-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .ana-row-track {
     height: 10px;
     background: color-mix(in srgb, var(--border-color) 55%, transparent);
@@ -7463,7 +7445,7 @@ body.dark-mode .nav-backdrop {
     overflow: hidden;
 }
 .ana-row-track > span { display: block; height: 100%; background: var(--primary-gradient); border-radius: 6px; }
-.ana-row-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ana-row-value { font-weight: 600; font-variant-numeric: tabular-nums; }
 .ana-empty { color: var(--text-muted); font-size: 0.85rem; margin: 0; }
 .ana-error {
     background: color-mix(in srgb, #dc2626 8%, var(--bg-surface));
@@ -7502,7 +7484,7 @@ body.dark-mode .nav-backdrop {
     align-items: center;
     justify-content: center;
 }
-.ana-wall h3 { margin: 0 0 10px; font-size: 1.2rem; }
+.ana-wall h3 { margin: 0 0 10px; font-size: 1.1rem; font-weight: 600; letter-spacing: -0.2px; }
 .ana-wall p { margin: 0 0 18px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.55; }
 .ana-wall-list {
     list-style: none;

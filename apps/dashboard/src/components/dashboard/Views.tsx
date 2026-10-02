@@ -59,6 +59,7 @@ export function MetricCard({
   value,
   trendLabel,
   trendSuffix,
+  trendDir,
   progress,
 }: {
   label: string;
@@ -66,6 +67,9 @@ export function MetricCard({
   value: ReactNode;
   trendLabel?: string;
   trendSuffix?: string;
+  // Dirección del delta: por defecto "up" (verde), como siempre; Analíticas
+  // pasa "down" cuando el período anterior empeoró.
+  trendDir?: "up" | "down";
   progress?: number;
 }) {
   return (
@@ -81,7 +85,7 @@ export function MetricCard({
         </div>
       ) : trendLabel !== undefined ? (
         <div className="metric-footer">
-          <span className="trend-up">{trendLabel}</span> {trendSuffix}
+          <span className={trendDir === "down" ? "trend-down" : "trend-up"}>{trendLabel}</span> {trendSuffix}
         </div>
       ) : null}
     </div>

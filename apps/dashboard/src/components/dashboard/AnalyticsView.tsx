@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { IconAnalytics, IconBolt } from "./icons";
+import { MetricCard } from "./Views";
+import { IconAnalytics, IconBolt, IconCheck, IconLeads, IconMessage, IconOverview } from "./icons";
 
 interface Kpi {
   value: number;
@@ -33,19 +34,12 @@ const DAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 // Mismo vocabulario que LEAD_STATUSES del worker y LeadsView.
 const LEAD_ORDER = ["Nuevo", "Contactado", "Calificado", "Convertido", "Archivado"];
 
-function AnaKpi({ label, value, delta, suffix = "%" }: { label: string; value: string; delta: number | null; suffix?: string }) {
-  const up = (delta ?? 0) >= 0;
-  const text =
-    delta === null
-      ? "Nuevo"
-      : `${delta >= 0 ? "▲" : "▼"} ${Math.abs(delta)}${suffix} vs. período anterior`;
-  return (
-    <div className="ana-kpi">
-      <span className="ana-kpi-label">{label}</span>
-      <strong className="ana-kpi-value">{value}</strong>
-      <span className={`ana-kpi-delta ${up ? "up" : "down"}`}>{text}</span>
-    </div>
-  );
+function deltaText(delta: number | null, suffix = "%") {
+  if (delta === null) return "Sin base previa";
+  return `${delta >= 0 ? "▲" : "▼"} ${Math.abs(delta)}${suffix}`;
+}
+function deltaDir(delta: number | null): "up" | "down" {
+  return delta !== null && delta < 0 ? "down" : "up";
 }
 
 function AnalyticsWall({ onNavigate }: { onNavigate: (v: string) => void }) {
@@ -127,9 +121,9 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
     <section className="view-section active" id="view-analytics">
       <div className="ana-header">
         <div>
-          <h2>Analíticas</h2>
+          <h3>Analíticas</h3>
           <p className="ana-sub">
-            {data ? `${range} días · desde el ${data.since}` : "Cargando…"}
+            {data ? `Últimos ${range} días · desde el ${data.since}` : "Volumen, picos de atención y conversión a prospecto."}
           </p>
         </div>
         <div className="ana-ranges" role="tablist" aria-label="Rango de fechas">
@@ -149,9 +143,21 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
       </div>
 
       {status === "loading" && (
-        <div className="content-loading">
-          <span className="btn-spinner" />
-          Cargando analíticas…
+        <div className="faq-skeleton" aria-label="Cargando analíticas">
+          <div className="metrics-grid">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="faq-skeleton-row" style={{ height: 118 }} />
+            ))}
+          </div>
+          <div className="ana-grid-2">
+            <div className="faq-skeleton-row" style={{ height: 250 }} />
+            <div className="faq-skeleton-row" style={{ height: 250 }} />
+          </div>
+          <div className="faq-skeleton-row" style={{ height: 210 }} />
+          <div className="ana-grid-2">
+            <div className="faq-skeleton-row" style={{ height: 190 }} />
+            <div className="faq-skeleton-row" style={{ height: 190 }} />
+          </div>
         </div>
       )}
 
@@ -166,19 +172,49 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
 
       {status === "ready" && k && data && (
         <div className="ana-body">
-          <div className="ana-kpis">
-            <AnaKpi label="Sesiones" value={k.sessions.value.toLocaleString()} delta={k.sessions.delta} />
-            <AnaKpi label="Mensajes" value={k.messages.value.toLocaleString()} delta={k.messages.delta} />
-            <AnaKpi label="Mensajes por sesión" value={String(k.per_session.value)} delta={k.per_session.delta} />
-            <AnaKpi label="Prospectos" value={k.leads.value.toLocaleString()} delta={k.leads.delta} />
-            <AnaKpi label="Conversión a prospecto" value={`${k.conversion.value}%`} delta={k.conversion.delta} suffix=" pts" />
-            <AnaKpi label="FAQs sin IA (histórico)" value={k.faq_auto.value.toLocaleString()} delta={k.faq_auto.delta} />
+          {/* Mismo MetricCard del Overview/Prospectos, no un estilo propio. */}
+          <div className="metrics-grid">
+            <MetricCard
+              label="Sesiones"
+              icon={<IconOverview />}
+              value={k.sessions.value.toLocaleString("es-AR")}
+              trendLabel={deltaText(k.sessions.delta)}
+              trendDir={deltaDir(k.sessions.delta)}
+              trendSuffix={k.sessions.delta === null ? "" : "vs. período anterior"}
+            />
+            <MetricCard
+              label="Mensajes"
+              icon={<IconMessage />}
+              value={k.messages.value.toLocaleString("es-AR")}
+              trendLabel={deltaText(k.messages.delta)}
+              trendDir={deltaDir(k.messages.delta)}
+              trendSuffix={k.messages.delta === null ? "" : "vs. período anterior"}
+            />
+            <MetricCard
+              label="Prospectos"
+              icon={<IconLeads />}
+              value={k.leads.value.toLocaleString("es-AR")}
+              trendLabel={deltaText(k.leads.delta)}
+              trendDir={deltaDir(k.leads.delta)}
+              trendSuffix={k.leads.delta === null ? "" : "vs. período anterior"}
+            />
+            <MetricCard
+              label="Conversión a prospecto"
+              icon={<IconCheck />}
+              value={`${k.conversion.value}%`}
+              trendLabel={deltaText(k.conversion.delta, " pts")}
+              trendDir={deltaDir(k.conversion.delta)}
+              trendSuffix={k.conversion.delta === null ? "" : "vs. período anterior"}
+            />
           </div>
 
           <div className="ana-grid-2">
-            <div className="ana-card">
+            <div className="panel-card">
               <div className="ana-card-head">
-                <h4>Actividad diaria</h4>
+                <div>
+                  <h3>Actividad diaria</h3>
+                  <p className="subtitle">Mensajes y sesiones de los últimos {range} días</p>
+                </div>
                 <span className="ana-legend">
                   <i className="dot msg" /> Mensajes
                   <i className="dot con" /> Sesiones
@@ -198,16 +234,19 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
               </div>
             </div>
 
-            <div className="ana-card">
+            <div className="panel-card">
               <div className="ana-card-head">
-                <h4>Embudo de conversión</h4>
+                <div>
+                  <h3>Embudo de conversión</h3>
+                  <p className="subtitle">De la visita al prospecto, en {range} días</p>
+                </div>
               </div>
               <div className="ana-funnel">
                 {funnel.map((f) => (
                   <div className="ana-funnel-row" key={f.label}>
                     <div className="ana-funnel-meta">
                       <span className="ana-funnel-label">{f.label}</span>
-                      <span className="ana-funnel-value">{f.value.toLocaleString()}</span>
+                      <span className="ana-funnel-value">{f.value.toLocaleString("es-AR")}</span>
                     </div>
                     <div className="ana-funnel-track">
                       <span style={{ width: `${(f.value / maxFunnel) * 100}%` }} />
@@ -219,10 +258,13 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
             </div>
           </div>
 
-          <div className="ana-card">
+          <div className="panel-card">
             <div className="ana-card-head">
-              <h4>Mapa de calor · día × hora</h4>
-              <span className="ana-hint">más oscuro = más mensajes</span>
+              <div>
+                <h3>Mapa de calor · día × hora</h3>
+                <p className="subtitle">Cuándo te escriben: cuanto más intenso, más mensajes</p>
+              </div>
+              <span className="ana-hint">actividad del agente</span>
             </div>
             <div className="ana-heat">
               {HEAT_ORDER.map((wd) => (
@@ -256,10 +298,13 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
           </div>
 
           <div className="ana-grid-2">
-            <div className="ana-card">
+            <div className="panel-card">
               <div className="ana-card-head">
-                <h4>Top FAQs sin IA</h4>
-                <span className="ana-hint">lo que más resuelve solo</span>
+                <div>
+                  <h3>Top FAQs sin IA</h3>
+                  <p className="subtitle">Lo que más resuelve solo tu agente</p>
+                </div>
+                <span className="ana-hint">{k.faq_auto.value.toLocaleString("es-AR")} en total</span>
               </div>
               {data.top_faqs.length === 0 ? (
                 <p className="ana-empty">Todavía no hay respuestas por FAQ registradas.</p>
@@ -273,17 +318,20 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
                       <span className="ana-row-track">
                         <span style={{ width: `${(Number(f.hits) / maxFaq) * 100}%` }} />
                       </span>
-                      <span className="ana-row-value">{Number(f.hits).toLocaleString()}</span>
+                      <span className="ana-row-value">{Number(f.hits).toLocaleString("es-AR")}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="ana-card">
+            <div className="panel-card">
               <div className="ana-card-head">
-                <h4>Prospectos por estado</h4>
-                <span className="ana-hint">{totalLeads.toLocaleString()} en {range} días</span>
+                <div>
+                  <h3>Prospectos por estado</h3>
+                  <p className="subtitle">Dónde están tus {totalLeads.toLocaleString("es-AR")} prospectos</p>
+                </div>
+                <span className="ana-hint">{range} días</span>
               </div>
               <div className="ana-rows">
                 {LEAD_ORDER.map((s) => {
@@ -294,7 +342,7 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
                       <span className="ana-row-track">
                         <span style={{ width: `${(n / maxStatus) * 100}%` }} />
                       </span>
-                      <span className="ana-row-value">{n.toLocaleString()}</span>
+                      <span className="ana-row-value">{n.toLocaleString("es-AR")}</span>
                     </div>
                   );
                 })}
