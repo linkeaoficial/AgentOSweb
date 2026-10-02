@@ -30,16 +30,17 @@
 
 ## 🔴 En vuelo (trabajo sin commitear)
 
-- [2] `BillingView.tsx`, `globals.css`, `apps/workers/src/index.ts`, `migrations/0010_usage_history.sql`, `NOTA-AGENTES.md` — fila de captura subida en las tarjetas, alerta de cupo al 80% e historial mensual de uso (02-oct-2026)
+_Nadie por ahora._
 
-> Formato: `- [A/B] `archivo(s)` — qué se está haciendo (fecha)`
+> Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
 ---
 
 ## ✅ Hecho (últimos bloques, referencia rápida)
 
-- `82b25ae` rediseño de Planes & Facturación, Agency a 8, BYOK desde Starter — **B**
-- `d112507` fix captura de prospectos: `lead_fields` default `name,email,phone` (migración `0008`) — **B**
+- `580f0f7` fila de captura arriba en tarjetas, alerta de cupo al 80% e historial mensual de uso (`0010`) — **2**
+- `82b25ae` rediseño de Planes & Facturación, Agency a 8, BYOK desde Starter — **2**
+- `d112507` fix captura de prospectos: `lead_fields` default `name,email,phone` (migración `0008`) — **2**
 
 ---
 
