@@ -77,7 +77,11 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
   const load = useCallback(async () => {
     setStatus("loading");
     try {
-      const res = await fetch(`/api/analytics/${encodeURIComponent(agentId)}?days=${range}`);
+      // tz = offset local en minutos (getTimezoneOffset negado; Caracas = -240):
+      // el worker agrupa día/hora en el horario del dueño, no en UTC.
+      const res = await fetch(
+        `/api/analytics/${encodeURIComponent(agentId)}?days=${range}&tz=${-new Date().getTimezoneOffset()}`
+      );
       const body = await res.json().catch(() => null);
       if (res.status === 403 && body?.code === "plan_required") {
         setStatus("wall");

@@ -1111,6 +1111,11 @@ async function handleAnalytics(request: Request, agentId: string, env: Env) {
   const origin = request.headers.get("Origin") || "*";
   const user = await resolveUser(request, env);
   if (!user) return json({ error: "No autorizado" }, 403, origin);
+  // El panel reconsulta al entrar y al cambiar de rango: 30/min por dueño evita
+  // martillar D1 (mismo bucket in-memory que el chat; 429 si se pasa).
+  if (isRateLimited(`analytics:${user.id}`, 30)) {
+    return json({ error: "Demasiadas consultas de analítica, esperá un minuto" }, 429, origin);
+  }
   const agent = await env.DB.prepare("SELECT id FROM agents WHERE id = ? AND user_id = ?")
     .bind(agentId, user.id)
     .first<{ id: string }>();
@@ -1130,10 +1135,31 @@ async function handleAnalytics(request: Request, agentId: string, env: Env) {
   const url = new URL(request.url);
   const reqDays = Number(url.searchParams.get("days"));
   const days = reqDays === 7 || reqDays === 90 ? reqDays : 30;
-  // Ventanas exactas de `days` fechas: la actual termina hoy y la anterior son
-  // las mismas `days` fechas inmediatamente anteriores, para deltas parejos.
-  const since = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
-  const prevSince = new Date(Date.now() - (2 * days - 1) * 86400000).toISOString().slice(0, 10);
+  // Offset horario del cliente en minutos (getTimezoneOffset negado; Caracas = -240).
+  // Días y horas se agrupan en LOCAL del dueño; las ventanas se recortan con el
+  // instante UTC exacto para que los índices de fecha sigan sirviendo (no se
+  // envuelve la columna en date()/tz(), que rompe el rango del índice).
+  const tzRaw = Number(url.searchParams.get("tz"));
+  const tz = Number.isFinite(tzRaw) ? Math.max(-720, Math.min(840, Math.trunc(tzRaw))) : 0;
+  const todayLocal = new Date(Date.now() + tz * 60000).toISOString().slice(0, 10);
+  // Ventanas exactas de `days` fechas (locales): la actual termina hoy y la
+  // anterior son las mismas `days` fechas inmediatamente anteriores.
+  const dayBack = (n: number) =>
+    new Date(Date.parse(`${todayLocal}T00:00:00Z`) - n * 86400000).toISOString().slice(0, 10);
+  const since = dayBack(days - 1);
+  const prevSince = dayBack(2 * days - 1);
+  const bound = (day: string) =>
+    new Date(Date.parse(`${day}T00:00:00Z`) - tz * 60000).toISOString().slice(0, 19).replace("T", " ");
+  const sinceB = bound(since);
+  const prevB = bound(prevSince);
+  // Modificador SQLite: minutos a sumar para leer fecha/hora locales.
+  const mod = tz >= 0 ? `+${tz} minutes` : `${tz} minutes`;
+
+  // Caché de 60s por dueño+agente+rango+tz: repetir la misma consulta (recargas,
+  // cambiar de pestaña y volver) no toca D1.
+  const cacheKey = `analytics:${user.id}:${agentId}:${days}:${tz}`;
+  const cached = await env.AGENT_CACHE.get(cacheKey, "json").catch(() => null);
+  if (cached) return json(cached, 200, origin);
 
   // Un escaneo de messages por ventana (rango cubierto por idx_messages_created)
   // alimenta la serie diaria, la hora del día y el heatmap día×hora.
@@ -1142,28 +1168,32 @@ async function handleAnalytics(request: Request, agentId: string, env: Env) {
   // cuenta se pone grande se agrega (agent_id, created_at).
   const [msgCur, conCur, leadCur, msgPrev, conPrev, leadPrev, statuses, topFaq, faqTotal] = await env.DB.batch([
     env.DB.prepare(
-      `SELECT date(m.created_at) AS day, strftime('%H', m.created_at) AS h, COUNT(*) AS n
+      `SELECT date(m.created_at, ?) AS day, strftime('%H', m.created_at, ?) AS h, COUNT(*) AS n
          FROM messages m JOIN conversations c ON c.id = m.conversation_id
         WHERE c.agent_id = ? AND m.created_at >= ?
         GROUP BY day, h`
-    ).bind(agentId, since),
+    ).bind(mod, mod, agentId, sinceB),
     env.DB.prepare(
-      "SELECT date(created_at) AS day, COUNT(*) AS n FROM conversations WHERE agent_id = ? AND created_at >= ? GROUP BY day"
-    ).bind(agentId, since),
+      "SELECT date(created_at, ?) AS day, COUNT(*) AS n FROM conversations WHERE agent_id = ? AND created_at >= ? GROUP BY day"
+    ).bind(mod, agentId, sinceB),
     env.DB.prepare(
-      "SELECT date(created_at) AS day, COUNT(*) AS n FROM leads WHERE agent_id = ? AND created_at >= ? GROUP BY day"
-    ).bind(agentId, since),
+      "SELECT date(created_at, ?) AS day, COUNT(*) AS n FROM leads WHERE agent_id = ? AND created_at >= ? GROUP BY day"
+    ).bind(mod, agentId, sinceB),
     env.DB.prepare(
       `SELECT COUNT(*) AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id
         WHERE c.agent_id = ? AND m.created_at >= ? AND m.created_at < ?`
-    ).bind(agentId, prevSince, since),
+    ).bind(agentId, prevB, sinceB),
     env.DB.prepare(
       "SELECT COUNT(*) AS n FROM conversations WHERE agent_id = ? AND created_at >= ? AND created_at < ?"
-    ).bind(agentId, prevSince, since),
+    ).bind(agentId, prevB, sinceB),
     env.DB.prepare(
       "SELECT COUNT(*) AS n FROM leads WHERE agent_id = ? AND created_at >= ? AND created_at < ?"
-    ).bind(agentId, prevSince, since),
-    env.DB.prepare("SELECT status, n FROM lead_stats WHERE agent_id = ?").bind(agentId),
+    ).bind(agentId, prevB, sinceB),
+    // Estados de los prospectos creados EN la ventana (no el histórico de
+    // lead_stats), para que las barras sumen exactamente lo que dice el rótulo.
+    env.DB.prepare(
+      "SELECT status, COUNT(*) AS n FROM leads WHERE agent_id = ? AND created_at >= ? GROUP BY status"
+    ).bind(agentId, sinceB),
     env.DB.prepare("SELECT faq_label AS label, hits FROM faq_hits WHERE agent_id = ? ORDER BY hits DESC LIMIT 7").bind(
       agentId
     ),
@@ -1192,10 +1222,10 @@ async function handleAnalytics(request: Request, agentId: string, env: Env) {
   const conDay = toMap(rows<DayRow>(conCur));
   const leadDay = toMap(rows<DayRow>(leadCur));
 
-  // Calendario completo de la ventana (sin huecos en la serie).
+  // Calendario completo de la ventana (sin huecos en la serie), en días locales.
   const dayList: string[] = [];
   let t = Date.parse(`${since}T00:00:00Z`);
-  const end = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  const end = Date.parse(`${todayLocal}T00:00:00Z`);
   while (t <= end && dayList.length < 400) {
     dayList.push(new Date(t).toISOString().slice(0, 10));
     t += 86400000;
@@ -1213,40 +1243,38 @@ async function handleAnalytics(request: Request, agentId: string, env: Env) {
   const conv = (leads: number, sessions: number) => (sessions > 0 ? Math.round((leads / sessions) * 1000) / 10 : 0);
   const avg = (m: number, s: number) => (s > 0 ? Math.round((m / s) * 10) / 10 : 0);
 
-  return json(
-    {
-      days: dayList,
-      since,
-      daily: dayList.map((day) => ({
-        day,
-        messages: msgDay.get(day) ?? 0,
-        conversations: conDay.get(day) ?? 0,
-        leads: leadDay.get(day) ?? 0,
-      })),
-      hourly,
-      heat, // [0=domingo .. 6=sábado][hora]
-      kpis: {
-        sessions: { value: conTotal, delta: delta(conTotal, conPrevN) },
-        messages: { value: msgTotal, delta: delta(msgTotal, msgPrevN) },
-        per_session: {
-          value: avg(msgTotal, conTotal),
-          delta: delta(Math.round(avg(msgTotal, conTotal) * 10), Math.round(avg(msgPrevN, conPrevN) * 10)),
-        },
-        leads: { value: leadTotal, delta: delta(leadTotal, leadPrevN) },
-        conversion: {
-          value: conv(leadTotal, conTotal),
-          // delta en PUNTOS porcentuales, no en % relativo.
-          delta: Math.round((conv(leadTotal, conTotal) - conv(leadPrevN, conPrevN)) * 10) / 10,
-        },
-        // Histórico: faq_hits no guarda fecha, no hay período anterior que comparar.
-        faq_auto: { value: num(faqTotal), delta: null },
+  const body = {
+    days: dayList,
+    since,
+    daily: dayList.map((day) => ({
+      day,
+      messages: msgDay.get(day) ?? 0,
+      conversations: conDay.get(day) ?? 0,
+      leads: leadDay.get(day) ?? 0,
+    })),
+    hourly,
+    heat, // [0=domingo .. 6=sábado][hora]
+    kpis: {
+      sessions: { value: conTotal, delta: delta(conTotal, conPrevN) },
+      messages: { value: msgTotal, delta: delta(msgTotal, msgPrevN) },
+      per_session: {
+        value: avg(msgTotal, conTotal),
+        delta: delta(Math.round(avg(msgTotal, conTotal) * 10), Math.round(avg(msgPrevN, conPrevN) * 10)),
       },
-      lead_statuses: rows<{ status: string; n: number }>(statuses),
-      top_faqs: rows<{ label: string; hits: number }>(topFaq),
+      leads: { value: leadTotal, delta: delta(leadTotal, leadPrevN) },
+      conversion: {
+        value: conv(leadTotal, conTotal),
+        // delta en PUNTOS porcentuales, no en % relativo.
+        delta: Math.round((conv(leadTotal, conTotal) - conv(leadPrevN, conPrevN)) * 10) / 10,
+      },
+      // Histórico: faq_hits no guarda fecha, no hay período anterior que comparar.
+      faq_auto: { value: num(faqTotal), delta: null },
     },
-    200,
-    origin
-  );
+    lead_statuses: rows<{ status: string; n: number }>(statuses),
+    top_faqs: rows<{ label: string; hits: number }>(topFaq),
+  };
+  await env.AGENT_CACHE.put(cacheKey, JSON.stringify(body), { expirationTtl: 60 }).catch(() => {});
+  return json(body, 200, origin);
 }
 
 // ── Prospectos (leads): listar y actualizar estado ─────────────────────────────
