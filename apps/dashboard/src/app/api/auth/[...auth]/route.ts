@@ -43,6 +43,7 @@ async function forward(req: NextRequest, method: string) {
     headers: {
       "Content-Type": req.headers.get("content-type") ?? "application/json",
       ...(cookie ? { Cookie: cookie } : {}),
+      ...(req.headers.get("user-agent") ? { "User-Agent": req.headers.get("user-agent")! } : {}),
       Origin: req.headers.get("origin") ?? `http://${req.headers.get("host")}`,
       ...(clientIp && ownerToken ? { "x-client-ip": clientIp, "X-Owner-Token": ownerToken } : {}),
     },

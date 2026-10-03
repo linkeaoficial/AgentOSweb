@@ -14,7 +14,7 @@ import AgentSwitcher, { type DashboardAgent } from "./AgentSwitcher";
 import DashboardFooter from "./Footer";
 import ConfirmModal from "./ConfirmModal";
 import RenewalModal from "./RenewalModal";
-import SettingsView from "./SettingsView";
+import SettingsView, { type ThemePref } from "./SettingsView";
 import { useToast } from "./notifications";
 import { IconOverview } from "./icons";
 import { API_BASE } from "./config";
@@ -55,9 +55,17 @@ const PLAN_LABELS: Record<string, string> = { free: "Free", starter: "Starter", 
 export default function Dashboard() {
   const [collapsed, setCollapsed] = useState(true);
   const [activeView, setActiveView] = useState("view-overview");
-  const [isDark, setIsDark] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem("agentosweb-dashboard-theme") === "dark",
-  );
+  const [theme, setTheme] = useState<ThemePref>(() => {
+    if (typeof window === "undefined") return "system";
+    try {
+      const v = localStorage.getItem("agentosweb-dashboard-theme");
+      return v === "dark" || v === "light" ? v : "system";
+    } catch {
+      return "system";
+    }
+  });
+  const [systemDark, setSystemDark] = useState(false);
+  const isDark = theme === "system" ? systemDark : theme === "dark";
   const [isMobile, setIsMobile] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
   const [overview, setOverview] = useState<OverviewData | null>(null);
@@ -253,9 +261,17 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setSystemDark(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
     document.body.classList.toggle("dark-mode", isDark);
-    localStorage.setItem("agentosweb-dashboard-theme", isDark ? "dark" : "light");
-  }, [isDark]);
+    localStorage.setItem("agentosweb-dashboard-theme", theme);
+  }, [isDark, theme]);
 
   const closeMobileMenu = useCallback(() => {
     if (window.innerWidth <= 768) setCollapsed(true);
@@ -332,7 +348,7 @@ export default function Dashboard() {
         ownerEmail={owner?.email ?? null}
         onToggle={() => setCollapsed((c) => !c)}
         onNavigate={handleNavigate}
-        onToggleTheme={() => setIsDark((d) => !d)}
+        onToggleTheme={() => setTheme(isDark ? "light" : "dark")}
         onOpenLogout={openLogout}
         currentAgentId={currentAgentId}
         onSelectAgent={handleSelectAgent}
@@ -343,7 +359,7 @@ export default function Dashboard() {
         <Topbar
           pageTitle={pageTitle}
           isDark={isDark}
-          onToggleTheme={() => setIsDark((d) => !d)}
+          onToggleTheme={() => setTheme(isDark ? "light" : "dark")}
           onNavigate={handleNavigate}
           onOpenLogout={openLogout}
           ownerName={owner?.name ?? "Cuenta"}
@@ -371,7 +387,7 @@ export default function Dashboard() {
           ) : activeView === "view-leads" ? (
             <LeadsView key={currentAgentId} agentId={currentAgentId} />
           ) : activeView === "view-settings" ? (
-            <SettingsView />
+            <SettingsView owner={owner} agentsCount={agents.length} theme={theme} setTheme={setTheme} onNavigate={handleNavigate} />
           ) : activeView === "view-analytics" ? (
             <AnalyticsView agentId={currentAgentId} onNavigate={handleNavigate} />
           ) : (

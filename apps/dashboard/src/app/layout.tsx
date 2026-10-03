@@ -21,7 +21,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              '(function(){try{if(localStorage.getItem("agentosweb-dashboard-theme")==="dark"){document.body.classList.add("dark-mode");}}catch(e){}})();',
+              '(function(){try{var t=localStorage.getItem("agentosweb-dashboard-theme");var d=t==="dark"||((t==="system"||!t)&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d){document.body.classList.add("dark-mode");}}catch(e){}})();',
           }}
         />
         {children}
