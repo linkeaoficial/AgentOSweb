@@ -33,7 +33,7 @@
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
 - [2] **Auditoría `security-audit` (modo full, perfil `standard`, solo lectura)** — ref `44a3bc6`, árbol limpio al iniciar. Salida en `~/security-audit-skill/AgentOSweb/run-1` (fuera del repo). *No toca código:* si el 3 va a commitear cambios durante la auditoría, avisar acá primero para re-capturar el estado (los hallazgos quedan contra la ref indicada). El 2 despliega solo después de cerrar.
-- [3] **Rediseño de Configuración (SettingsView.tsx + globals.css) + barrido mobile de vistas restantes** — arrancado 03-oct con OK del usuario (ver recuadro de abajo). Si commiteo durante tu auditoría, ya quedó el aviso arriba.
+- [3] **Barrido mobile de vistas restantes** (Agentes, Conversaciones, Prospectos, etc.) — en curso. El rediseño de Configuración ya se commiteó (`0806fb2`).
 
 > ✅ **Rediseño de Configuración — TOMADO POR EL AGENTE 3 (03-oct, OK del usuario):** el 2 lo cede. El 3 editará `SettingsView.tsx` + bloque CSS propio en `globals.css`, estilo ChatGPT/Gemini (sub-nav secciones en PC / chips con scroll en móvil), cubriendo toda la config del proyecto: Cuenta, Apariencia (tema sincronizado con topbar), Seguridad (contraseña + sesiones activas), Plan/Facturación (enlaces) y Zona de peligro (eliminar cuenta). **Aviso:** el 3 va a commitear durante tu auditoría (incluye este docs); si necesitas re-capturar estado, avísame acá. *Endpoints nuevos que pida la UI (ej. eliminar cuenta, sesiones activas) = worker = zona del 2, tras la auditoría.*
 
@@ -42,6 +42,8 @@
 ---
 
 ## ✅ Hecho (últimos bloques, referencia rápida)
+
+- `0806fb2` **Rediseño de Configuración** (Settings estilo ChatGPT/Gemini) — **3** · 5 secciones con sub-nav lateral (PC) / chips con scroll (móvil): Cuenta (identidad + accesos a Facturación/Agentes), Apariencia (claro/oscuro/**sistema** sincronizado con topbar + anti-FOUC en `layout.tsx`), Seguridad (cambiar contraseña + **sesiones activas** con cierre individual/todas, usa `list-sessions`/`revoke-session`), Plan (pill + vencimiento + barras de mensajes/agentes + CTA billing), Zona de peligro (eliminar cuenta con `confirmPhrase` = email). Tema: `theme` tri-estado en `Dashboard.tsx`. Fixes incluidos: proxy de auth reenvía `User-Agent` (antes las sesiones salían "node") y `list-sessions` se lee como array plano. *E2E local: capturas desktop oscuro/claro + móvil 390px con sesiones reales ("Edge · Windows", "Este dispositivo").* **Para el 2 (worker):** `user.deleteUser.enabled` en `auth.ts` para activar el botón de eliminar cuenta (hoy responde 404 y la UI lo informa); opcional sync `user.name`↔`users.name` para permitir editar nombre (hoy es solo lectura).
 
 - `92cb215` **Auditoría responsive del panel + 2 fixes en Analíticas móvil** — **3** · *Todo el panel revisado (bloque "RESPONSIVE MÓVIL CONSOLIDADO" ya cubre sidebar→hamburguesa, tablas→tarjetas, grids, auth, topbar). Fixes: serie diaria con `overflow-x: auto` (90 días se cortaba en pantallas angostas) y ejes del heatmap con `minmax(0,1fr)` (rótulos "6h/12h/18h" desalineaban las columnas). *Pendiente:* captura de teléfono del usuario para validación visual.*
 - `7decf73` Analíticas al estilo del panel: `MetricCard` compartido, `h3` 16/600, skeleton, `es-AR` — **2**
