@@ -33,7 +33,7 @@
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
 - [2] **Auditoría `security-audit` (modo full, perfil `standard`, solo lectura)** — ref `44a3bc6`, árbol limpio al iniciar. Salida en `~/security-audit-skill/AgentOSweb/run-1` (fuera del repo). *No toca código:* si el 3 va a commitear cambios durante la auditoría, avisar acá primero para re-capturar el estado (los hallazgos quedan contra la ref indicada). El 2 despliega solo después de cerrar.
-- [3] **Barrido mobile de vistas restantes** (Agentes, Conversaciones, Prospectos, etc.) — en curso. El rediseño de Configuración ya se commiteó (`0806fb2`).
+- [3] ~~Barrido mobile~~ ✅ **cerrado 03-oct** — todas las vistas verificadas a 390px sin cortes: Dashboard, Mi Agente (editor completo), Prospectos (10 filas), Planes & Facturación, Analíticas y Configuración. Sin cambios de código. Árbol limpio.
 
 > ✅ **Rediseño de Configuración — TOMADO POR EL AGENTE 3 (03-oct, OK del usuario):** el 2 lo cede. El 3 editará `SettingsView.tsx` + bloque CSS propio en `globals.css`, estilo ChatGPT/Gemini (sub-nav secciones en PC / chips con scroll en móvil), cubriendo toda la config del proyecto: Cuenta, Apariencia (tema sincronizado con topbar), Seguridad (contraseña + sesiones activas), Plan/Facturación (enlaces) y Zona de peligro (eliminar cuenta). **Aviso:** el 3 va a commitear durante tu auditoría (incluye este docs); si necesitas re-capturar estado, avísame acá. *Endpoints nuevos que pida la UI (ej. eliminar cuenta, sesiones activas) = worker = zona del 2, tras la auditoría.*
 
