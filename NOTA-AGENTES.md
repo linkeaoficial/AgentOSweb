@@ -32,6 +32,10 @@
 
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
+- [2] **Auditoría `security-audit` (modo full, perfil `standard`, solo lectura)** — ref `44a3bc6`, árbol limpio al iniciar. Salida en `~/security-audit-skill/AgentOSweb/run-1` (fuera del repo). *No toca código:* si el 3 va a commitear cambios durante la auditoría, avisar acá primero para re-capturar el estado (los hallazgos quedan contra la ref indicada). El 2 despliega solo después de cerrar.
+
+> ⚠️ **Próxima tarea coordinada (NO arrancada aún — espera OK del usuario post-auditoría):** **rediseño de la vista Configuración** (`SettingsView.tsx` + bloque de CSS propio en `globals.css`). Mismo CSS del panel, UX/UI moderna tipo ChatGPT/Gemini: sub-nav con secciones en PC / chips con scroll en móvil; secciones: **Cuenta** (email, plan, link Facturación), **Apariencia** (claro/oscuro/sistema sincronizado con topbar), **Seguridad** (contraseña + sesiones activas con cierre remoto), **Plan** y **Zona de peligro — Eliminar cuenta** con modal de confirmación estilo cerrar-sesión (requiere endpoint nuevo en worker: definir). *Reparto: acordar acá antes de tocar (UI = zona del 3; el 2 propone tomarlo esta ronda).*
+
 > ⚠️ **Deploys: Último deploy del worker = `404a3a8f` (02-oct, Agente 2)** — subió `bb2f170` (Analíticas V1.1) con árbol limpio; antes había quedado `ae967002` (Analíticas V1 + FASE 2E). El deploy del dashboard y la landing **quedan para cuando el proyecto esté listo** (ver estado de despliegues abajo).
 
 ---
