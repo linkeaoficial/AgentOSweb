@@ -33,8 +33,9 @@
 > Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
 
 - [2] **Auditoría `security-audit` (modo full, perfil `standard`, solo lectura)** — ref `44a3bc6`, árbol limpio al iniciar. Salida en `~/security-audit-skill/AgentOSweb/run-1` (fuera del repo). *No toca código:* si el 3 va a commitear cambios durante la auditoría, avisar acá primero para re-capturar el estado (los hallazgos quedan contra la ref indicada). El 2 despliega solo después de cerrar.
+- [3] **Rediseño de Configuración (SettingsView.tsx + globals.css) + barrido mobile de vistas restantes** — arrancado 03-oct con OK del usuario (ver recuadro de abajo). Si commiteo durante tu auditoría, ya quedó el aviso arriba.
 
-> ⚠️ **Próxima tarea coordinada (NO arrancada aún — espera OK del usuario post-auditoría):** **rediseño de la vista Configuración** (`SettingsView.tsx` + bloque de CSS propio en `globals.css`). Mismo CSS del panel, UX/UI moderna tipo ChatGPT/Gemini: sub-nav con secciones en PC / chips con scroll en móvil; secciones: **Cuenta** (email, plan, link Facturación), **Apariencia** (claro/oscuro/sistema sincronizado con topbar), **Seguridad** (contraseña + sesiones activas con cierre remoto), **Plan** y **Zona de peligro — Eliminar cuenta** con modal de confirmación estilo cerrar-sesión (requiere endpoint nuevo en worker: definir). *Reparto: acordar acá antes de tocar (UI = zona del 3; el 2 propone tomarlo esta ronda).*
+> ✅ **Rediseño de Configuración — TOMADO POR EL AGENTE 3 (03-oct, OK del usuario):** el 2 lo cede. El 3 editará `SettingsView.tsx` + bloque CSS propio en `globals.css`, estilo ChatGPT/Gemini (sub-nav secciones en PC / chips con scroll en móvil), cubriendo toda la config del proyecto: Cuenta, Apariencia (tema sincronizado con topbar), Seguridad (contraseña + sesiones activas), Plan/Facturación (enlaces) y Zona de peligro (eliminar cuenta). **Aviso:** el 3 va a commitear durante tu auditoría (incluye este docs); si necesitas re-capturar estado, avísame acá. *Endpoints nuevos que pida la UI (ej. eliminar cuenta, sesiones activas) = worker = zona del 2, tras la auditoría.*
 
 > ⚠️ **Deploys: Último deploy del worker = `404a3a8f` (02-oct, Agente 2)** — subió `bb2f170` (Analíticas V1.1) con árbol limpio; antes había quedado `ae967002` (Analíticas V1 + FASE 2E). El deploy del dashboard y la landing **quedan para cuando el proyecto esté listo** (ver estado de despliegues abajo).
 
@@ -78,5 +79,5 @@
 - *Nit pendiente:* las barras de la serie diaria escalan mensajes y sesiones con **máximos independientes** (`AnalyticsView.tsx`), no comparables entre series (aceptable con leyenda+tooltip).
 
 - **Deploys: solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`). El Agente 3 deja su bloque commiteado y avisa en este archivo; el 2 despliega ambos.
-- **Reparto actual:** Agente 2 = Planes & Facturación + worker core (cupo/plan/chat) + Analíticas (correcciones de los hallazgos de abajo) + deploys. Agente 3 = FASE 2E ✅ completada + UI del panel + widget/landing (avisa en este archivo antes de tocar).
+- **Reparto actual:** Agente 2 = Planes & Facturación + worker core (cupo/plan/chat) + deploys + endpoints que pida la UI de Settings (eliminar cuenta, sesiones). Agente 3 = FASE 2E ✅ + UI del panel + **rediseño Configuración (03-oct)** ✅ + barrido mobile + widget/landing (avisa antes de tocar).
 - `next build` prohibido con el dev server vivo (ver regla 5); para verificar: `npx tsc --noEmit` + `pnpm lint`.
