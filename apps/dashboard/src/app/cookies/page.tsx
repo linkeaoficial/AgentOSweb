@@ -16,7 +16,8 @@ export default function CookiesPage() {
       <div className="doc-note is-warn">
         <p>
           <strong>Última actualización:</strong> 4 de octubre de 2026. Operador:{" "}
-          <code>[Nombre del Operador]</code> · <code>[email de contacto legal]</code>. Pendiente de revisión
+          <strong>Alvaro Bastardo</strong> (Cariaco, estado Sucre, Venezuela) ·{" "}
+          <code>[email de contacto legal]</code> (a crear antes del lanzamiento). Pendiente de revisión
           legal antes de entrar en vigencia.
         </p>
       </div>

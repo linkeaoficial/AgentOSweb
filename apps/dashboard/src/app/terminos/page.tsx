@@ -17,18 +17,17 @@ export default function TermsPage() {
         <p>
           <strong>Última actualización:</strong> 4 de octubre de 2026. Este documento es un borrador
           pendiente de <strong>revisión legal profesional</strong> antes de su entrada en vigencia. No
-          constituye asesoramiento jurídico. El identificador del operador está pendiente de confirmar:{" "}
-          <code>[Nombre del Operador]</code> (<code>[País de constitución]</code>), contacto:{" "}
-          <code>[email de contacto legal]</code>.
+          constituye asesoramiento jurídico. Operador: <strong>Alvaro Bastardo</strong> (persona física,
+          Venezuela). Antes de lanzar, falta definir el email de contacto legal.
         </p>
       </div>
 
       <h2>1. Identificación del operador</h2>
       <p>
         La plataforma AgentOSweb (en adelante, “la Plataforma”, “nosotros”) es operada por{" "}
-        <code>[Nombre del Operador]</code>, con domicilio en <code>[País / ciudad]</code> y contacto en{" "}
-        <code>[email de contacto legal]</code>. “Usuario” o “vos” es cualquier persona que se registra o
-        utiliza la Plataforma.
+        <strong>Alvaro Bastardo</strong>, persona física, con domicilio en Cariaco, estado Sucre,
+        República Bolivariana de Venezuela, y contacto en <code>[email de contacto legal]</code>.
+        “Usuario” o “vos” es cualquier persona que se registra o utiliza la Plataforma.
       </p>
 
       <h2>2. Objeto</h2>
@@ -178,11 +177,12 @@ export default function TermsPage() {
 
       <h2>12. Legislación aplicable y resolución de disputas</h2>
       <p>
-        Estos términos se rigen por la legislación de <code>[País del operador]</code>, sin perjuicio de
+        Estos términos se rigen por las leyes de la República Bolivariana de Venezuela, sin perjuicio de
         los derechos irrenunciables que los consumidores tengan en su país de residencia (incluidos los
         consumidores de la Unión Europea, Reino Unido, Argentina, Brasil o Estados Unidos, según
-        corresponda). Las controversias se someterán a los tribunales competentes de{" "}
-        <code>[jurisdicción]</code>, salvo fuero imperativo distinto.
+        corresponda). Las controversias derivadas de la relación con el Operador se someterán a los
+        tribunales competentes de la Circunscripción Judicial del estado Sucre, República Bolivariana de
+        Venezuela, salvo fuero imperativo distinto.
       </p>
 
       <h2>13. Cambios en los términos</h2>

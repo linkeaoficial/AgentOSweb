@@ -16,9 +16,10 @@ export default function PrivacyPage() {
       <div className="doc-note is-warn">
         <p>
           <strong>Última actualización:</strong> 4 de octubre de 2026. Borrador pendiente de{" "}
-          <strong>revisión legal profesional</strong>. Operador: <code>[Nombre del Operador]</code>{" "}
-          (<code>[País]</code>) · contacto: <code>[email de contacto legal]</code>. Baseline de cumplimiento
-          elegido: <strong>RGPD (UE/EEE)</strong>, con menciones a la <strong>CCPA/CPRA (California)</strong>{" "}
+          <strong>revisión legal profesional</strong>. Operador: <strong>Alvaro Bastardo</strong>{" "}
+          (persona física, Cariaco, estado Sucre, Venezuela) · contacto: <code>[email de contacto legal]</code>{" "}
+          (a crear antes del lanzamiento). Baseline de cumplimiento elegido: <strong>RGPD (UE/EEE)</strong>,
+          con menciones a la <strong>CCPA/CPRA (California)</strong>{" "}
           y la <strong>LGPD (Brasil)</strong> por ser plataforma de alcance internacional.
         </p>
       </div>
@@ -26,7 +27,7 @@ export default function PrivacyPage() {
       <h2>1. Responsable y roles</h2>
       <ul>
         <li>
-          <strong>Operador de la Plataforma</strong> (<code>[Nombre del Operador]</code>): responsable del
+          <strong>Operador de la Plataforma</strong> (Alvaro Bastardo, Venezuela): responsable del
           tratamiento de los datos de las <em>cuentas de usuario</em> (quienes se registran en el panel).
         </li>
         <li>
