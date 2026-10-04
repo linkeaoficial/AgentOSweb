@@ -11,13 +11,13 @@ export default function DashboardFooter({ planLabel, agentsLabel }: { planLabel:
         </span>
       </div>
       <div className="footer-right">
-        <a href="#terminos" className="footer-link">Términos de Servicio</a>
+        <a href="/terminos" className="footer-link">Términos de Servicio</a>
         <span className="footer-separator">•</span>
-        <a href="#privacidad" className="footer-link">Privacidad</a>
+        <a href="/privacidad" className="footer-link">Privacidad</a>
         <span className="footer-separator">•</span>
-        <a href="#cookies" className="footer-link">Cookies</a>
+        <a href="/cookies" className="footer-link">Cookies</a>
         <span className="footer-separator">•</span>
-        <a href="#docs" className="footer-link">Documentación</a>
+        <a href="/docs" className="footer-link">Documentación</a>
         <span className="footer-separator">•</span>
         <a href="#soporte" className="footer-link">Soporte</a>
       </div>
