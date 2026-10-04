@@ -1,18 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { IconUser, IconMoon, IconSun, IconBilling, IconSettings } from "./icons";
+import { IconUser, IconBilling, IconSettings } from "./icons";
 
 interface UserMenuProps {
-  isDark: boolean;
-  onToggleTheme: () => void;
   onNavigate: (viewId: string) => void;
   onOpenLogout: () => void;
   ownerName: string;
   ownerEmail: string | null;
 }
 
-export default function UserMenu({ isDark, onToggleTheme, onNavigate, onOpenLogout, ownerName, ownerEmail }: UserMenuProps) {
+export default function UserMenu({ onNavigate, onOpenLogout, ownerName, ownerEmail }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -65,10 +63,6 @@ export default function UserMenu({ isDark, onToggleTheme, onNavigate, onOpenLogo
 
         <div className="user-menu-divider" />
 
-        <button className="user-menu-item" role="menuitem" onClick={() => { onToggleTheme(); }}>
-          {isDark ? <IconSun /> : <IconMoon />}
-          {isDark ? "Modo Claro" : "Modo Oscuro"}
-        </button>
         <button className="user-menu-item user-menu-signout" role="menuitem" onClick={() => { setOpen(false); onOpenLogout(); }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

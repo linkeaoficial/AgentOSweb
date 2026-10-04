@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 export const DOC_SECTIONS = [
   { href: "/docs", label: "Inicio rápido" },
@@ -27,13 +28,13 @@ export default function DocsShell({ title, lead, active, children }: Props) {
   return (
     <main className="doc-page">
       <header className="doc-topbar">
-        <a className="doc-brand" href="/docs">
+        <Link className="doc-brand" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/imagen/Logo_AgentOSweb_chat.png" alt="" width={32} height={32} />
           <span>
             AgentOSweb <span className="doc-brand-sub">Documentación</span>
           </span>
-        </a>
+        </Link>
         <nav className="doc-topnav" aria-label="Enlaces legales">
           {LEGAL_LINKS.map((l) => (
             <a key={l.href} href={l.href} className={active === l.href ? "active" : undefined}>

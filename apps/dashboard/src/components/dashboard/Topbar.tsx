@@ -48,7 +48,7 @@ export default function Topbar({ pageTitle, isDark, onToggleTheme, onNavigate, o
           {isDark ? <IconSun /> : <IconMoon />}
         </button>
 
-        <UserMenu isDark={isDark} onToggleTheme={onToggleTheme} onNavigate={onNavigate} onOpenLogout={onOpenLogout} ownerName={ownerName} ownerEmail={ownerEmail} />
+        <UserMenu onNavigate={onNavigate} onOpenLogout={onOpenLogout} ownerName={ownerName} ownerEmail={ownerEmail} />
       </div>
     </header>
   );

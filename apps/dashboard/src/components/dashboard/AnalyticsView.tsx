@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MetricCard } from "./Views";
 import { IconAnalytics, IconBolt, IconCheck, IconLeads, IconMessage, IconOverview } from "./icons";
 
@@ -73,8 +73,18 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
   const [range, setRange] = useState(7);
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [status, setStatus] = useState<Status>("loading");
+  // Caché por agente+rango (60 s): cambiar de filtro no vuelve a golpear el worker
+  // (el server-side rate limit de analítica es 30/min por usuario).
+  const cacheRef = useRef(new Map<string, { t: number; d: AnalyticsData }>());
 
   const load = useCallback(async () => {
+    const key = `${agentId}:${range}`;
+    const hit = cacheRef.current.get(key);
+    if (hit && Date.now() - hit.t < 60_000) {
+      setData(hit.d);
+      setStatus("ready");
+      return;
+    }
     setStatus("loading");
     try {
       // tz = offset local en minutos (getTimezoneOffset negado; Caracas = -240):
@@ -91,7 +101,9 @@ export function AnalyticsView({ agentId, onNavigate }: { agentId: string; onNavi
         setStatus("error");
         return;
       }
-      setData(body as AnalyticsData);
+      const parsed = body as AnalyticsData;
+      cacheRef.current.set(key, { t: Date.now(), d: parsed });
+      setData(parsed);
       setStatus("ready");
     } catch {
       setStatus("error");
