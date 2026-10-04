@@ -7,11 +7,10 @@ import type { AgentOwner } from "./Dashboard";
 
 export type ThemePref = "light" | "dark" | "system";
 
-type SectionId = "cuenta" | "apariencia" | "seguridad" | "plan" | "peligro";
+type SectionId = "cuenta" | "apariencia" | "seguridad" | "peligro";
 
 interface Props {
   owner: AgentOwner | null;
-  agentsCount: number;
   theme: ThemePref;
   setTheme: (t: ThemePref) => void;
   onNavigate: (viewId: string) => void;
@@ -62,16 +61,6 @@ const SECTIONS: { id: SectionId; label: string; icon: ReactNode }[] = [
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-  },
-  {
-    id: "plan",
-    label: "Plan y facturación",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="1" y="4" width="22" height="16" rx="2" />
-        <line x1="1" y1="10" x2="23" y2="10" />
       </svg>
     ),
   },
@@ -141,7 +130,7 @@ const fmtDateTime = (iso?: string) => {
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
-export default function SettingsView({ owner, agentsCount, theme, setTheme, onNavigate }: Props) {
+export default function SettingsView({ owner, theme, setTheme, onNavigate }: Props) {
   const toast = useToast();
   const [active, setActive] = useState<SectionId>("cuenta");
 
@@ -286,12 +275,6 @@ export default function SettingsView({ owner, agentsCount, theme, setTheme, onNa
 
   const planLabel = PLAN_LABELS[owner?.plan ?? "free"] ?? "Free";
   const initial = (owner?.name || owner?.email || "U").trim().charAt(0).toUpperCase();
-  const msgPct =
-    owner && owner.messages_limit > 0
-      ? Math.min(100, Math.round((owner.messages_used / owner.messages_limit) * 100))
-      : 0;
-  const agentsPct =
-    owner && owner.agent_limit > 0 ? Math.min(100, Math.round((agentsCount / owner.agent_limit) * 100)) : 0;
   const expires = fmtDate(owner?.plan_expires_at);
   const deletePhrase = owner?.email || "ELIMINAR";
 
@@ -301,7 +284,7 @@ export default function SettingsView({ owner, agentsCount, theme, setTheme, onNa
         <div className="agents-heading">
           <h2>Configuración</h2>
           <p className="subtitle" style={{ marginBottom: 0 }}>
-            Tu cuenta, la apariencia del panel, la seguridad y tu plan.
+            Tu cuenta, la apariencia del panel y tu seguridad.
           </p>
         </div>
       </div>
@@ -347,6 +330,12 @@ export default function SettingsView({ owner, agentsCount, theme, setTheme, onNa
                   <span className="set-row-label">Plan</span>
                   <span className="set-plan-pill">{planLabel}</span>
                 </div>
+                {expires && (
+                  <div className="set-row">
+                    <span className="set-row-label">Vencimiento</span>
+                    <span>{expires}</span>
+                  </div>
+                )}
                 <button type="button" className="set-row set-link" onClick={() => onNavigate("view-billing")}>
                   <span>Planes y facturación</span>
                   {CHEVRON}
@@ -355,6 +344,17 @@ export default function SettingsView({ owner, agentsCount, theme, setTheme, onNa
                   <span>Widget, agentes y contenido</span>
                   {CHEVRON}
                 </button>
+                {owner?.support_whatsapp && (
+                  <a
+                    className="set-row set-link"
+                    href={`https://wa.me/${owner.support_whatsapp}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <span>Ayuda y soporte (WhatsApp)</span>
+                    {CHEVRON}
+                  </a>
+                )}
               </div>
             </div>
           )}
@@ -500,59 +500,6 @@ export default function SettingsView({ owner, agentsCount, theme, setTheme, onNa
             </div>
           )}
 
-          {active === "plan" && (
-            <div className="panel-card">
-              <div className="set-card-head">
-                <h3>Plan y facturación</h3>
-                <p className="subtitle" style={{ marginBottom: 0 }}>
-                  Estado de tu plan y consumo del mes.
-                </p>
-              </div>
-              <div className="set-plan-hero">
-                <span className="set-plan-pill is-lg">{planLabel}</span>
-                {expires ? (
-                  <span className="form-hint">Vence el {expires}</span>
-                ) : (
-                  <span className="form-hint">Sin fecha de vencimiento</span>
-                )}
-              </div>
-              {owner?.downgraded_from && owner.plan === "free" && (
-                <p className="form-hint">
-                  Tu cuenta pasó a Free por vencimiento del plan {PLAN_LABELS[owner.downgraded_from] ?? owner.downgraded_from}.
-                </p>
-              )}
-              <div className="set-usage">
-                <div>
-                  <div className="set-usage-top">
-                    <span className="set-row-label">Mensajes usados</span>
-                    <span>
-                      {owner?.messages_used ?? 0} / {owner?.messages_limit ?? "—"}
-                    </span>
-                  </div>
-                  <div className="set-bar">
-                    <div className="set-bar-fill" style={{ width: `${msgPct}%` }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="set-usage-top">
-                    <span className="set-row-label">Agentes creados</span>
-                    <span>
-                      {agentsCount} / {owner?.agent_limit ?? "—"}
-                    </span>
-                  </div>
-                  <div className="set-bar">
-                    <div className="set-bar-fill" style={{ width: `${agentsPct}%` }} />
-                  </div>
-                </div>
-              </div>
-              <div className="set-actions">
-                <button type="button" className="btn-primary" onClick={() => onNavigate("view-billing")}>
-                  Ver Planes y Facturación
-                </button>
-              </div>
-            </div>
-          )}
-
           {active === "peligro" && (
             <div className="panel-card set-danger">
               <div className="set-card-head">
@@ -602,7 +549,6 @@ export default function SettingsView({ owner, agentsCount, theme, setTheme, onNa
         description={
           <>
             Se eliminarán tus agentes, conversaciones, prospectos y configuración de forma permanente.
-            Escribe <strong>{deletePhrase}</strong> para confirmar.
           </>
         }
         confirmPhrase={deletePhrase}

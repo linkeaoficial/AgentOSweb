@@ -1,4 +1,4 @@
-﻿        :root {
+        :root {
             /* === Tokens de Identidad AgentOSweb === */
             --primary-color: #3559ff;
             --primary-color-dark: #13a0ff;
@@ -33,20 +33,20 @@
         }
 
 body.dark-mode {
-            /* ?? Paleta Midnight â€” Ultra profunda y cohesiva */
+            /* ?? Paleta Midnight — Ultra profunda y cohesiva */
             --primary-color: #3559ff;
             --primary-color-dark: #13a0ff;
             --primary-gradient: linear-gradient(135deg, #3559ff 0%, #13a0ff 100%);
             
             --bg-body: #09090b;                /* Fondo zinc neutro (zinc-950) */
             --bg-surface: #18181b;             /* Tarjetas elevadas (zinc-900) */
-            --bg-sidebar: #101013;             /* Sidebar (mÃ¡s profundo que tarjetas) */
+            --bg-sidebar: #101013;             /* Sidebar (más profundo que tarjetas) */
             --bg-subtle: #202024;              /* Inputs y elementos secundarios (zinc-850) */
             --surface-subtle: #1c1c20;
             --surface-card: #202024;
             --border-color: #2e2e33;           /* Bordes neutros */
             --text-main: #f4f4f5;              /* Texto principal (zinc-100) */
-            --text-muted: #a1a1aa;             /* SubtÃ­tulos (zinc-400) */
+            --text-muted: #a1a1aa;             /* Subtítulos (zinc-400) */
             --card-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);  /* Sombra profunda neutra */
         }
 
@@ -56,7 +56,7 @@ body.dark-mode {
             padding: 0;
         }
 
-        /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â NIVEL 1: Blindaje global contra scroll horizontal */
+        /* ðŸ›¡ï¸ NIVEL 1: Blindaje global contra scroll horizontal */
         html {
             overflow-x: hidden;
             max-width: 100%;
@@ -70,14 +70,14 @@ body.dark-mode {
             height: 100vh;
             display: flex;
             overflow: hidden;       /* Ya estaba: bloquea scroll vertical */
-            overflow-x: hidden;     /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â NIVEL 2: bloquea scroll horizontal */
+            overflow-x: hidden;     /* ðŸ›¡ï¸ NIVEL 2: bloquea scroll horizontal */
             max-width: 100%;
             width: 100%;
             transition: background-color 0.25s ease, color 0.25s ease;
         }
 
         /* ========================================================
-           Ã°Å¸Â§Â­ BARRA LATERAL ESTILO GEMINI (EXPANDIBLE / COLAPSABLE)
+           ðŸ§­ BARRA LATERAL ESTILO GEMINI (EXPANDIBLE / COLAPSABLE)
            ======================================================== */
                 aside.sidebar {
             width: 260px;
@@ -93,13 +93,13 @@ body.dark-mode {
             z-index: 50;
         }
 
-        /* Ã¢Å“â€¦ Estado compacto de DESKTOP: 64px exactos y simÃƒÂ©tricos */
+        /* âœ… Estado compacto de DESKTOP: 64px exactos y simÃ©tricos */
         aside.sidebar.collapsed {
             width: 64px;
             padding: 20px 8px;
         }
 
-        /* Ocultar el espacio sobrante del tÃƒÂ­tulo y centrar ÃƒÂ­conos perfectamente */
+        /* Ocultar el espacio sobrante del tÃ­tulo y centrar Ã­conos perfectamente */
         aside.sidebar.collapsed .brand-header {
             justify-content: center;
             padding-bottom: 16px;
@@ -140,7 +140,7 @@ body.dark-mode {
             display: block;
         }
 
-        /* BotÃƒÂ³n de expansiÃƒÂ³n tipo Gemini / Hamburguesa */
+        /* BotÃ³n de expansiÃ³n tipo Gemini / Hamburguesa */
 .sidebar-toggle-btn {
     background: transparent;
     border: none;
@@ -166,16 +166,16 @@ body.dark-mode {
     margin: 0;
 }
 
-/* Ã°Å¸Ââ€Ã¢Å“â€¢ Control de visibilidad de los dos ÃƒÂ­conos del toggle */
+/* ðŸ”âœ• Control de visibilidad de los dos Ã­conos del toggle */
 .sidebar-toggle-btn .icon-close {
     display: none;
 }
 
-/* Ã°Å¸Å’â€˜ Backdrop mÃƒÂ³vil: fondo oscuro translÃƒÂºcido detrÃƒÂ¡s del menÃƒÂº desplegable */
+/* ðŸŒ‘ Backdrop mÃ³vil: fondo oscuro translÃºcido detrÃ¡s del menÃº desplegable */
 .nav-backdrop {
     display: none;
     position: fixed;
-    inset: 64px 0 0 0;   /* Empieza debajo de la barra superior mÃƒÂ³vil (64px) */
+    inset: 64px 0 0 0;   /* Empieza debajo de la barra superior mÃ³vil (64px) */
     background-color: rgba(15, 23, 42, 0.45);
     backdrop-filter: blur(2px);
     z-index: 90;
@@ -212,7 +212,7 @@ body.dark-mode .nav-backdrop {
             letter-spacing: normal;
         }
 
-        /* ?Âº Desktop: debajo de "AgentOSweb" siempre "Workspace" */
+        /* ?º Desktop: debajo de "AgentOSweb" siempre "Workspace" */
         .brand-subtitle {
             font-size: 0 !important;
         }
@@ -247,7 +247,7 @@ body.dark-mode .nav-backdrop {
             white-space: nowrap;
         }
 
-        /* Centrado de ÃƒÂ­conos en modo colapsado */
+        /* Centrado de Ã­conos en modo colapsado */
         .sidebar.collapsed .nav-item {
             justify-content: center;
             padding: 11px 0;
@@ -264,7 +264,7 @@ body.dark-mode .nav-backdrop {
             width: 100%;
         }
 
-        /* Ã°Å¸â€™Â¬ Tooltip Flotante Moderno (Estilo Gemini) */
+        /* ðŸ’¬ Tooltip Flotante Moderno (Estilo Gemini) */
         .sidebar.collapsed .nav-item::after {
             content: attr(data-tooltip);
             position: absolute;
@@ -291,7 +291,7 @@ body.dark-mode .nav-backdrop {
             border: 1px solid #3f3f46;
         }
 
-        /* Mostrar tooltip al pasar el cursor ÃƒÂºnicamente si estÃƒÂ¡ colapsado */
+        /* Mostrar tooltip al pasar el cursor Ãºnicamente si estÃ¡ colapsado */
         .sidebar.collapsed .nav-item:hover::after {
             opacity: 1;
             transform: translateY(-50%) scale(1);
@@ -403,20 +403,20 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           Ã°Å¸â€™Â» ÃƒÂREA DE CONTENIDO PRINCIPAL
+           ðŸ’» ÃREA DE CONTENIDO PRINCIPAL
            ======================================================== */
                 main.content-wrapper {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow-y: auto;
-            overflow-x: hidden;   /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â NIVEL 3: corta cualquier desborde interno */
-            min-width: 0;         /* Ã°Å¸â€˜Ë† Permite encoger como flex-item del body */
-            max-width: 100%;      /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Nunca excede su contenedor */
+            overflow-x: hidden;   /* ðŸ›¡ï¸ NIVEL 3: corta cualquier desborde interno */
+            min-width: 0;         /* ðŸ‘ˆ Permite encoger como flex-item del body */
+            max-width: 100%;      /* ðŸ›¡ï¸ Nunca excede su contenedor */
             width: 100%;
         }
 
-                /* Ã°Å¸â€Â Topbar Ã¢â‚¬â€ Sticky (se queda pegado arriba al scrollear) */
+                /* ðŸ” Topbar â€” Sticky (se queda pegado arriba al scrollear) */
         header.topbar {
             height: 70px;
             border-bottom: 1px solid var(--border-color);
@@ -426,7 +426,7 @@ body.dark-mode .nav-backdrop {
             justify-content: space-between;
             padding: 0 32px;
             flex-shrink: 0;
-            /* Ã°Å¸Å½Â¯ STICKY: Se queda pegado arriba */
+            /* ðŸŽ¯ STICKY: Se queda pegado arriba */
             position: sticky;
             top: 0;
             z-index: 30;
@@ -492,7 +492,7 @@ body.dark-mode .nav-backdrop {
             color: var(--primary-color);
         }
 
-        /* Píldora "Plan X" (con punto verde) + atajo "Mejorar plan". */
+        /* P�ldora "Plan X" (con punto verde) + atajo "Mejorar plan". */
         .topbar-plan {
             display: flex;
             align-items: center;
@@ -534,7 +534,7 @@ body.dark-mode .nav-backdrop {
             transform: translateY(1px);
         }
 
-        /* Ã°Å¸â€Âµ Indicador de notificaciÃƒÂ³n profesional (Azul elÃƒÂ©ctrico con brillo suave) */
+        /* ðŸ”µ Indicador de notificaciÃ³n profesional (Azul elÃ©ctrico con brillo suave) */
         .notif-badge {
             position: absolute;
             top: 9px;
@@ -547,7 +547,7 @@ body.dark-mode .nav-backdrop {
             border: 1.5px solid var(--bg-surface);
         }
 
-        /* Ã°Å¸â€˜Â¤ Avatar circular interactivo */
+        /* ðŸ‘¤ Avatar circular interactivo */
         .topbar-avatar-btn {
             width: 38px;
             height: 38px;
@@ -574,7 +574,7 @@ body.dark-mode .nav-backdrop {
             transform: scale(0.96);
         }
 
-        /* Ã°Å¸â€œÂ¦ Vistas de Contenido */
+        /* ðŸ“¦ Vistas de Contenido */
         .view-section {
             padding: 32px;
             display: none;
@@ -587,9 +587,9 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           Ã¢Å“Â¨ 1. SECCIÃƒâ€œN CONSTRUIDA: RESUMEN GENERAL (OVERVIEW)
+           âœ¨ 1. SECCIÃ“N CONSTRUIDA: RESUMEN GENERAL (OVERVIEW)
            ======================================================== */
-                /* Tarjetas de MÃƒÂ©tricas */
+                /* Tarjetas de MÃ©tricas */
 .metrics-grid {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -633,12 +633,12 @@ body.dark-mode .nav-backdrop {
             color: var(--text-muted);
             font-weight: 500;
             letter-spacing: -0.1px;
-            min-width: 0;              /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Permite encoger */
-            overflow-wrap: anywhere;   /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Rompe palabras largas si hace falta */
+            min-width: 0;              /* ðŸ›¡ï¸ Permite encoger */
+            overflow-wrap: anywhere;   /* ðŸ›¡ï¸ Rompe palabras largas si hace falta */
         }
 
         .metric-header .metric-icon {
-            flex-shrink: 0;            /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â El ÃƒÂ­cono nunca se encoge */
+            flex-shrink: 0;            /* ðŸ›¡ï¸ El Ã­cono nunca se encoge */
         }
 
         .metric-icon {
@@ -653,9 +653,9 @@ body.dark-mode .nav-backdrop {
         }
 
         /* Faltaba, y por eso los iconos sin width/height propios (IconLeads)
-            se dibujaban a su tamaÃ±o natural y se veÃ­an enormes dentro de la
-            tarjeta, al lado de los que sÃ­ lo traen. Mismo patrÃ³n que
-            .nav-item svg / .faq-empty svg: el tamaÃ±o lo da el contenedor. */
+            se dibujaban a su tamaño natural y se veían enormes dentro de la
+            tarjeta, al lado de los que sí lo traen. Mismo patrón que
+            .nav-item svg / .faq-empty svg: el tamaño lo da el contenedor. */
         .metric-icon svg {
             width: 18px;
             height: 18px;
@@ -719,7 +719,7 @@ body.dark-mode .nav-backdrop {
             margin-top: -10px;
         }
 
-        /* Evita que el cÃ³digo largo del script estire las columnas (grid blowout) */
+        /* Evita que el código largo del script estire las columnas (grid blowout) */
         .dashboard-columns > .panel-card {
             min-width: 0;
         }
@@ -741,12 +741,12 @@ body.dark-mode .nav-backdrop {
     padding: 24px;
     box-shadow: var(--card-shadow);
     transition: background-color 0.3s ease, border-color 0.3s ease;
-    position: relative;   /* ðŸŽ¯ Necesario para controlar el z-index */
-    z-index: 1;           /* ðŸŽ¯ Base para que el dropdown pueda escapar */
+    position: relative;   /* 🎯 Necesario para controlar el z-index */
+    z-index: 1;           /* 🎯 Base para que el dropdown pueda escapar */
 }
 
-/* ðŸŽ¯ Cuando un panel contiene un dropdown ABIERTO, sube por encima
-   de sus hermanos (ConfiguraciÃ³n Avanzada, etc.) */
+/* 🎯 Cuando un panel contiene un dropdown ABIERTO, sube por encima
+   de sus hermanos (Configuración Avanzada, etc.) */
 .panel-card:has(.dropdown-menu),
 .panel-card:focus-within {
     z-index: 20;
@@ -767,7 +767,7 @@ body.dark-mode .nav-backdrop {
         }
 
                /* ========================================================
-           Ã°Å¸â€œâ€¹ CAJA DEL SCRIPT DE INSTALACIÃƒâ€œN (Dual View PC/MÃƒÂ³vil)
+           ðŸ“‹ CAJA DEL SCRIPT DE INSTALACIÃ“N (Dual View PC/MÃ³vil)
            ======================================================== */
 .script-box {
             background-color: var(--bg-subtle);
@@ -782,7 +782,7 @@ body.dark-mode .nav-backdrop {
             transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
-        /* Ã°Å¸â€™Â» Bloque de cÃƒÂ³digo estilo editor */
+        /* ðŸ’» Bloque de cÃ³digo estilo editor */
 .code-display {
             margin: 0;
             padding: 8px 12px;
@@ -793,8 +793,8 @@ body.dark-mode .nav-backdrop {
             font-size: 12px;
             line-height: 1.45;
             color: var(--text-main);
-            white-space: pre;                /* ðŸŽ¯ Respeta saltos y espacios EXACTOS */
-            overflow-x: auto;                /* ðŸ›¡ï¸ Scroll solo si hace falta */
+            white-space: pre;                /* 🎯 Respeta saltos y espacios EXACTOS */
+            overflow-x: auto;                /* 🛡️ Scroll solo si hace falta */
             overflow-y: hidden;
             min-width: 0;
             max-width: 100%;
@@ -808,19 +808,19 @@ body.dark-mode .nav-backdrop {
             display: inline-block;
         }
 
-        /* Ã°Å¸Å½Â¨ Syntax highlighting (colores VS Code) */
+        /* ðŸŽ¨ Syntax highlighting (colores VS Code) */
 .code-tag    { color: #3559ff; font-weight: 600; }
         .code-attr   { color: #9333ea; }
         .code-string { color: #16a34a; }
         .code-comment { color: #8a94a6; font-style: italic; }
 
-        /* ðŸŒ™ Colores en modo oscuro */
+        /* 🌙 Colores en modo oscuro */
         body.dark-mode .code-tag    { color: #7dd3fc; }
         body.dark-mode .code-attr   { color: #d8b4fe; }
         body.dark-mode .code-string { color: #86efac; }
         body.dark-mode .code-comment { color: #64748b; }
 
-        /* ðŸ¡˜ Scrollbar delgada (horizontal) para el cÃ³digo */
+        /* 🡘 Scrollbar delgada (horizontal) para el código */
         .code-display::-webkit-scrollbar { height: 6px; }
         .code-display::-webkit-scrollbar-track { background: transparent; }
         .code-display::-webkit-scrollbar-thumb {
@@ -831,28 +831,28 @@ body.dark-mode .nav-backdrop {
         .code-display { scrollbar-width: thin; scrollbar-color: #c5c5c5 transparent; }
         body.dark-mode .code-display { scrollbar-width: thin; scrollbar-color: #3f3f46 transparent; }
 
-        /* Ã°Å¸â€“Â¥Ã¯Â¸ÂÃ°Å¸â€œÂ± Control de visibilidad PC vs MÃƒÂ³vil */
-        .code-mobile { display: none; }        /* Oculto por defecto (mÃƒÂ³vil) */
+        /* ðŸ–¥ï¸ðŸ“± Control de visibilidad PC vs MÃ³vil */
+        .code-mobile { display: none; }        /* Oculto por defecto (mÃ³vil) */
 
-                /* Ã°Å¸â€œâ€¹ BotÃƒÂ³n: SIEMPRE compacto */
+                /* ðŸ“‹ BotÃ³n: SIEMPRE compacto */
         .script-box .btn-shimmer {
             flex-shrink: 0;
             white-space: nowrap;
             width: auto;
         }
 
-        /* Ã°Å¸Å½Â¯ MÃƒÂ³vil: mostrar versiÃƒÂ³n multi-lÃƒÂ­nea, ocultar PC */
+        /* ðŸŽ¯ MÃ³vil: mostrar versiÃ³n multi-lÃ­nea, ocultar PC */
         @media (max-width: 639px) {
             .code-pc     { display: none; }
             .code-mobile { display: block; }
 
-            /* Ã°Å¸Å½Â¯ El botÃƒÂ³n se alinea a la IZQUIERDA en mÃƒÂ³vil */
+            /* ðŸŽ¯ El botÃ³n se alinea a la IZQUIERDA en mÃ³vil */
             .script-box .btn-shimmer {
                 align-self: flex-start;
             }
         }
 
-        /* Ã°Å¸â€“Â¥Ã¯Â¸Â DESKTOP: layout horizontal con scroll en el cÃƒÂ³digo */
+        /* ðŸ–¥ï¸ DESKTOP: layout horizontal con scroll en el cÃ³digo */
         @media (min-width: 640px) {
             .script-box {
                 flex-direction: row;
@@ -861,7 +861,7 @@ body.dark-mode .nav-backdrop {
                 gap: 10px;
             }
 
-            /* Ã°Å¸Å½Â¯ El cÃƒÂ³digo ocupa el espacio disponible y hace scroll si hace falta */
+            /* ðŸŽ¯ El cÃ³digo ocupa el espacio disponible y hace scroll si hace falta */
             .code-pc {
                 flex: 1 1 auto;
                 min-width: 0;
@@ -869,14 +869,14 @@ body.dark-mode .nav-backdrop {
                 overflow-y: hidden;
             }
 
-            /* Ã°Å¸Å½Â¯ El botÃƒÂ³n queda pegado a la derecha, compacto */
+            /* ðŸŽ¯ El botÃ³n queda pegado a la derecha, compacto */
             .script-box .btn-shimmer {
                 align-self: center;
                 flex: 0 0 auto;
             }
         }
 
-        /* Ã¢â„¢Â¿ Elemento oculto solo para lectores de pantalla y portapapeles */
+        /* â™¿ Elemento oculto solo para lectores de pantalla y portapapeles */
         .sr-only {
             position: absolute;
             width: 1px;
@@ -890,7 +890,7 @@ body.dark-mode .nav-backdrop {
         }
 
                 /* ========================================================
-           Ã°Å¸Å½Â¯ CHIPS DE COMPATIBILIDAD (Debajo del cÃƒÂ³digo de instalaciÃƒÂ³n)
+           ðŸŽ¯ CHIPS DE COMPATIBILIDAD (Debajo del cÃ³digo de instalaciÃ³n)
            ======================================================== */
         .compatibility-row {
             margin-top: 16px;
@@ -950,7 +950,7 @@ body.dark-mode .nav-backdrop {
             box-shadow: 0 2px 8px -2px var(--primary-box-shadow);
         }
 
-        /* Ã°Å¸Å’â„¢ Modo oscuro */
+        /* ðŸŒ™ Modo oscuro */
         body.dark-mode .chip {
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.08);
@@ -963,7 +963,7 @@ body.dark-mode .nav-backdrop {
         }
 
                 /* ========================================================
-           Ã°Å¸Å¡â‚¬ BANNER DE INSTALACIÃƒâ€œN Ã¢â‚¬â€ Barra de Progreso Horizontal
+           ðŸš€ BANNER DE INSTALACIÃ“N â€” Barra de Progreso Horizontal
            ======================================================== */
         .install-progress-banner {
             background: var(--bg-surface);
@@ -986,7 +986,7 @@ body.dark-mode .nav-backdrop {
             background-color: rgba(255, 255, 255, 0.04);
         }
 
-        /* ðŸŽ¯ Cabecera del banner */
+        /* 🎯 Cabecera del banner */
         .install-progress-header {
             display: flex;
             align-items: center;
@@ -1030,7 +1030,7 @@ body.dark-mode .nav-backdrop {
             font-weight: 500;
         }
 
-        /* Ã¢ÂÂ±Ã¯Â¸Â Indicador de tiempo */
+        /* â±ï¸ Indicador de tiempo */
         .install-progress-time {
             display: inline-flex;
             align-items: center;
@@ -1046,7 +1046,7 @@ body.dark-mode .nav-backdrop {
             flex-shrink: 0;
         }
 
-        /* Ã°Å¸Å½Â¬ TRACK (contenedor de los 3 pasos) */
+        /* ðŸŽ¬ TRACK (contenedor de los 3 pasos) */
         .install-progress-track {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1054,7 +1054,7 @@ body.dark-mode .nav-backdrop {
             position: relative;
         }
 
-        /* Ã°Å¸â€œÂ LÃƒÂ­nea horizontal que conecta los pasos */
+        /* ðŸ“ LÃ­nea horizontal que conecta los pasos */
         .install-progress-line {
             position: absolute;
             top: 17px;
@@ -1070,7 +1070,7 @@ body.dark-mode .nav-backdrop {
             z-index: 0;
         }
 
-        /* Ã°Å¸Å’â„¢ Modo oscuro para la lÃƒÂ­nea */
+        /* ðŸŒ™ Modo oscuro para la lÃ­nea */
         body.dark-mode .install-progress-line {
             background: linear-gradient(90deg,
                 var(--primary-color) 0%,
@@ -1079,7 +1079,7 @@ body.dark-mode .nav-backdrop {
                 rgba(255,255,255,0.1) 100%);
         }
 
-        /* Ã°Å¸â€Âµ Cada paso individual */
+        /* ðŸ”µ Cada paso individual */
         .install-progress-step {
             display: flex;
             flex-direction: column;
@@ -1090,7 +1090,7 @@ body.dark-mode .nav-backdrop {
             min-width: 0;
         }
 
-        /* Ã°Å¸â€Ëœ CÃƒÂ­rculo numerado */
+        /* ðŸ”˜ CÃ­rculo numerado */
         .install-progress-bullet {
             width: 36px;
             height: 36px;
@@ -1113,7 +1113,7 @@ body.dark-mode .nav-backdrop {
             transform: scale(1.1);
         }
 
-        /* Ã°Å¸â€œÂ Info del paso */
+        /* ðŸ“ Info del paso */
         .install-progress-info {
             min-width: 0;
         }
@@ -1143,14 +1143,14 @@ body.dark-mode .nav-backdrop {
             color: var(--primary-color);
         }
 
-        /* Ã°Å¸Å’â„¢ Modo oscuro */
+        /* ðŸŒ™ Modo oscuro */
         body.dark-mode .install-progress-info code {
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.08);
             color: #7aa2ff;
         }
 
-        /* Ã°Å¸â€œÂ± Responsive: Mobile Ã¢â€ â€™ vertical con lÃƒÂ­nea izquierda */
+        /* ðŸ“± Responsive: Mobile â†’ vertical con lÃ­nea izquierda */
         @media (max-width: 768px) {
             .install-progress-banner {
                 padding: 18px 20px;
@@ -1160,13 +1160,13 @@ body.dark-mode .nav-backdrop {
                 margin-bottom: 20px;
             }
 
-            /* Ã°Å¸â€â€ž Cambia a vertical */
+            /* ðŸ”„ Cambia a vertical */
             .install-progress-track {
                 grid-template-columns: minmax(0, 1fr);
                 gap: 18px;
             }
 
-            /* Ã°Å¸â€œÂ LÃƒÂ­nea vertical a la izquierda */
+            /* ðŸ“ LÃ­nea vertical a la izquierda */
             .install-progress-line {
                 top: 18px;
                 bottom: 18px;
@@ -1189,7 +1189,7 @@ body.dark-mode .nav-backdrop {
                     rgba(255,255,255,0.1) 100%);
             }
 
-            /* Ã°Å¸â€â€ž Steps en horizontal (bullet + info) */
+            /* ðŸ”„ Steps en horizontal (bullet + info) */
             .install-progress-step {
                 flex-direction: row;
                 align-items: flex-start;
@@ -1207,7 +1207,7 @@ body.dark-mode .nav-backdrop {
             }
         }
 
-        /* Ã¢Å¡Â¡Ã¯Â¸Â BotÃƒÂ³n con Haz de Luz Shimmer */
+        /* âš¡ï¸ BotÃ³n con Haz de Luz Shimmer */
         .btn-shimmer {
             position: relative;
             background: var(--primary-gradient);
@@ -1252,7 +1252,7 @@ body.dark-mode .nav-backdrop {
             transform: scale(0.98);
         }
 
-        /* ðŸ”„ RotaciÃ³n 180Â° al copiar: el Ã­cono gira y se transforma en check */
+        /* 🔄 Rotación 180° al copiar: el ícono gira y se transforma en check */
         .btn-shimmer .btn-shimmer-ico {
             display: inline-flex;
         }
@@ -1281,7 +1281,7 @@ body.dark-mode .nav-backdrop {
             text-align: left;
         }
 
-        /* Lista de Preguntas mÃƒÂ¡s Consultadas */
+        /* Lista de Preguntas mÃ¡s Consultadas */
         .faq-list {
             display: flex;
             flex-direction: column;
@@ -1324,12 +1324,12 @@ body.dark-mode .nav-backdrop {
         }
 
         .faq-item > span {
-            min-width: 0;              /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Permite encoger */
-            overflow-wrap: anywhere;   /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Rompe palabras largas */
+            min-width: 0;              /* ðŸ›¡ï¸ Permite encoger */
+            overflow-wrap: anywhere;   /* ðŸ›¡ï¸ Rompe palabras largas */
         }
 
         .faq-item .count {
-            flex-shrink: 0;            /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â El badge nunca se encoge */
+            flex-shrink: 0;            /* ðŸ›¡ï¸ El badge nunca se encoge */
             white-space: nowrap;
         }
 
@@ -1384,7 +1384,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ðŸŽ¯ VISTA: BANDEJA DE PROSPECTOS (Leads)
+           🎯 VISTA: BANDEJA DE PROSPECTOS (Leads)
            ======================================================== */
         .leads-header {
             display: flex;
@@ -1435,18 +1435,18 @@ body.dark-mode .nav-backdrop {
         }
 
         /* En Clientes el filtro es hijo directo de .view-section, que ya separa
-           con un gap de 28px, asÃ­ que el margen de arriba le basta. En
+           con un gap de 28px, así que el margen de arriba le basta. En
            Prospectos vive adentro de .panel-card, sin ese gap, y el filtro pegaba
-           con las tarjetas de mÃ©tricas de abajo: acÃ¡ se recupera el mismo ritmo
+           con las tarjetas de métricas de abajo: acá se recupera el mismo ritmo
            que usa .leads-header (18px). */
         .panel-card .leads-status-filter {
             margin-bottom: 18px;
         }
 
-        /* Refresco con datos ya cargados (botÃ³n "Actualizar"): los bajan de
-           opacidad y se bloquean para no actuar sobre filas que estÃ¡n por
-           cambiarse. Nada de esqueleto: eso vaciarÃ­a la tabla que estÃ¡s leyendo
-           y te harÃ­a perder el scroll; con esto el "Â¿se actualizÃ³?" se responde
+        /* Refresco con datos ya cargados (botón "Actualizar"): los bajan de
+           opacidad y se bloquean para no actuar sobre filas que están por
+           cambiarse. Nada de esqueleto: eso vaciaría la tabla que estás leyendo
+           y te haría perder el scroll; con esto el "¿se actualizó?" se responde
            de un vistazo sin perder el contexto. */
         .leads-table-wrap,
         .leads-footer {
@@ -2432,7 +2432,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           Ã°Å¸Å¡Â§ VISTA: EN CONSTRUCCIÃƒâ€œN (Para secciones no terminadas)
+           ðŸš§ VISTA: EN CONSTRUCCIÃ“N (Para secciones no terminadas)
            ======================================================== */
         .under-construction-card {
             background-color: var(--bg-surface);
@@ -2485,10 +2485,10 @@ body.dark-mode .nav-backdrop {
         }
 
                 /* ========================================================
-           Ã°Å¸â€œÅ“ SCROLLBAR PERSONALIZADO (Modo Claro + Oscuro)
+           ðŸ“œ SCROLLBAR PERSONALIZADO (Modo Claro + Oscuro)
            ======================================================== */
         
-        /* Ã°Å¸Å½Â¯ SCROLLBAR GLOBAL */
+        /* ðŸŽ¯ SCROLLBAR GLOBAL */
         ::-webkit-scrollbar {
             width: 10px;
             height: 10px;
@@ -2510,14 +2510,14 @@ body.dark-mode .nav-backdrop {
             background: var(--text-muted);
         }
 
-        /* Ã°Å¸â€Â¥ Firefox */
+        /* ðŸ”¥ Firefox */
         * {
             scrollbar-width: thin;
             scrollbar-color: var(--border-color) var(--bg-body);
         }
 
         /* ========================================================
-           Ã°Å¸Å’â„¢ SCROLLBAR EN MODO OSCURO Ã¢â‚¬â€ Azulada Premium
+           ðŸŒ™ SCROLLBAR EN MODO OSCURO â€” Azulada Premium
            ======================================================== */
         body.dark-mode ::-webkit-scrollbar-track {
             background: #09090b;              /* Fondo profundo */
@@ -2533,13 +2533,13 @@ body.dark-mode .nav-backdrop {
             background: #52525b;
         }
 
-        /* Ã°Å¸â€Â¥ Firefox dark mode */
+        /* ðŸ”¥ Firefox dark mode */
         body.dark-mode * {
             scrollbar-color: #3f3f46 #09090b;
         }
 
         /* ========================================================
-           Ã°Å¸â€œÂ¦ SCROLLBAR ESPECÃƒÂFICO DEL CONTENIDO PRINCIPAL
+           ðŸ“¦ SCROLLBAR ESPECÃFICO DEL CONTENIDO PRINCIPAL
            ======================================================== */
         main.content-wrapper::-webkit-scrollbar {
             width: 12px;
@@ -2559,7 +2559,7 @@ body.dark-mode .nav-backdrop {
             background: var(--primary-color);
         }
 
-        /* Ã°Å¸Å’â„¢ Modo oscuro para el content-wrapper */
+        /* ðŸŒ™ Modo oscuro para el content-wrapper */
         body.dark-mode main.content-wrapper::-webkit-scrollbar-thumb {
             background: #3f3f46;
             border-color: #09090b;
@@ -2569,7 +2569,7 @@ body.dark-mode .nav-backdrop {
             background: #52525b;
         }
 
-        /* Ã°Å¸ÂÅ¾ Toast estilo dark graphite con borde sutil */
+        /* ðŸž Toast estilo dark graphite con borde sutil */
         .toasts-container {
             position: fixed;
             bottom: 25px;
@@ -2647,7 +2647,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           Ã°Å¸â€œâ€ž FOOTER PROFESIONAL AGENTOSWEB
+           ðŸ“„ FOOTER PROFESIONAL AGENTOSWEB
            ======================================================== */
         .dashboard-footer {
             margin-top: auto;
@@ -2721,64 +2721,64 @@ body.dark-mode .nav-backdrop {
         }
 
                 /* ========================================================
-           Ã°Å¸â€œÂ± RESPONSIVE MÃƒâ€œVIL CONSOLIDADO (Sidebar + MenÃƒÂº Hamburguesa)
+           ðŸ“± RESPONSIVE MÃ“VIL CONSOLIDADO (Sidebar + MenÃº Hamburguesa)
            ======================================================== */
                         @media (max-width: 768px) {
             html,
             body {
                 width: 100%;
                 max-width: 100%;
-                overflow-x: hidden;   /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Refuerzo mÃƒÂ³vil */
+                overflow-x: hidden;   /* ðŸ›¡ï¸ Refuerzo mÃ³vil */
             }
 
             body {
                 flex-direction: column;
                 overflow: hidden;
                 overflow-x: hidden;
-                /* 100vh en mÃ³vil incluye el Ã¡rea detrÃ¡s de la barra del navegador:
-                   el layout queda mÃ¡s alto que la pantalla y el footer se va fuera
+                /* 100vh en móvil incluye el área detrás de la barra del navegador:
+                   el layout queda más alto que la pantalla y el footer se va fuera
                    de vista. dvh mide el viewport visible real. */
                 height: 100dvh;
             }
 
-            /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Aplicar overflow SOLO al contenido, NO al sidebar (para no clipar el dropdown) */
+            /* ðŸ›¡ï¸ Aplicar overflow SOLO al contenido, NO al sidebar (para no clipar el dropdown) */
             main.content-wrapper {
                 max-width: 100%;
                 overflow-x: hidden;
             }
 
-            /* Ã°Å¸Å½Â¯ Garantizar que el sidebar NUNCA cree un scroll-container que recorte el dropdown */
+            /* ðŸŽ¯ Garantizar que el sidebar NUNCA cree un scroll-container que recorte el dropdown */
             aside.sidebar {
                 overflow: visible !important;
             }
 
-                        /* Ã°Å¸Â§Â­ Barra lateral como cabecera superior compacta */
+                        /* ðŸ§­ Barra lateral como cabecera superior compacta */
             aside.sidebar,
-            aside.sidebar.collapsed {          /* Ã°Å¸Å½Â¯ Cubrir AMBOS estados */
+            aside.sidebar.collapsed {          /* ðŸŽ¯ Cubrir AMBOS estados */
                 width: 100% !important;
-                height: 64px !important;       /* Ã°Å¸Å½Â¯ Alto fijo en ambos estados */
+                height: 64px !important;       /* ðŸŽ¯ Alto fijo en ambos estados */
                 min-height: 64px !important;
                 flex-direction: row;
                 align-items: center;
                 justify-content: space-between;
-                padding: 0 16px !important;    /* Ã°Å¸Å½Â¯ Anula el padding del desktop collapsed */
+                padding: 0 16px !important;    /* ðŸŽ¯ Anula el padding del desktop collapsed */
                 border-right: none;
                 border-bottom: 1px solid var(--border-color);
                 position: relative;
                 z-index: 100;
-                /* Ã°Å¸Å½Â¬ Desactivar transiciÃƒÂ³n de width/padding en mÃƒÂ³vil (evita el "encogimiento" animado) */
+                /* ðŸŽ¬ Desactivar transiciÃ³n de width/padding en mÃ³vil (evita el "encogimiento" animado) */
                 transition: background-color 0.25s ease, border-color 0.25s ease !important;
-                overflow: visible !important;  /* Ã°Å¸â€ºÂ¡Ã¯Â¸Â Ya estaba del fix anterior */
+                overflow: visible !important;  /* ðŸ›¡ï¸ Ya estaba del fix anterior */
             }
 
-            /* Ã°Å¸Å½Â¯ Neutralizar los efectos colaterales del modo collapsed en mÃƒÂ³vil */
+            /* ðŸŽ¯ Neutralizar los efectos colaterales del modo collapsed en mÃ³vil */
             aside.sidebar.collapsed .brand-header {
                 padding-bottom: 0 !important;
                 justify-content: space-between !important;
                 border-bottom: none !important;
             }
 
-            /* Ã°Å¸Å½Â¯ Los nav-items NO deben cambiar padding/gap al abrir/cerrar */
+            /* ðŸŽ¯ Los nav-items NO deben cambiar padding/gap al abrir/cerrar */
             aside.sidebar.collapsed .nav-item,
             aside.sidebar:not(.collapsed) .nav-item {
                 justify-content: flex-start !important;
@@ -2786,19 +2786,19 @@ body.dark-mode .nav-backdrop {
                 gap: 12px !important;
             }
 
-            /* Ã°Å¸Å½Â¯ El brand-left SIEMPRE visible con su layout natural */
+            /* ðŸŽ¯ El brand-left SIEMPRE visible con su layout natural */
             aside.sidebar.collapsed .brand-left,
             aside.sidebar:not(.collapsed) .brand-left {
                 display: flex !important;
                 gap: 10px !important;
             }
 
-            /* Ã°Å¸â€â€ž Forzar visibilidad del logo/tÃƒÂ­tulo en ambos estados */
+            /* ðŸ”„ Forzar visibilidad del logo/tÃ­tulo en ambos estados */
             aside.sidebar .brand-left {
                 display: flex !important;
             }
 
-                        /* Ã°Å¸Å½Â¯ FIX MAESTRO #0: El div envoltorio (sin clase) DEBE ocupar todo el ancho
+                        /* ðŸŽ¯ FIX MAESTRO #0: El div envoltorio (sin clase) DEBE ocupar todo el ancho
                del sidebar. Sin esto, el brand-header queda encogido y 'space-between' no funciona. */
             aside.sidebar > div:first-child {
                 flex: 1 1 auto;
@@ -2806,7 +2806,7 @@ body.dark-mode .nav-backdrop {
                 min-width: 0; /* Previene desbordes en textos largos */
             }
 
-            /* Ã°Å¸Å½Â¯ FIX CLAVE #1: El header debe repartir con space-between (logo izquierda, botÃƒÂ³n derecha)
+            /* ðŸŽ¯ FIX CLAVE #1: El header debe repartir con space-between (logo izquierda, botÃ³n derecha)
                Esto sobreescribe 'justify-content: center' que viene del modo colapsado de desktop */
             aside.sidebar .brand-header,
             aside.sidebar.collapsed .brand-header {
@@ -2817,16 +2817,16 @@ body.dark-mode .nav-backdrop {
                 width: 100%;
             }
 
-            /* Ã°Å¸Å½Â¯ FIX CLAVE #2: Resetear margin auto del botÃƒÂ³n para que se pegue a la esquina derecha */
+            /* ðŸŽ¯ FIX CLAVE #2: Resetear margin auto del botÃ³n para que se pegue a la esquina derecha */
             aside.sidebar .sidebar-toggle-btn,
             aside.sidebar.collapsed .sidebar-toggle-btn {
                 display: flex !important;
-                margin: 0 !important;          /* Ã°Å¸â€˜Ë† Anula el 'margin: 0 auto' del desktop */
-                margin-left: auto !important;  /* Ã°Å¸â€˜Ë† Empuja el botÃƒÂ³n hasta la esquina derecha */
+                margin: 0 !important;          /* ðŸ‘ˆ Anula el 'margin: 0 auto' del desktop */
+                margin-left: auto !important;  /* ðŸ‘ˆ Empuja el botÃ³n hasta la esquina derecha */
                 flex-shrink: 0;
             }
 
-            /* Ã°Å¸Ââ€ Ã¢â€ â€™ Ã¢Å“â€¢ Cambio de ÃƒÂ­cono cuando el menÃƒÂº estÃƒÂ¡ abierto */
+            /* ðŸ” â†’ âœ• Cambio de Ã­cono cuando el menÃº estÃ¡ abierto */
             aside.sidebar:not(.collapsed) .sidebar-toggle-btn .icon-menu {
                 display: none;
             }
@@ -2835,22 +2835,22 @@ body.dark-mode .nav-backdrop {
                 color: var(--primary-color);
             }
 
-                        /* Ã°Å¸â€œâ€š Dropdown del menÃƒÂº con animaciÃƒÂ³n suave */
+                        /* ðŸ“‚ Dropdown del menÃº con animaciÃ³n suave */
 .nav-menu {
                 position: absolute;
-                top: 100%;               /* Ã°Å¸â€˜Ë† En vez de 'top: 64px', usar 100% del padre (mÃƒÂ¡s robusto) */
+                top: 100%;               /* ðŸ‘ˆ En vez de 'top: 64px', usar 100% del padre (mÃ¡s robusto) */
                 left: 0;
-                right: 0;                /* Ã°Å¸â€˜Ë† Cubre todo el ancho del padre */
+                right: 0;                /* ðŸ‘ˆ Cubre todo el ancho del padre */
                 width: 100%;
                 background-color: var(--bg-sidebar);
                 border-bottom: 1px solid var(--border-color);
-                padding: 12px 16px 16px;  /* Ã°Å¸Å½Â¯ Aire cÃ³modo arriba sin crear hueco entre cintillo y panel */
+                padding: 12px 16px 16px;  /* ðŸŽ¯ Aire cómodo arriba sin crear hueco entre cintillo y panel */
                 box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
                 flex-direction: column;
                 gap: 6px;
                 z-index: 110;
                 /* El panel cuelga absoluto de una tira de 64px y body tiene
-                   overflow:hidden, asÃ­ que en pantallas bajas se cortaba sin
+                   overflow:hidden, así que en pantallas bajas se cortaba sin
                    forma de llegar al final. Ocupa TODA la altura disponible
                    (no solo max-height) y scrollea si el contenido no entra. */
                 height: calc(100dvh - 64px);
@@ -2858,9 +2858,9 @@ body.dark-mode .nav-backdrop {
                 overscroll-behavior: contain;
                 -webkit-overflow-scrolling: touch;
                 z-index: 110;
-                isolation: isolate;      /* Ã°Å¸Å½Â¯ Nueva capa de apilamiento independiente */
+                isolation: isolate;      /* ðŸŽ¯ Nueva capa de apilamiento independiente */
                 will-change: opacity, transform;
-                /* Ã°Å¸Å½Â¬ Estado cerrado (oculto con transiciÃƒÂ³n) */
+                /* ðŸŽ¬ Estado cerrado (oculto con transiciÃ³n) */
                 opacity: 0;
                 visibility: hidden;
                 transform: translateY(-4px);
@@ -2868,7 +2868,7 @@ body.dark-mode .nav-backdrop {
                 transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), visibility 0.25s;
             }
 
-            /* Ã°Å¸â€œâ€š Estado abierto â€” pegado EXACTO bajo el cintillo (64px) */
+            /* ðŸ“‚ Estado abierto — pegado EXACTO bajo el cintillo (64px) */
             aside.sidebar:not(.collapsed) .nav-menu {
                 opacity: 1;
                 visibility: visible;
@@ -2878,19 +2878,19 @@ body.dark-mode .nav-backdrop {
                 pointer-events: auto;
             }
 
-            /* Ã°Å¸â€œÂ Mostrar textos y badges cuando el menÃƒÂº estÃƒÂ¡ abierto */
+            /* ðŸ“ Mostrar textos y badges cuando el menÃº estÃ¡ abierto */
             aside.sidebar:not(.collapsed) .nav-item span:not(.nav-badge),
             aside.sidebar:not(.collapsed) .nav-badge {
                 display: inline-block !important;
             }
 
-            /* Ã°Å¸â„¢Ë† Ocultar elementos secundarios en mÃƒÂ³vil colapsado */
+            /* ðŸ™ˆ Ocultar elementos secundarios en mÃ³vil colapsado */
             .sidebar.collapsed .user-pill,
             .sidebar-footer {
                 display: none;
             }
 
-            /* Ã°Å¸â€œÅ  MÃƒÂ©tricas y columnas Ã¢â€ â€™ 1 sola columna */
+            /* ðŸ“Š MÃ©tricas y columnas â†’ 1 sola columna */
             .metrics-grid {
                 grid-template-columns: 1fr !important;
                 gap: 14px;
@@ -2901,12 +2901,12 @@ body.dark-mode .nav-backdrop {
                 gap: 16px;
             }
 
-            /* Tabla de Clientes en mÃ³vil. Con 6 columnas no entra en 360px, y el
+            /* Tabla de Clientes en móvil. Con 6 columnas no entra en 360px, y el
                scroll horizontal NO sirve: un ancestro con overflow recorta el
                desplegable del plan (position:absolute dentro de un scroller).
                Por eso cada fila se convierte en una tarjeta con sus etiquetas y
                se ven TODOS los datos. Acotado a .admin-table porque Prospectos
-               comparte la clase .leads-table y ahÃ­ sÃ­ quiere scroll. */
+               comparte la clase .leads-table y ahí sí quiere scroll. */
             .admin-table,
             .admin-table tbody,
             .admin-table tr,
@@ -2950,7 +2950,7 @@ body.dark-mode .nav-backdrop {
                 flex-shrink: 0;
             }
 
-            /* La primera celda es el tÃ­tulo de la tarjeta: sin etiqueta a la izquierda. */
+            /* La primera celda es el título de la tarjeta: sin etiqueta a la izquierda. */
             .admin-table td:first-child {
                 display: block;
                 padding-bottom: 12px;
@@ -2972,7 +2972,7 @@ body.dark-mode .nav-backdrop {
                 min-width: 140px;
             }
 
-            /* Prospectos en mÃ³vil: cada fila es una tarjeta y se apilan una debajo
+            /* Prospectos en móvil: cada fila es una tarjeta y se apilan una debajo
                de otra. El wrapper con overflow/max-height_NO_ se lleva, porque un
                scroller con altura fija recorta los desplegables (position:absolute)
                y agrega un scroll anidado innecesario. */
@@ -3038,7 +3038,7 @@ body.dark-mode .nav-backdrop {
                 position: relative;
             }
 
-            /* La celda del nombre es el tÃ­tulo: sin etiqueta, con espacio para
+            /* La celda del nombre es el título: sin etiqueta, con espacio para
                que el checkbox no se monte sobre el texto. */
             .leads-table td:nth-child(2) {
                 display: block;
@@ -3113,8 +3113,8 @@ body.dark-mode .nav-backdrop {
                 height: calc(100dvh - 64px);
             }
 
-            /* En mÃ³vil el footer va al final del contenido, como en cualquier
-               pÃ¡gina: sin position:sticky ni margin-top:auto, asÃ­ deja de verse
+            /* En móvil el footer va al final del contenido, como en cualquier
+               página: sin position:sticky ni margin-top:auto, así deja de verse
                siempre pegado abajo y solo aparece al bajar hasta el final. */
             .dashboard-footer {
                 position: static;
@@ -3177,7 +3177,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ?? MENÃš DE USUARIO (modal dropdown estilo Gemini)
+           ?? MENÚ DE USUARIO (modal dropdown estilo Gemini)
            ======================================================== */
         .user-menu-wrap {
             position: relative;
@@ -3308,7 +3308,7 @@ body.dark-mode .nav-backdrop {
             color: #ef4444;
         }
 
-        /* ?? Sombras del menÃº en modo oscuro */
+        /* ?? Sombras del menú en modo oscuro */
         body.dark-mode .user-menu {
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
         }
@@ -3320,7 +3320,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ?? MENÃš DE USUARIO (coherente con el switcher de agente)
+           ?? MENÚ DE USUARIO (coherente con el switcher de agente)
            ======================================================== */
         .user-menu {
             background: var(--surface-card);
@@ -3337,7 +3337,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ?? MODAL DE CONFIRMACIÃ“N (Cerrar SesiÃ³n)
+           ?? MODAL DE CONFIRMACIÓN (Cerrar Sesión)
            ======================================================== */
         .modal-backdrop {
             position: fixed;
@@ -3479,8 +3479,8 @@ body.dark-mode .nav-backdrop {
             box-shadow: none;
         }
 
-        /* AcciÃ³n positiva (renovar, aplicar): el azul de marca en vez del rojo.
-           Sin esto, renormalizar una cuenta se veÃ­a como un botÃ³n destructivo. */
+        /* Acción positiva (renovar, aplicar): el azul de marca en vez del rojo.
+           Sin esto, renormalizar una cuenta se veía como un botón destructivo. */
         .logout-modal-actions .logout-confirm.is-neutral {
             background: var(--primary-gradient);
             box-shadow: 0 6px 16px -6px var(--primary-box-shadow);
@@ -3536,7 +3536,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* --- Modal de historial (PlanHistoryModal) ---
-           Reusa la cÃ¡scara .logout-modal del panel; solo se ensancha y se le
+           Reusa la cáscara .logout-modal del panel; solo se ensancha y se le
            da scroll propio, porque adentro van 12 movimientos de alto. */
         .history-modal {
             width: min(680px, 100%);
@@ -3560,7 +3560,7 @@ body.dark-mode .nav-backdrop {
             gap: 6px;
         }
 
-        /* Una sola lÃ­nea arriba: "Historial" en la esquina superior izquierda,
+        /* Una sola línea arriba: "Historial" en la esquina superior izquierda,
            el email y el contador al lado, y la X a la derecha. El email largo
            se corta con elipsis en vez de partirse en varias filas. */
         .history-modal-head {
@@ -3595,7 +3595,7 @@ body.dark-mode .nav-backdrop {
             white-space: nowrap;
         }
 
-        /* Contador dentro de los pÃ­ldoros de plan de Clientes. Reusa el estilo
+        /* Contador dentro de los píldoros de plan de Clientes. Reusa el estilo
            del contador de estados de Prospectos para que la fila se lea igual. */
         .lead-filter-pill .lead-filter-pill-n {
             display: inline-flex;
@@ -3672,7 +3672,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* Un color por tipo de movimiento, para poder escanear la lista sin
-           leerla: verde = pagÃ³, rojo = cayÃ³ sola, Ã¡mbar = vencimiento, azul =
+           leerla: verde = pagó, rojo = cayó sola, ámbar = vencimiento, azul =
            cambio de plan a mano. */
         .hist-dot {
             width: 8px;
@@ -3882,7 +3882,7 @@ body.dark-mode .nav-backdrop {
             text-align: right;
         }
 
-        /* Fila "Cambio" del modal: resumen Free → Pro antes de coordinar. */
+        /* Fila "Cambio" del modal: resumen Free ? Pro antes de coordinar. */
         .pay-summary-row.pay-change {
             padding-top: 8px;
             border-top: 1px dashed var(--border-color);
@@ -4085,7 +4085,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ?? MENÃš HAMBURGUESA MÃ“VIL: usuario, orden y stagger
+           ?? MENÚ HAMBURGUESA MÓVIL: usuario, orden y stagger
            ======================================================== */
         .sidebar-header-actions {
             display: flex;
@@ -4139,12 +4139,12 @@ body.dark-mode .nav-backdrop {
         }
 
         @media (max-width: 768px) {
-            /* ?? NotificaciÃ³n vive en la cabecera junto al toggle */
+            /* ?? Notificación vive en la cabecera junto al toggle */
             .sidebar-notif {
                 display: flex;
             }
 
-            /* Ocultar notif/tema/avatar del topbar (ya estÃ¡n en el hamburguesa) */
+            /* Ocultar notif/tema/avatar del topbar (ya están en el hamburguesa) */
             header.topbar .topbar-actions .topbar-btn#notif-btn,
             header.topbar .topbar-actions .topbar-btn#theme-btn,
             header.topbar .topbar-actions .user-menu-wrap,
@@ -4161,7 +4161,7 @@ body.dark-mode .nav-backdrop {
                 padding-top: 2px;
             }
 
-            /* ?? Stagger en los items del menÃº cuando se abre */
+            /* ?? Stagger en los items del menú cuando se abre */
             aside.sidebar:not(.collapsed) .nav-menu .nav-item {
                 animation: aow-menu-item-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
             }
@@ -4174,13 +4174,13 @@ body.dark-mode .nav-backdrop {
             aside.sidebar:not(.collapsed) .nav-menu .nav-item:nth-of-type(6) { animation-delay: 0.18s; }
             aside.sidebar:not(.collapsed) .nav-menu .nav-item:nth-of-type(7) { animation-delay: 0.21s; }
 
-            /* ?? Solo el cintillo (sidebar) queda pegado: el topbar desaparece en mÃ³vil.
-               El tÃ­tulo se muestra dentro del cintillo (brand-title). */
+            /* ?? Solo el cintillo (sidebar) queda pegado: el topbar desaparece en móvil.
+               El título se muestra dentro del cintillo (brand-title). */
             header.topbar {
                 display: none;
             }
 
-            /* ?? En mÃ³vil el subtÃ­tulo del cintillo muestra la pÃ¡gina actual (no "Workspace") */
+            /* ?? En móvil el subtítulo del cintillo muestra la página actual (no "Workspace") */
             .brand-subtitle {
                 font-size: 11px !important;
             }
@@ -4189,7 +4189,7 @@ body.dark-mode .nav-backdrop {
             }
 
             /* ?? Contenedores de script/FAQ: minmax(0,1fr) evita que el contenido largo
-               fuerce el ancho mÃ­nimo y desborde la columna hacia la derecha */
+               fuerce el ancho mínimo y desborde la columna hacia la derecha */
             .dashboard-columns {
                 grid-template-columns: minmax(0, 1fr);
             }
@@ -4200,7 +4200,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ?? CONFIGURADOR DE AGENTES â€” MÃ³dulo "Mis Agentes"
+           ?? CONFIGURADOR DE AGENTES — Módulo "Mis Agentes"
            ======================================================== */
         .agents-header {
             display: flex;
@@ -6041,7 +6041,7 @@ body.dark-mode .nav-backdrop {
                 flex: 1;
             }
 
-            /* Vista previa: en mÃ³vil el widget se abre a pantalla completa como el original */
+            /* Vista previa: en móvil el widget se abre a pantalla completa como el original */
             .wv-window {
                 position: fixed;
                 inset: 0;
@@ -6074,7 +6074,7 @@ body.dark-mode .nav-backdrop {
             }
         }
 
-        /* ðŸ” Pantalla de inicio de sesiÃ³n del panel */
+        /* 🔐 Pantalla de inicio de sesión del panel */
         .login-shell {
             min-height: 100vh;
             display: flex;
@@ -6228,7 +6228,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ðŸ’³ MÃ“DULO "PLANES & FACTURACIÃ“N"
+           💳 MÓDULO "PLANES & FACTURACIÓN"
            ======================================================== */
         .plan-cards {
             display: grid;
@@ -6387,7 +6387,7 @@ body.dark-mode .nav-backdrop {
             color: var(--primary-color);
         }
 
-        /* Feature que el plan NO incluye: solo ✗ en gris, sin tachar (el
+        /* Feature que el plan NO incluye: solo ? en gris, sin tachar (el
            tachado sobre un flex con svg queda desalineado). */
         .plan-features li.is-off {
             color: var(--text-muted);
@@ -6399,7 +6399,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* Fila que CAMBIA frente al plan actual (solo en la tarjeta evaluada):
-           ganancia en primario, pérdida en ámbar (semáforo del panel). */
+           ganancia en primario, p�rdida en �mbar (sem�foro del panel). */
         .plan-features li.is-change {
             color: var(--primary-color);
             font-weight: 600;
@@ -6414,7 +6414,7 @@ body.dark-mode .nav-backdrop {
             opacity: 1;
         }
 
-        /* CTA al pie de la tarjeta (la tarjeta entera es el botón). */
+        /* CTA al pie de la tarjeta (la tarjeta entera es el bot�n). */
         .plan-cta {
             display: flex;
             align-items: center;
@@ -6488,7 +6488,7 @@ body.dark-mode .nav-backdrop {
             color: var(--text-main);
         }
 
-        /* Días restantes del plan, junto a la fecha (chip). */
+        /* D�as restantes del plan, junto a la fecha (chip). */
         .plan-expiry-days {
             display: inline-block;
             margin-left: 8px;
@@ -6546,7 +6546,7 @@ body.dark-mode .nav-backdrop {
         }
 
         /* Aviso de cupo al 80% (y rojo al 100%): mismo lenguaje de color que
-           las barras del semáforo, plano como todo el panel. */
+           las barras del sem�foro, plano como todo el panel. */
         .plan-quota-warn {
             margin-top: 10px;
             padding: 9px 12px;
@@ -6563,7 +6563,7 @@ body.dark-mode .nav-backdrop {
             background: color-mix(in srgb, #dc2626 8%, var(--bg-surface));
         }
 
-        /* Historial de uso mensual (snapshot del cron del día 1). */
+        /* Historial de uso mensual (snapshot del cron del d�a 1). */
         .usage-hist {
             margin-top: 4px;
         }
@@ -6628,8 +6628,8 @@ body.dark-mode .nav-backdrop {
         }
 
         /* ========================================================
-           ðŸ” LOGIN SPLIT-SCREEN (FASE 2B â€” nuevo branding)
-           Izquierda 55% branding con degradado azulâ†’cian (btn-shimmer),
+           🔐 LOGIN SPLIT-SCREEN (FASE 2B — nuevo branding)
+           Izquierda 55% branding con degradado azul→cian (btn-shimmer),
            derecha 45% tarjeta con tokens del panel. Sin glassmorphism.
            ======================================================== */
         .auth-page {
@@ -6764,7 +6764,7 @@ body.dark-mode .nav-backdrop {
             color: rgba(255, 255, 255, 0.9);
         }
 
-        /* â”€â”€ Mockup del chat flotante (decorativo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+        /* ── Mockup del chat flotante (decorativo) ─────────────────────────── */
         .auth-brand-split {
             display: flex;
             align-items: stretch;
@@ -7307,7 +7307,7 @@ body.dark-mode .nav-backdrop {
             }
         }
 
-        /* Tablet (601-860px): marca centrada y mÃ¡s grande, card mÃ¡s ancho */
+        /* Tablet (601-860px): marca centrada y más grande, card más ancho */
         @media (min-width: 601px) and (max-width: 860px) {
             .auth-brand {
                 justify-content: center;
@@ -7338,7 +7338,7 @@ body.dark-mode .nav-backdrop {
             }
         }
 
-/* ── Analíticas (V1) ───────────────────────────────────────────────────── */
+/* -- Anal�ticas (V1) ----------------------------------------------------- */
 .ana-header {
     display: flex;
     align-items: flex-end;
@@ -7383,14 +7383,14 @@ body.dark-mode .nav-backdrop {
     flex-wrap: wrap;
 }
 /* Titulo/subtitulo dentro de las tarjetas: .panel-card h3 (15.5/600) y
-   p.subtitle (13.5 muted) — los del proyecto, no reglas nuevas. */
+   p.subtitle (13.5 muted) � los del proyecto, no reglas nuevas. */
 .ana-card-head .subtitle { margin-bottom: 0; }
 .ana-hint { font-size: 0.76rem; color: var(--text-muted); }
 .ana-legend { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-muted); }
 .ana-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .ana-legend .dot.msg { background: var(--primary-color); }
 .ana-legend .dot.con { background: #a78bfa; margin-left: 8px; }
-/* overflow-x: en móvil 90 días no entran (min-width 2px × 90 + gaps > ancho
+/* overflow-x: en m�vil 90 d�as no entran (min-width 2px � 90 + gaps > ancho
    de la card) y el content-wrapper los cortaba sin aviso: ahora scrollea. */
 .ana-daily { display: flex; align-items: flex-end; gap: 2px; height: 170px; overflow-x: auto; }
 .ana-day { flex: 1 1 0; min-width: 2px; height: 100%; display: flex; align-items: flex-end; gap: 1px; }
@@ -7426,7 +7426,7 @@ body.dark-mode .nav-backdrop {
 .ana-heat-max { font-size: 0.68rem; color: var(--text-muted); text-align: right; }
 .ana-heat-hours {
     display: grid;
-    /* minmax(0, …): los rótulos "6h/12h/18h" fijaban un mínimo de columna y
+    /* minmax(0, �): los r�tulos "6h/12h/18h" fijaban un m�nimo de columna y
        las etiquetas se desalineaban de las celdas en pantallas angostas. */
     grid-template-columns: 42px repeat(24, minmax(0, 1fr)) 34px;
     gap: 3px;
@@ -7510,7 +7510,7 @@ body.dark-mode .nav-backdrop {
 }
 
 
-/* ── Settings / Configuración (V1) ─────────────────────────── */
+/* -- Settings / Configuraci�n (V1) --------------------------- */
 .set-layout {
     display: grid;
     grid-template-columns: 240px minmax(0, 1fr);
@@ -7560,6 +7560,11 @@ body.dark-mode .nav-backdrop {
 }
 .set-card-head { margin-bottom: 14px; }
 .set-card-head h3 { margin-bottom: 3px; }
+
+.set-content .form-group { gap: 8px; }
+.set-content .form-row { margin-top: 14px; }
+.set-content .form-banner-error { margin-top: 14px; }
+.set-content form > .btn-primary { margin-top: 18px; }
 
 .set-identity {
     display: flex;
@@ -7613,6 +7618,7 @@ body.dark-mode .nav-backdrop {
     font-size: 13.5px;
     cursor: pointer;
     color: var(--text-main);
+    text-decoration: none;
     transition: color 0.15s;
 }
 .set-link:hover { color: var(--primary-color); }
@@ -7627,7 +7633,7 @@ body.dark-mode .nav-backdrop {
     background: rgba(53, 89, 255, 0.1);
     color: var(--primary-color);
 }
-.set-plan-pill.is-lg { font-size: 13px; padding: 6px 15px; }
+
 
 .set-block {
     margin-top: 18px;
@@ -7689,38 +7695,6 @@ body.dark-mode .nav-backdrop {
     margin-top: 16px;
 }
 
-.set-plan-hero {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 6px;
-}
-.set-usage {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    margin-top: 10px;
-}
-.set-usage-top {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 13px;
-    margin-bottom: 7px;
-}
-.set-bar {
-    height: 8px;
-    background: var(--bg-subtle);
-    border-radius: 999px;
-    overflow: hidden;
-}
-.set-bar-fill {
-    height: 100%;
-    background: var(--primary-gradient);
-    border-radius: 999px;
-    transition: width 0.3s;
-}
 
 .set-theme-seg { width: 100%; max-width: 380px; margin-top: 4px; }
 

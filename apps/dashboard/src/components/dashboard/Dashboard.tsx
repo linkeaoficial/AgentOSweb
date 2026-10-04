@@ -387,7 +387,7 @@ export default function Dashboard() {
           ) : activeView === "view-leads" ? (
             <LeadsView key={currentAgentId} agentId={currentAgentId} />
           ) : activeView === "view-settings" ? (
-            <SettingsView owner={owner} agentsCount={agents.length} theme={theme} setTheme={setTheme} onNavigate={handleNavigate} />
+            <SettingsView owner={owner} theme={theme} setTheme={setTheme} onNavigate={handleNavigate} />
           ) : activeView === "view-analytics" ? (
             <AnalyticsView agentId={currentAgentId} onNavigate={handleNavigate} />
           ) : (
