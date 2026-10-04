@@ -7552,6 +7552,63 @@ body.dark-mode .nav-backdrop {
 .set-nav-btn.is-danger:hover,
 .set-nav-btn.is-danger.active { background: rgba(239, 68, 68, 0.09); color: #ef4444; }
 
+/* Menú drill-down (solo móvil; en desktop se oculta y manda .set-nav) */
+.set-menu { display: none; }
+.set-back { display: none; }
+.set-menu-account {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-brand);
+    background: var(--bg-surface);
+    box-shadow: var(--card-shadow);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    color: var(--text-main);
+}
+.set-menu-account .set-menu-account-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+.set-menu-account svg { color: var(--text-muted); flex: 0 0 auto; }
+.set-menu-list {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    margin: 0;
+}
+.set-menu-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    padding: 11px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-main);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.set-menu-row > span { flex: 1; min-width: 0; }
+.set-menu-row svg { flex: 0 0 auto; color: var(--text-muted); }
+.set-menu-row > svg:last-child { width: 14px; height: 14px; }
+.set-menu-row:hover,
+.set-menu-row:focus-visible { background: var(--bg-subtle); }
+.set-menu-row.is-danger,
+.set-menu-row.is-danger svg { color: #ef4444; }
+
 .set-content {
     display: flex;
     flex-direction: column;
@@ -7703,17 +7760,28 @@ body.dark-mode .nav-backdrop {
 
 @media (max-width: 768px) {
     .set-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-    .set-nav {
-        flex-direction: row;
-        overflow-x: auto;
-        position: static;
-        gap: 4px;
-        padding: 6px;
-        scrollbar-width: none;
-        -webkit-overflow-scrolling: touch;
+    /* Drill-down: menú tipo Gemini; el nav lateral y los chips desaparecen */
+    .set-nav { display: none; }
+    .set-menu { display: flex; flex-direction: column; gap: 14px; }
+    .set-content { display: none; }
+    .set-layout.is-detail .set-menu { display: none; }
+    .set-layout.is-detail .set-content { display: flex; }
+    .set-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        align-self: flex-start;
+        border: 0;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 13.5px;
+        font-weight: 600;
+        font-family: inherit;
+        padding: 4px 2px;
+        margin-bottom: -6px;
+        cursor: pointer;
     }
-    .set-nav::-webkit-scrollbar { display: none; }
-    .set-nav-btn { width: auto; flex: 0 0 auto; white-space: nowrap; padding: 8px 13px; }
+    .set-back:hover { color: var(--text-main); }
     .set-avatar { width: 44px; height: 44px; font-size: 16px; }
     .set-actions { flex-direction: column; }
     .set-actions .btn-primary,

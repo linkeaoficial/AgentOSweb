@@ -133,6 +133,12 @@ const jsonHeaders = { "Content-Type": "application/json" };
 export default function SettingsView({ owner, theme, setTheme, onNavigate }: Props) {
   const toast = useToast();
   const [active, setActive] = useState<SectionId>("cuenta");
+  const [detail, setDetail] = useState<SectionId | null>(null);
+
+  const openSection = (id: SectionId) => {
+    setActive(id);
+    setDetail(id);
+  };
 
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -289,7 +295,34 @@ export default function SettingsView({ owner, theme, setTheme, onNavigate }: Pro
         </div>
       </div>
 
-      <div className="set-layout">
+      <div className={`set-layout${detail ? " is-detail" : ""}`}>
+        <div className="set-menu">
+          <button type="button" className="panel-card set-menu-account" onClick={() => openSection("cuenta")}>
+            <span className="set-avatar" aria-hidden="true">
+              {initial}
+            </span>
+            <span className="set-menu-account-text">
+              <span className="set-identity-name">{owner?.name || "Cuenta AgentOSweb"}</span>
+              <span className="set-identity-sub">{owner?.email ?? "Sin correo asociado"}</span>
+            </span>
+            {CHEVRON}
+          </button>
+          <nav className="panel-card set-menu-list" aria-label="Secciones de configuración">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`set-menu-row${s.id === "peligro" ? " is-danger" : ""}`}
+                onClick={() => openSection(s.id)}
+              >
+                {s.icon}
+                <span>{s.label}</span>
+                {CHEVRON}
+              </button>
+            ))}
+          </nav>
+        </div>
+
         <nav className="set-nav" aria-label="Secciones de configuración">
           {SECTIONS.map((s) => (
             <button
@@ -306,6 +339,12 @@ export default function SettingsView({ owner, theme, setTheme, onNavigate }: Pro
         </nav>
 
         <div className="set-content">
+          <button type="button" className="set-back" onClick={() => setDetail(null)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Atrás
+          </button>
           {active === "cuenta" && (
             <div className="panel-card">
               <div className="set-identity">
