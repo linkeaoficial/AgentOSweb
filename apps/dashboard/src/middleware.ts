@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // FASE 2E: con `useSecureCookies` Better Auth emite `__Secure-aow_auth.session_token`;
 // el nombre viejo queda como fallback para no tirar sesiones pre-cambio.
 const SESSION_COOKIES = ["__Secure-aow_auth.session_token", "aow_auth.session_token"];
-const PUBLIC_PATHS = ["/login", "/api/auth", "/imagen", "/_next", "/widget.js", "/w"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/imagen", "/_next", "/widget.js", "/w", "/docs", "/terminos", "/privacidad", "/cookies"];
 
 // Fase 2B: redirige a /login sin tocar la base de datos — solo mira la cookie de
 // sesión de Better Auth. AuthGate (client) valida la sesión real contra el worker.
