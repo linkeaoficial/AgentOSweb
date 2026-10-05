@@ -92,19 +92,24 @@ export default function SupportModal({ open, onClose, email, planLabel }: Props)
       <form onSubmit={submit}>
         <fieldset className="sup-cats">
           <legend className="form-label">¿Sobre qué es?</legend>
-          {CATEGORIES.map((c) => (
-            <label key={c.id} className="sup-cat">
-              <input
-                type="radio"
-                name="sup-category"
-                value={c.id}
-                checked={category === c.id}
-                onChange={() => setCategory(c.id)}
-              />
-              <span className="sup-cat-label">{c.label}</span>
-              <span className="sup-cat-hint">{c.hint}</span>
-            </label>
-          ))}
+          {/* El legend se dibuja fuera de la grilla (Chrome lo saca del flujo),
+              asi que las tarjetas viven en un div propio: si el grid fuera el
+              fieldset, el titulo quedaria pegado a la primera tarjeta. */}
+          <div className="sup-cat-grid">
+            {CATEGORIES.map((c) => (
+              <label key={c.id} className="sup-cat">
+                <input
+                  type="radio"
+                  name="sup-category"
+                  value={c.id}
+                  checked={category === c.id}
+                  onChange={() => setCategory(c.id)}
+                />
+                <span className="sup-cat-label">{c.label}</span>
+                <span className="sup-cat-hint">{c.hint}</span>
+              </label>
+            ))}
+          </div>
         </fieldset>
 
         <div className="form-group">

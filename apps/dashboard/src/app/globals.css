@@ -8136,17 +8136,29 @@ body.dark-mode .support-modal {
     justify-content: center;
 }
 
+/* Separacion de los bloques del modal. Los `.form-group` del panel no traen
+   margen entre si (se apoyan en el padding de cada card), asi que adentro del
+   modal hay que darla explicitly o los campos quedan pegados: el rotulo
+   "Mensaje" terminaba pegado al input de "Asunto". */
+.support-modal .form-group {
+    margin-bottom: 16px;
+}
+
 .sup-cats {
     border: 0;
-    margin-bottom: 18px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 8px;
+    padding: 0;
+    margin: 0 0 18px;
 }
 
 .sup-cats .form-label {
-    grid-column: 1 / -1;
-    margin-bottom: 2px;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.sup-cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
 }
 
 /* El radio nativo se oculta pero sigue siendo lo que se tabula y lo que
@@ -8228,12 +8240,8 @@ body.dark-mode .support-modal {
     margin-top: 18px;
 }
 
-.set-row-sub {
-    display: block;
-    font-size: 12px;
-    color: var(--text-muted);
-    font-weight: 400;
-}
+/* La fila de Ayuda y soporte va en una sola linea, igual que las vecinas: con
+   dos lineas queda 19px mas alta y rompe el ritmo de la lista. */
 
 /* Icono de mensajes en la fila del cliente: el badge cuelga de la esquina
    para que se lea como "tiene N pendientes" y no como un numero suelto. */

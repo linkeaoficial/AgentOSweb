@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useToast } from "./notifications";
 import { Dropdown } from "./AgentsView";
@@ -184,46 +184,60 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
   // Renovar cambia el contrato de una cuenta (sumar meses), así que pide
   // confirmación antes: un clic distraído no debería poder hacerlo.
   const [renew, setRenew] = useState<{ u: AdminUser; months: 1 | 3 } | null>(null);
-  // Ayuda y Soporte. Se trae la bandeja entera (tope 200 en el worker) y el
-  // badge de cada fila se cuenta acá: son pocos mensajes y hace falta el total
-  // por cliente para pintar TODOS los badges, no solo el de la página visible.
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  // Ayuda y Soporte. `openCounts` es lo unico que se carga al entrar (un conteo
+  // por cliente, cacheado 30 s); los mensajes de cada uno se piden recien cuando
+  // se abre su drawer. `ticketsError` = el worker todavia no tiene el servicio
+  // desplegado: los badges quedan en cero y el drawer lo avisa, sin romper la
+  // tabla de clientes.
+  const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
   const [ticketsError, setTicketsError] = useState(false);
   const [ticketsFor, setTicketsFor] = useState<AdminUser | null>(null);
+  const [drawer, setDrawer] = useState<{ id: string; loading: boolean; rows: SupportTicket[] }>({
+    id: "",
+    loading: false,
+    rows: [],
+  });
   const [savingTicket, setSavingTicket] = useState<string | null>(null);
 
-  const loadTickets = useCallback(async () => {
+  const loadOpenCounts = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/support", { cache: "no-store" });
-      const data = (await res.json().catch(() => ({}))) as { tickets?: SupportTicket[] };
+      const data = (await res.json().catch(() => ({}))) as { open?: { user_id: string; open: number }[] };
       if (!res.ok) throw new Error();
-      setTickets(data.tickets ?? []);
+      const counts: Record<string, number> = {};
+      for (const row of data.open ?? []) counts[row.user_id] = row.open;
+      setOpenCounts(counts);
       setTicketsError(false);
     } catch {
-      // Worker viejo (servicio sin desplegar) o red caída: los badges se quedan en
-      // cero y el drawer lo avisa. No rompe la tabla de clientes.
       setTicketsError(true);
     }
   }, []);
 
   useEffect(() => {
-    void loadTickets();
-  }, [loadTickets]);
+    void loadOpenCounts();
+  }, [loadOpenCounts]);
 
-  // Abiertos por cliente: "resuelto" es lo único que no cuenta como pendiente.
-  const openByUser = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of tickets) {
-      if (!t.user_id || t.status === "resuelto") continue;
-      m.set(t.user_id, (m.get(t.user_id) ?? 0) + 1);
+  // Abre el drawer del cliente y pide SOLO sus mensajes.
+  const openTickets = useCallback(async (u: AdminUser) => {
+    setTicketsFor(u);
+    setDrawer({ id: u.id, loading: true, rows: [] });
+    try {
+      const res = await fetch(`/api/admin/support?user_id=${encodeURIComponent(u.id)}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as { tickets?: SupportTicket[] };
+      if (!res.ok) throw new Error();
+      setDrawer({ id: u.id, loading: false, rows: data.tickets ?? [] });
+    } catch {
+      setDrawer({ id: u.id, loading: false, rows: [] });
     }
-    return m;
-  }, [tickets]);
-
-  const ticketsOf = useCallback(
-    (u: AdminUser) => tickets.filter((t) => (u.email ? t.user_email === u.email : t.user_id === u.id)),
-    [tickets]
-  );
+  }, []);
+  // Ayuda y Soporte.
+// `openCounts` es lo unico que se carga al entrar: un conteo por cliente, una
+// fila por cliente con tickets abiertos. Los mensajes de cada uno se piden recien
+// cuando se abre su drawer, con tope, asi que la tabla de Clientes no arrastra
+// el historico entero de los clientes (eran hasta 200 filas con el cuerpo de
+// 4.000 caracteres en cada visita: lo que mas factura en D1).
+// Sin cache a proposito: lo que queda por visita es un conteo indexado por
+// cliente, y cachearlo solo agrega una ventana de badge viejo.
 
   const setTicketStatus = useCallback(
     async (id: string, status: string) => {
@@ -236,7 +250,10 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
         });
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) throw new Error(data.error || "No se pudo cambiar el estado");
-        setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+        setDrawer((d) => ({ ...d, rows: d.rows.map((t) => (t.id === id ? { ...t, status } : t)) }));
+        // El badge de este cliente cambia con este PATCH: se refresca el conteo
+        // para que no quede un numero viejo.
+        void loadOpenCounts();
         toast.success(status === "resuelto" ? "Mensaje marcado como resuelto" : "Estado actualizado");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Error de red");
@@ -244,7 +261,7 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
         setSavingTicket(null);
       }
     },
-    [toast]
+    [toast, loadOpenCounts]
   );
 
   const openDetail = useCallback((u: AdminUser) => {
@@ -528,7 +545,7 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                 {rows.map((u) => {
                   const dirty = drafts[u.id] !== (u.plan ?? "free");
                   const plan = drafts[u.id] ?? "free";
-                  const pending = openByUser.get(u.id) ?? 0;
+                  const pending = openCounts[u.id] ?? 0;
                   return (
                     <tr
                       key={u.id}
@@ -579,7 +596,7 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                               ? `Mensajes de soporte de ${u.email ?? u.name ?? u.id}: ${pending} sin resolver`
                               : `Mensajes de soporte de ${u.email ?? u.name ?? u.id}`
                           }
-                          onClick={() => setTicketsFor(u)}
+                          onClick={() => void openTickets(u)}
                           style={{ marginRight: 8 }}
                         >
                           <IconMessage />
@@ -894,10 +911,15 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                   <p className="acct-hint">
                     El servicio de soporte todavía no está desplegado en el servidor.
                   </p>
-                ) : ticketsOf(ticketsFor).length === 0 ? (
+                ) : drawer.loading ? (
+                  <div className="faq-skeleton" aria-busy="true" aria-label="Cargando mensajes">
+                    <div className="faq-skeleton-row" style={{ height: 64 }} />
+                    <div className="faq-skeleton-row" style={{ height: 64 }} />
+                  </div>
+                ) : drawer.rows.length === 0 ? (
                   <p className="acct-hint">Esta cuenta no escribió por soporte.</p>
                 ) : (
-                  ticketsOf(ticketsFor).map((t) => (
+                  drawer.rows.map((t) => (
                     <section className="sup-ticket" key={t.id}>
                       <div className="sup-ticket-head">
                         <span className="sup-cat-chip">{CATEGORY_LABELS[t.category] ?? t.category}</span>

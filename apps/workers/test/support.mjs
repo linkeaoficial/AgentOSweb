@@ -82,6 +82,7 @@ const openFor = (id) =>
   db.prepare("SELECT COUNT(*) c FROM support_tickets WHERE user_id = ? AND status != 'resuelto'").get(id).c;
 check("el badge cuenta solo lo que no esta resuelto", openFor("u1") === 0 && openFor("u2") === 1);
 
+// --- El panel no debe volver a bajar la bandeja entera ---
 const idx = db
   .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'support_tickets'")
   .all()
@@ -109,6 +110,16 @@ check(
 check(
   "cada estado del worker existe en la bandeja del admin",
   statuses.every((s) => adminSrc.includes(s))
+);
+// Regresiones de carga: la bandeja completa con los cuerpos de 4.000 caracteres
+// es lo que mas factura en D1, asi que queda prohibido volver a pedirla.
+const countsSql = workerSrc.match(/SELECT user_id, COUNT\(\*\) AS open[\s\S]*?GROUP BY user_id/)?.[0];
+check("el conteo de badges no arrastra el mensaje", countsSql !== undefined && !countsSql.includes("message"));
+const drawerLimit = Number(workerSrc.match(/FROM support_tickets WHERE user_id = \?[\s\S]*?LIMIT (\d+)/)?.[1]);
+check("el drawer de un cliente tiene tope de filas", drawerLimit > 0 && drawerLimit <= 50, `LIMIT ${drawerLimit}`);
+check(
+  "el panel pide conteos al entrar y mensajes recien al abrir el drawer",
+  adminSrc.includes("data.open") && adminSrc.includes("user_id=")
 );
 
 console.log(fails === 0 ? "\nTODO OK" : `\n${fails} FALLOS`);

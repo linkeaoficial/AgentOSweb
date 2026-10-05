@@ -312,10 +312,10 @@ async function captureLead(agent: AgentRow, sessionId: string, message: string, 
   }
 }
 
-function isRateLimited(key: string, limit: number): boolean {
+function isRateLimited(key: string, limit: number, windowMs = RATE_WINDOW_MS): boolean {
   const now = Date.now();
   const bucket = rateBuckets.get(key);
-  if (!bucket || now - bucket.windowStart >= RATE_WINDOW_MS) {
+  if (!bucket || now - bucket.windowStart >= windowMs) {
     rateBuckets.set(key, { count: 1, windowStart: now });
     return false;
   }
@@ -1919,8 +1919,11 @@ async function handleSupportCreate(request: Request, env: Env) {
   const user = await resolveUser(request, env);
   if (!user) return json({ error: "No autorizado" }, 401, origin);
   // 5 por hora y por cuenta: frena el "se dio vuelta y lo reenvio" sin frenar a
-  // nadie que este escribiendo un problema de verdad.
-  if (isRateLimited(`support:${user.id}`, 5)) {
+  // nadie que este escribiendo un problema de verdad. Con la ventana por defecto
+  // (60 s) eran 5 por minuto y cada intento es un INSERT. Es en memoria por
+  // isolate, como el resto del worker: si el isolate se recycling, el contador
+  // arranca de cero.
+  if (isRateLimited(`support:${user.id}`, 5, 3_600_000)) {
     return json(
       { error: "Ya nos escribiste varias veces. Te respondemos en breve, no hace falta insistir." },
       429,
@@ -1999,19 +2002,29 @@ async function handleAdminSupport(request: Request, env: Env) {
   }
 
   const userId = (new URL(request.url).searchParams.get("user_id") || "").trim();
-  // Sin paginar y con tope de 200: es una bandeja humana (el admin mira el
-  // badge de cada cliente y abre un drawer), no un reporte. Si el volumen lo
-  // pide, se pagina como en Clientes.
-  // `rowid DESC` de desempate: `strftime` da milisegundos, asi que dos mensajes
-  // enviados en el mismo milisegundo quedan con la misma fecha y el orden de la
-  // bandeja seria el que devuelva D1.
-  const stmt = env.DB.prepare(
-    `SELECT id, user_id, user_email, user_name, user_plan, category, subject, message, status, page, user_agent, created_at, updated_at
-       FROM support_tickets ${userId ? "WHERE user_id = ?" : ""}
-      ORDER BY created_at DESC, rowid DESC LIMIT 200`
-  );
-  const rows = userId ? await stmt.bind(userId).all() : await stmt.all();
-  return json({ tickets: rows.results ?? [] }, 200, origin);
+  if (userId) {
+    // Drawer de un cliente: solo los suyos, con tope de 50. Sale del indice por
+    // user_id, no de la tabla entera.
+    const rows = await env.DB.prepare(
+      `SELECT id, user_id, user_email, user_name, user_plan, category, subject, message, status, page, created_at, updated_at
+         FROM support_tickets WHERE user_id = ?
+        ORDER BY created_at DESC, rowid DESC LIMIT 50`
+    )
+      .bind(userId)
+      .all();
+    return json({ tickets: rows.results ?? [] }, 200, origin);
+  }
+
+  // Badge por cliente: un GROUP BY sobre el indice de estado. Sin `user_id` el
+  // panel solo necesita el numero de pendientes, asi que los mensajes NO se
+  // bajan: traerlos enteros en cada visita a Clientes es justo lo que D1
+  // factura. El drawer de un cliente los pide aparte, y solo de ese cliente.
+  const counts = await env.DB.prepare(
+    `SELECT user_id, COUNT(*) AS open FROM support_tickets
+      WHERE status != 'resuelto' AND user_id IS NOT NULL
+      GROUP BY user_id`
+  ).all<{ user_id: string; open: number }>();
+  return json({ open: counts.results ?? [] }, 200, origin);
 }
 
 async function handleAdminUsers(request: Request, env: Env) {

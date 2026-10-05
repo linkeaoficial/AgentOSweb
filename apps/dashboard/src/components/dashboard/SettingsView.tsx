@@ -387,10 +387,7 @@ export default function SettingsView({ owner, theme, setTheme, onNavigate, onOpe
                   {CHEVRON}
                 </button>
                 <button type="button" className="set-row set-link" onClick={onOpenSupport}>
-                  <span>
-                    Ayuda y soporte
-                    <span className="set-row-sub">Escribinos y te respondemos por email</span>
-                  </span>
+                  <span>Ayuda y soporte</span>
                   {CHEVRON}
                 </button>
                 {owner?.support_whatsapp && (
@@ -400,7 +397,7 @@ export default function SettingsView({ owner, theme, setTheme, onNavigate, onOpe
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <span>Ayuda y soporte (WhatsApp)</span>
+                    <span>Hablar por WhatsApp</span>
                     {CHEVRON}
                   </a>
                 )}
