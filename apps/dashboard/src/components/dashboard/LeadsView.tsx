@@ -163,15 +163,30 @@ function StatusSelect({
   busy: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [up, setUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    // Igual que el dropdown de AgentsView: si no cabe abajo y hay mas espacio
+    // arriba, abre hacia arriba (en las filas de abajo se salia de la ventana).
+    const r = ref.current?.getBoundingClientRect();
+    if (r) {
+      const below = window.innerHeight - r.bottom;
+      setUp(below < 230 && r.top > below);
+    }
     const onDocClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   return (
@@ -183,7 +198,7 @@ function StatusSelect({
         </svg>
       </button>
       {open && (
-        <div className="status-menu">
+        <div className={`status-menu ${up ? "up" : ""}`}>
           {STATUSES.map((s) => (
             <button
               key={s}

@@ -1418,13 +1418,13 @@ body.dark-mode .nav-backdrop {
         .leads-search:focus { border-color: var(--primary-color); }
         .leads-search::placeholder { color: var(--text-muted); }
 
+        /* Sin max-height ni overflow: el menu de Estado es position:absolute y
+           cualquier ancestro con overflow lo recorta (solo se veian 20px de los
+           177). El scroll lo hace la pagina, como en movil. */
         .leads-table-wrap {
-            overflow-x: auto;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-brand);
             background: var(--bg-surface);
-            max-height: 520px;
-            overflow-y: auto;
         }
 
         .leads-status-filter {
@@ -1690,6 +1690,13 @@ body.dark-mode .nav-backdrop {
         }
         .status-menu button:hover { background: var(--bg-subtle); }
         .status-menu button.is-active { background: var(--bg-subtle); font-weight: 700; }
+
+        /* Abre hacia arriba cuando no cabe debajo (mismo criterio que
+           .dropdown-menu.up): `top: auto` + `bottom` sobre el padding de 6px. */
+        .status-menu.up {
+            top: auto;
+            bottom: calc(100% + 6px);
+        }
 
         .leads-check-col {
             width: 40px;
