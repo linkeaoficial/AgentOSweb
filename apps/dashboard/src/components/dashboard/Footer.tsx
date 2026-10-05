@@ -1,4 +1,12 @@
-export default function DashboardFooter({ planLabel, agentsLabel }: { planLabel: string; agentsLabel: string }) {
+export default function DashboardFooter({
+  planLabel,
+  agentsLabel,
+  onSupport,
+}: {
+  planLabel: string;
+  agentsLabel: string;
+  onSupport: () => void;
+}) {
   return (
     <footer className="dashboard-footer">
       <div className="footer-left">
@@ -19,7 +27,12 @@ export default function DashboardFooter({ planLabel, agentsLabel }: { planLabel:
         <span className="footer-separator">•</span>
         <a href="/docs" className="footer-link">Documentación</a>
         <span className="footer-separator">•</span>
-        <a href="#soporte" className="footer-link">Soporte</a>
+        {/* Boton y no <a href="#soporte">: el modal vive en Dashboard y el pie no
+            esta dentro del arbol que lo maneja, asi que un link directo no
+            tendria como abrirlo. */}
+        <button type="button" className="footer-link" onClick={onSupport}>
+          Soporte
+        </button>
       </div>
     </footer>
   );

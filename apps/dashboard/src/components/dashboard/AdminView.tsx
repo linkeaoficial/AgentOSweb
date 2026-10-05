@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useToast } from "./notifications";
 import { Dropdown } from "./AgentsView";
@@ -8,6 +8,35 @@ import { pageNumbers } from "./LeadsView";
 import ConfirmModal from "./ConfirmModal";
 import PlanHistoryModal from "./PlanHistoryModal";
 import type { PlanDefault } from "./BillingView";
+import { IconMessage } from "./icons";
+
+interface SupportTicket {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+  user_plan: string | null;
+  category: string;
+  subject: string;
+  message: string;
+  status: string;
+  page: string | null;
+  created_at: string;
+}
+
+// Espejo de SUPPORT_CATEGORIES / SUPPORT_STATUSES del worker (0013).
+const CATEGORY_LABELS: Record<string, string> = {
+  bug: "Algo no funciona",
+  pregunta: "Pregunta",
+  facturacion: "Planes y facturación",
+  widget: "Widget en la web",
+  mejora: "Sugerencia",
+};
+const STATUS_LABELS: Record<string, string> = {
+  abierto: "Abierto",
+  en_curso: "En curso",
+  resuelto: "Resuelto",
+};
 
 interface AdminUser {
   id: string;
@@ -155,6 +184,68 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
   // Renovar cambia el contrato de una cuenta (sumar meses), así que pide
   // confirmación antes: un clic distraído no debería poder hacerlo.
   const [renew, setRenew] = useState<{ u: AdminUser; months: 1 | 3 } | null>(null);
+  // Ayuda y Soporte. Se trae la bandeja entera (tope 200 en el worker) y el
+  // badge de cada fila se cuenta acá: son pocos mensajes y hace falta el total
+  // por cliente para pintar TODOS los badges, no solo el de la página visible.
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [ticketsError, setTicketsError] = useState(false);
+  const [ticketsFor, setTicketsFor] = useState<AdminUser | null>(null);
+  const [savingTicket, setSavingTicket] = useState<string | null>(null);
+
+  const loadTickets = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/support", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as { tickets?: SupportTicket[] };
+      if (!res.ok) throw new Error();
+      setTickets(data.tickets ?? []);
+      setTicketsError(false);
+    } catch {
+      // Worker viejo (servicio sin desplegar) o red caída: los badges se quedan en
+      // cero y el drawer lo avisa. No rompe la tabla de clientes.
+      setTicketsError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTickets();
+  }, [loadTickets]);
+
+  // Abiertos por cliente: "resuelto" es lo único que no cuenta como pendiente.
+  const openByUser = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of tickets) {
+      if (!t.user_id || t.status === "resuelto") continue;
+      m.set(t.user_id, (m.get(t.user_id) ?? 0) + 1);
+    }
+    return m;
+  }, [tickets]);
+
+  const ticketsOf = useCallback(
+    (u: AdminUser) => tickets.filter((t) => (u.email ? t.user_email === u.email : t.user_id === u.id)),
+    [tickets]
+  );
+
+  const setTicketStatus = useCallback(
+    async (id: string, status: string) => {
+      setSavingTicket(id);
+      try {
+        const res = await fetch("/api/admin/support", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, status }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "No se pudo cambiar el estado");
+        setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+        toast.success(status === "resuelto" ? "Mensaje marcado como resuelto" : "Estado actualizado");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Error de red");
+      } finally {
+        setSavingTicket(null);
+      }
+    },
+    [toast]
+  );
 
   const openDetail = useCallback((u: AdminUser) => {
     setDetail(u);
@@ -170,6 +261,15 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [detail]);
+
+  useEffect(() => {
+    if (!ticketsFor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTicketsFor(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ticketsFor]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -428,6 +528,7 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                 {rows.map((u) => {
                   const dirty = drafts[u.id] !== (u.plan ?? "free");
                   const plan = drafts[u.id] ?? "free";
+                  const pending = openByUser.get(u.id) ?? 0;
                   return (
                     <tr
                       key={u.id}
@@ -469,6 +570,21 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                         />
                       </td>
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                        <button
+                          className="sup-icon-btn"
+                          type="button"
+                          title="Mensajes de soporte"
+                          aria-label={
+                            pending > 0
+                              ? `Mensajes de soporte de ${u.email ?? u.name ?? u.id}: ${pending} sin resolver`
+                              : `Mensajes de soporte de ${u.email ?? u.name ?? u.id}`
+                          }
+                          onClick={() => setTicketsFor(u)}
+                          style={{ marginRight: 8 }}
+                        >
+                          <IconMessage />
+                          {pending > 0 && <span className="sup-badge">{pending}</span>}
+                        </button>
                         <button
                           className="btn-ghost"
                           type="button"
@@ -734,6 +850,85 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                     <p className="acct-hint">Esta cuenta todavía no tiene agentes.</p>
                   )}
                 </section>
+              </div>
+            </aside>
+          </div>,
+          document.body
+        )}
+
+      {ticketsFor &&
+        createPortal(
+          <div className="lead-drawer-overlay" onClick={() => setTicketsFor(null)}>
+            <aside
+              className="lead-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Mensajes de soporte de ${ticketsFor.email ?? ticketsFor.name ?? ticketsFor.id}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <header className="lead-drawer-header">
+                <div className="lead-drawer-avatar">
+                  <IconMessage />
+                </div>
+                <div className="lead-drawer-title">
+                  <h2>Soporte</h2>
+                  <span title={ticketsFor.email ?? undefined}>
+                    {ticketsFor.email || ticketsFor.name || "sin email de login"}
+                  </span>
+                </div>
+                <button
+                  className="lead-drawer-close"
+                  type="button"
+                  onClick={() => setTicketsFor(null)}
+                  aria-label="Cerrar"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </header>
+
+              <div className="lead-drawer-body">
+                {ticketsError ? (
+                  <p className="acct-hint">
+                    El servicio de soporte todavía no está desplegado en el servidor.
+                  </p>
+                ) : ticketsOf(ticketsFor).length === 0 ? (
+                  <p className="acct-hint">Esta cuenta no escribió por soporte.</p>
+                ) : (
+                  ticketsOf(ticketsFor).map((t) => (
+                    <section className="sup-ticket" key={t.id}>
+                      <div className="sup-ticket-head">
+                        <span className="sup-cat-chip">{CATEGORY_LABELS[t.category] ?? t.category}</span>
+                        <span className={`sup-status is-${t.status}`}>{STATUS_LABELS[t.status] ?? t.status}</span>
+                      </div>
+                      <h3>{t.subject}</h3>
+                      <p className="sup-ticket-meta">
+                        {formatDate(t.created_at)}
+                        {t.user_plan ? ` · Plan ${PLAN_LABELS[t.user_plan] ?? t.user_plan}` : ""}
+                        {t.page ? ` · ${t.page}` : ""}
+                      </p>
+                      <p className="sup-ticket-text">{t.message}</p>
+                      <label className="sup-status-label" htmlFor={`sup-st-${t.id}`}>
+                        Estado
+                        <select
+                          id={`sup-st-${t.id}`}
+                          className="form-input"
+                          value={t.status}
+                          disabled={savingTicket === t.id}
+                          onChange={(e) => void setTicketStatus(t.id, e.target.value)}
+                        >
+                          {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                            <option key={v} value={v}>
+                              {l}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </section>
+                  ))
+                )}
               </div>
             </aside>
           </div>,

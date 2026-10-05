@@ -15,6 +15,7 @@ import DashboardFooter from "./Footer";
 import ConfirmModal from "./ConfirmModal";
 import RenewalModal from "./RenewalModal";
 import SettingsView, { type ThemePref } from "./SettingsView";
+import SupportModal from "./SupportModal";
 import { useToast } from "./notifications";
 import { IconOverview } from "./icons";
 import { API_BASE } from "./config";
@@ -76,6 +77,10 @@ export default function Dashboard() {
   const [currentAgentId, setCurrentAgentId] = useState("");
   const [agentsReady, setAgentsReady] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  // Un solo modal para los dos puntos de entrada (Configuración y pie de
+  // página): si cada uno montara el suyo, el formulario estaría duplicado y
+  // los dos podrían quedar desincronizados.
+  const [showSupport, setShowSupport] = useState(false);
 
   const toast = useToast();
   const AGENT_CACHE_KEY = "agentosweb:current_agent";
@@ -387,7 +392,7 @@ export default function Dashboard() {
           ) : activeView === "view-leads" ? (
             <LeadsView key={currentAgentId} agentId={currentAgentId} />
           ) : activeView === "view-settings" ? (
-            <SettingsView owner={owner} theme={theme} setTheme={setTheme} onNavigate={handleNavigate} />
+            <SettingsView owner={owner} theme={theme} setTheme={setTheme} onNavigate={handleNavigate} onOpenSupport={() => setShowSupport(true)} />
           ) : activeView === "view-analytics" ? (
             <AnalyticsView agentId={currentAgentId} onNavigate={handleNavigate} />
           ) : (
@@ -412,6 +417,7 @@ export default function Dashboard() {
           <DashboardFooter
             planLabel={owner?.plan ? PLAN_LABELS[owner.plan] ?? owner.plan : "Free"}
             agentsLabel={`${agents.length} de ${owner?.agent_limit ?? "—"} agentes`}
+            onSupport={() => setShowSupport(true)}
           />
         )}
       </main>
@@ -432,6 +438,13 @@ export default function Dashboard() {
         onClose={() => setShowLogout(false)}
     onConfirm={async () => { await new Promise((r) => setTimeout(r, 400)); await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {}); window.location.replace("/login"); }}
     />
+
+      <SupportModal
+        open={showSupport}
+        onClose={() => setShowSupport(false)}
+        email={owner?.email}
+        planLabel={owner?.plan ? PLAN_LABELS[owner.plan] ?? owner.plan : "Free"}
+      />
 
       {/* Aviso de plan vencido. No tiene estado propio: se abre con el flag que
           manda el worker (vencido + bajado + no visto aun), asi que el panel no

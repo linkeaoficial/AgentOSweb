@@ -14,6 +14,9 @@ interface Props {
   theme: ThemePref;
   setTheme: (t: ThemePref) => void;
   onNavigate: (viewId: string) => void;
+  /** Abre el modal de Ayuda y Soporte (lo maneja Dashboard, que es quien tiene
+      al pie de pagina tambien). */
+  onOpenSupport: () => void;
 }
 
 interface SessionRow {
@@ -130,7 +133,7 @@ const fmtDateTime = (iso?: string) => {
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
-export default function SettingsView({ owner, theme, setTheme, onNavigate }: Props) {
+export default function SettingsView({ owner, theme, setTheme, onNavigate, onOpenSupport }: Props) {
   const toast = useToast();
   const [active, setActive] = useState<SectionId>("cuenta");
   const [detail, setDetail] = useState<SectionId | null>(null);
@@ -381,6 +384,13 @@ export default function SettingsView({ owner, theme, setTheme, onNavigate }: Pro
                 </button>
                 <button type="button" className="set-row set-link" onClick={() => onNavigate("view-agents")}>
                   <span>Widget, agentes y contenido</span>
+                  {CHEVRON}
+                </button>
+                <button type="button" className="set-row set-link" onClick={onOpenSupport}>
+                  <span>
+                    Ayuda y soporte
+                    <span className="set-row-sub">Escribinos y te respondemos por email</span>
+                  </span>
                   {CHEVRON}
                 </button>
                 {owner?.support_whatsapp && (
