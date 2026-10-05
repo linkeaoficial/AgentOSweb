@@ -27,15 +27,20 @@ export default function AgentSwitcher({ agents, current, onSelect, onCreate }: A
 
   const currentAgent = agents.find((a) => a.id === current) ?? agents[0];
 
+  // La posicion se mide al hacer clic, no en un efecto: un efecto corre despues
+  // del primer pintado y el menu llegaba abajo y luego saltaba arriba.
+  const toggle = () => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (rect) {
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setUp(spaceBelow < 330 && rect.top > spaceBelow);
+    }
+    setOpen((o) => !o);
+  };
+
   useEffect(() => {
     if (!open) return;
     const root = rootRef.current;
-    const rect = root?.getBoundingClientRect();
-    if (rect) {
-      const spaceBelow = window.innerHeight - rect.bottom;
-      if (spaceBelow < 330 && rect.top > spaceBelow) setUp(true);
-      else setUp(false);
-    }
     if (creating) inputRef.current?.focus();
     const onDocClick = (e: MouseEvent) => {
       if (!root?.contains(e.target as Node)) {
@@ -87,7 +92,7 @@ export default function AgentSwitcher({ agents, current, onSelect, onCreate }: A
       <button
         type="button"
         className="dropdown-trigger asw-trigger"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-expanded={open}
         aria-label="Cambiar de agente"
       >

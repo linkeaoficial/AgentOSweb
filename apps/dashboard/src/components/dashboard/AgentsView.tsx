@@ -350,14 +350,19 @@ export function Dropdown({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const selected = options.find((o) => o.id === value);
 
-  useEffect(() => {
-    if (!open) return;
-    const root = rootRef.current;
-    if (root) {
-      const rect = root.getBoundingClientRect();
+  // La posicion se mide al hacer clic, no en un efecto: un efecto corre despues
+  // del primer pintado y el menu llegaba abajo y luego saltaba arriba.
+  const toggle = () => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (rect) {
       const spaceBelow = window.innerHeight - rect.bottom;
       setUp(spaceBelow < 230 && rect.top > spaceBelow);
     }
+    setOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!open) return;
     const onDocClick = (e: MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -377,7 +382,7 @@ export function Dropdown({
       <button
         type="button"
         className="dropdown-trigger"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-expanded={open}
       >
         <span className="dropdown-trigger-label">{selected ? selected.name : value || placeholder}</span>

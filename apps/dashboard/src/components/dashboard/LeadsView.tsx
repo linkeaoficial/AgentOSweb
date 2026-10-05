@@ -166,15 +166,21 @@ function StatusSelect({
   const [up, setUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    // Igual que el dropdown de AgentsView: si no cabe abajo y hay mas espacio
-    // arriba, abre hacia arriba (en las filas de abajo se salia de la ventana).
+  // La posicion se mide al hacer clic, no en un efecto: un efecto corre despues
+  // del primer pintado y el menu llegaba abajo y luego saltaba arriba.
+  const toggle = () => {
     const r = ref.current?.getBoundingClientRect();
     if (r) {
+      // Si no cabe abajo y hay mas espacio arriba, abre hacia arriba (mismo
+      // criterio que el dropdown de AgentsView).
       const below = window.innerHeight - r.bottom;
       setUp(below < 230 && r.top > below);
     }
+    setOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!open) return;
     const onDocClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -191,7 +197,7 @@ function StatusSelect({
 
   return (
     <div className="status-select" ref={ref}>
-      <button type="button" className={`status-pill ${statusTone(lead.status)}`} onClick={() => setOpen((o) => !o)} disabled={busy}>
+      <button type="button" className={`status-pill ${statusTone(lead.status)}`} onClick={toggle} disabled={busy}>
         {lead.status}
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <path d="m6 9 6 6 6-6" />
