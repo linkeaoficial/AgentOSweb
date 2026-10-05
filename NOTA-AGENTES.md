@@ -1,95 +1,98 @@
-# 📋 NOTA-AGENTES — Coordinación entre pestañas
+﻿# ðŸ“‹ NOTA-AGENTES â€” CoordinaciÃ³n entre pestaÃ±as
 
 > Archivo de vuelo compartido. Dos agentes trabajan el mismo repo en paralelo.
-> **Revisá este archivo antes de tocar cualquier cosa** y actualizalo al arrancar/terminar un bloque.
+> **RevisÃ¡ este archivo antes de tocar cualquier cosa** y actualizalo al arrancar/terminar un bloque.
 
 ---
 
-## 📜 Reglas (rápidas)
+## ðŸ“œ Reglas (rÃ¡pidas)
 
-1. **Antes de editar:** `git status` + este archivo. Lo que esté sucio o listado en "En vuelo" es de la otra pestaña → no tocar.
+1. **Antes de editar:** `git status` + este archivo. Lo que estÃ© sucio o listado en "En vuelo" es de la otra pestaÃ±a â†’ no tocar.
 2. **Al terminar un bloque:** commitear (chico y claro) y sacar la entrada de "En vuelo".
-3. **Archivos en disputa:** si necesitás un archivo que está "En vuelo" del otro, esperá o acordalo acá.
-4. **`wrangler deploy`:** solo una pestaña a la vez. Anotá acá quién despliega.
+3. **Archivos en disputa:** si necesitÃ¡s un archivo que estÃ¡ "En vuelo" del otro, esperÃ¡ o acordalo acÃ¡.
+4. **`wrangler deploy`:** solo una pestaÃ±a a la vez. AnotÃ¡ acÃ¡ quiÃ©n despliega.
 5. **Sin `next build` con el dev server vivo** (rompe `.next`). Para verificar: `npx tsc --noEmit`.
 
 ---
 
-## 🏷️ Identidad
+## ðŸ·ï¸ Identidad
 
-| Agente | Cómo se marca |
+| Agente | CÃ³mo se marca |
 | --- | --- |
-| Agente 2 (pestaña con wrangler/deploys) | `2:` |
+| Agente 2 (pestaÃ±a con wrangler/deploys) | `2:` |
 | Agente 3 | `3:` |
 
-> Etiquetas viejas `A:`/`B:` = mismas pestañas, `B` era el Agente 2.
+> Etiquetas viejas `A:`/`B:` = mismas pestaÃ±as, `B` era el Agente 2.
 
-- `3:` **revisado y operativo (02-oct-2026)** — esta pestaña. Respeta lo que esté "En vuelo".
-
----
-
-## 🔴 En vuelo (trabajo sin commitear)
-
-> Formato: `- [2/3] `archivo(s)` — qué se está haciendo (fecha)`
-
-- [2] **Auditoría `security-audit` (modo full, perfil `standard`, solo lectura)** — ref `44a3bc6`, árbol limpio al iniciar. Salida en `~/security-audit-skill/AgentOSweb/run-1` (fuera del repo). *No toca código:* si el 3 va a commitear cambios durante la auditoría, avisar acá primero para re-capturar el estado (los hallazgos quedan contra la ref indicada). El 2 despliega solo después de cerrar.
-
-> ✅ **Rediseño de Configuración — TOMADO POR EL AGENTE 3 (03-oct, OK del usuario):** el 2 lo cede. El 3 editará `SettingsView.tsx` + bloque CSS propio en `globals.css`, estilo ChatGPT/Gemini (sub-nav secciones en PC / chips con scroll en móvil), cubriendo toda la config del proyecto: Cuenta, Apariencia (tema sincronizado con topbar), Seguridad (contraseña + sesiones activas), Plan/Facturación (enlaces) y Zona de peligro (eliminar cuenta). **Aviso:** el 3 ya commiteó los cambios de docs durante tu auditoría (`2ed6869` + `e29bb8d`); si necesitas re-capturar estado, avísame acá. *Endpoints nuevos que pida la UI (ej. eliminar cuenta, sesiones activas) = worker = zona del 2, tras la auditoría.*
-
-- **Deploys: último deploy = `787c300d` (05-oct, Agente 3 con autorización del usuario porque el 2 estaba en otra tarea)** — aplicó `0011`+`0013` en la D1 de producción y subió Ayuda y Soporte; después un segundo deploy con la revisión (`065b391`). **Si el 2 va a desplegar, avisar acá antes.**
+- `3:` **revisado y operativo (02-oct-2026)** â€” esta pestaÃ±a. Respeta lo que estÃ© "En vuelo".
 
 ---
 
-## ✅ Hecho (últimos bloques, referencia rápida)
+## ðŸ”´ En vuelo (trabajo sin commitear)
 
-- `0588f1e` + `1f3c688` + `065b391` **Ayuda y Soporte — desplegado y revisado** — **3** · `0588f1e` tabla `0013_support_tickets` (con snapshots de email/nombre/plan, índices por `user_id` y por `status`) + `POST /api/support` y `GET/PATCH /api/admin/support`; `1f3c688` modal compartido (Configuración + pie de página, sin ruta `/soporte` duplicada) y bandeja en Clientes; `065b391` la revisión que pidió el usuario. **Worker en prod:** migración `0011`+`0013` aplicadas en remoto, deploy `787c300d` (el previo `832f57bf`); tabla vacía tras la prueba E2E. **Correcciones de la revisión:** (a) *llamadas* — entrar a Clientes ya no baja la bandeja entera; ahora `GET /api/admin/support` sin `user_id` devuelve **un conteo por cliente** (`GROUP BY`, sin el cuerpo del mensaje) y el drawer pide `?user_id=` **solo de ese cliente**, con `LIMIT 50`; el filtro por `email` se fue, ahora es por `user_id` (el email del snapshot puede haber cambiado); (b) *caché* — **no se agregó**: lo que queda por visita es un conteo indexado y cachearlo solo abre una ventana de badge viejo (las 3 líneas de caché se borraron por eso); (c) *límites* — `isRateLimited` ahora acepta ventana: Soporte usa **5 por hora y por cuenta** (antes `RATE_WINDOW_MS=60 s` hacía que fueran 5/min, y cada intento es un INSERT); (d) *UI* — `¿Sobre qué es?` respira 10px sobre las tarjetas (el `<legend>` no es item de la grilla en Chrome: las tarjetas pasaron a un `.sup-cat-grid`), separación real de 16px entre campos ("Mensaje" estaba pegado al input de "Asunto"), y la fila de Configuración queda en una línea igual que sus vecinas (con dos líneas el `<span>` inline dibujaba el subtítulo **encima** del título) + la de WhatsApp pasó a "Hablar por WhatsApp" para que no se confundieran. **Verificado:** `npm test` 19/19 (incluye 3 checks anti-regresión de carga), `tsc` 0 en ambos, lint 0 errores (55 warnings preexistentes), E2E 12/12 desktop + 7/7 móvil, y envío real contra el worker de prod → **201**; borradas las 2 filas de prueba (`SELECT` de 4 filas = 0,28 ms).
+> Formato: `- [2/3] `archivo(s)` â€” quÃ© se estÃ¡ haciendo (fecha)`
 
-- `10d8594` + `6ad53b4` **Identidad legal real + 2 pendientes nuevos** — **3** · legales actualizadas con el operador (**Alvaro Bastardo**, persona física, Cariaco, estado Sucre, Venezuela; jurisdicción = Circunscripción Judicial del estado Sucre; **queda solo `[email de contacto legal]` por crear**); `AGENTOSWEB_PENDIENTES.md` += **i18n multi-idioma** (selector de idiomas, `next-intl`/`react-i18next`, es+en primero) y **toasts estilo "Sileo"** (evaluar `sonner`; confirmar nombre con el usuario). Verificado: 3 rutas 200 con nombre, `tsc` 0, lint 0 errores.
+- [2] **AuditorÃ­a `security-audit` (modo full, perfil `standard`, solo lectura)** â€” ref `44a3bc6`, Ã¡rbol limpio al iniciar. Salida en `~/security-audit-skill/AgentOSweb/run-1` (fuera del repo). *No toca cÃ³digo:* si el 3 va a commitear cambios durante la auditorÃ­a, avisar acÃ¡ primero para re-capturar el estado (los hallazgos quedan contra la ref indicada). El 2 despliega solo despuÃ©s de cerrar.
 
-- `5749571` **Polish de UI (pedido del usuario, 04-oct)** — **3** · (a) logo de las docs ahora vuelve al panel (`Link href="/"` en `DocsShell`); (b) toggle de tema deduplicado: se quitó el ítem "Modo Claro/Oscuro" del dropdown de usuario en `Topbar` (quedan 2 controles que nunca coexisten — botón de topbar en desktop, ítem del hamburguesa en móvil — más el control 3 estados en Configuración → Apariencia); (c) `AnalyticsView`: caché client-side 60 s por `agente:rango` — cambiar 7/30/90 días no vuelve a llamar al worker (E2E: ronda 2 = 0 llamadas nuevas; el server-side sigue con su rate limit 30/min). `tsc` 0, lint 0 errores.
+> âœ… **RediseÃ±o de ConfiguraciÃ³n â€” TOMADO POR EL AGENTE 3 (03-oct, OK del usuario):** el 2 lo cede. El 3 editarÃ¡ `SettingsView.tsx` + bloque CSS propio en `globals.css`, estilo ChatGPT/Gemini (sub-nav secciones en PC / chips con scroll en mÃ³vil), cubriendo toda la config del proyecto: Cuenta, Apariencia (tema sincronizado con topbar), Seguridad (contraseÃ±a + sesiones activas), Plan/FacturaciÃ³n (enlaces) y Zona de peligro (eliminar cuenta). **Aviso:** el 3 ya commiteÃ³ los cambios de docs durante tu auditorÃ­a (`2ed6869` + `e29bb8d`); si necesitas re-capturar estado, avÃ­same acÃ¡. *Endpoints nuevos que pida la UI (ej. eliminar cuenta, sesiones activas) = worker = zona del 2, tras la auditorÃ­a.*
 
-- `2ed6869` + `e29bb8d` **Documentación multi-página + páginas legales** — **3** · `/docs` (índice con cards + inicio rápido), `/docs/widget`, `/docs/agentes`, `/docs/prospectos`, `/docs/analiticas`, `/docs/planes`, `/docs/api` (contenido factual del código: snippet exacto, endpoints, límites, planes, BYOK) y legales `/terminos`, `/privacidad`, `/cookies` (baseline GDPR + CCPA/LGPD, placeholder `[Nombre del Operador]`, **flag de revisión de abogado**). Infra: `DocsShell.tsx` (topbar + sidebar + `<details>` móvil), bloque `.doc-*` en `globals.css`, `middleware.ts` `PUBLIC_PATHS` +4, `Footer.tsx` enlaza rutas reales (**`#soporte` intacto**). Verificado: 10/10 rutas 200, `tsc` 0, lint 0 errores, capturas desktop/móvil/dark. *No toca worker ni Ayuda (la dejó el usuario para después).*
-
-- `0806fb2` **Rediseño de Configuración** (Settings estilo ChatGPT/Gemini) — **3** · 5 secciones con sub-nav lateral (PC) / chips con scroll (móvil): Cuenta (identidad + accesos a Facturación/Agentes), Apariencia (claro/oscuro/**sistema** sincronizado con topbar + anti-FOUC en `layout.tsx`), Seguridad (cambiar contraseña + **sesiones activas** con cierre individual/todas, usa `list-sessions`/`revoke-session`), Plan (pill + vencimiento + barras de mensajes/agentes + CTA billing), Zona de peligro (eliminar cuenta con `confirmPhrase` = email). Tema: `theme` tri-estado en `Dashboard.tsx`. Fixes incluidos: proxy de auth reenvía `User-Agent` (antes las sesiones salían "node") y `list-sessions` se lee como array plano. *E2E local: capturas desktop oscuro/claro + móvil 390px con sesiones reales ("Edge · Windows", "Este dispositivo").* **Para el 2 (worker):** `user.deleteUser.enabled` en `auth.ts` para activar el botón de eliminar cuenta (hoy responde 404 y la UI lo informa); opcional sync `user.name`↔`users.name` para permitir editar nombre (hoy es solo lectura).
-
-- `919f97f` **Drill-down móvil de Configuración estilo Gemini** — **3** · en móvil (≤768px) los chips con scroll se reemplazan por menú (card de cuenta + filas Cuenta/Apariencia/Seguridad/Zona de peligro con chevron; peligro en rojo) → tap abre la sección con "‹ Atrás"; desktop intacto (sidebar). Verificado 390px (menú/detalle) + 1440px (computed styles: menú oculto, nav visible).
-- `docs (04-oct)` **Backlog limpiado de items obsoletos** — **3** · `AGENTOSWEB_PENDIENTES.md`: FASE 2E cerrada (Secure + rotación hechos, `1677d42`), 6 criterios de aceptación del rediseño de Billing marcados, 3 items "PENDIENTE DE DESPLEGAR" pasados a "desplegado y verificado en prod", verificación visual responsive cerrada por el barrido 03-oct, `0008`→`0012` en la nota del rate limit. `PLANIFICACION_AGENTOSWEB.md`: backlog actualizado (ya no incluye rediseño de Billing ni Secure/rotación) y `0008`→`0012`. *⚠️ Para el 2:* el comentario de `auth.ts:59` aún dice `0008` (tu archivo, lo dejo a vos); y **`user.deleteUser.enabled` sigue pendiente — el botón "Eliminar cuenta" responde 404 en prod**.
-
-- `92cb215` **Auditoría responsive del panel + 2 fixes en Analíticas móvil** — **3** · *Todo el panel revisado (bloque "RESPONSIVE MÓVIL CONSOLIDADO" ya cubre sidebar→hamburguesa, tablas→tarjetas, grids, auth, topbar). Fixes: serie diaria con `overflow-x: auto` (90 días se cortaba en pantallas angostas) y ejes del heatmap con `minmax(0,1fr)` (rótulos "6h/12h/18h" desalineaban las columnas). *Pendiente:* captura de teléfono del usuario para validación visual.*
-- `7decf73` Analíticas al estilo del panel: `MetricCard` compartido, `h3` 16/600, skeleton, `es-AR` — **2**
-- `63ea177` **Analíticas V1 completa** + muro para Free: selector 7/30/90 días, 6 KPIs con delta vs. período anterior, serie diaria, heatmap día×hora, embudo sesiones→mensajes→prospectos, top FAQs, prospectos por estado; endpoint `GET /api/analytics/:agentId` + proxy; gate **Starter+** (`403 plan_required` en Free); migración `0011` (`idx_messages_created`, local+remoto) — **2** · *E2E local 200/403 con datos sembrados y prod 200 con `agent-demo` (8 sesiones, 74 mensajes, heat 7×24); deploy `ae967002`.*
-
-- `1677d42` **FASE 2E**: cookie `Secure` (`auth.ts`) + vista Configuración con "Cambiar contraseña" y rotación de sesiones (`SettingsView.tsx`) — **3** · *E2E: sesión vieja muere, nueva viva, `INVALID_PASSWORD` mapeado; verificado local con `wrangler dev` (Set-Cookie con `Secure` + `__Secure-`). **Pendiente post-deploy:** login en navegador del usuario para confirmar que Chrome/Firefox aceptan la cookie Secure en localhost.*
-- `9b35bda` cintillo de plan sin puntito verde + tarjeta marcada sin ring de sombra — **3**
-- `580f0f7` fila de captura arriba en tarjetas, alerta de cupo al 80% e historial mensual de uso (`0010`) — **2**
-- `82b25ae` rediseño de Planes & Facturación, Agency a 8, BYOK desde Starter — **2**
-- `d112507` fix captura de prospectos: `lead_fields` default `name,email,phone` (migración `0008`) — **2**
+- **Deploys: Ãºltimo deploy = `787c300d` (05-oct, Agente 3 con autorizaciÃ³n del usuario porque el 2 estaba en otra tarea)** â€” aplicÃ³ `0011`+`0013` en la D1 de producciÃ³n y subiÃ³ Ayuda y Soporte; despuÃ©s un segundo deploy con la revisiÃ³n (`065b391`). **Si el 2 va a desplegar, avisar acÃ¡ antes.**
 
 ---
 
-## 📌 Notas de coordinación
+## âœ… Hecho (Ãºltimos bloques, referencia rÃ¡pida)
 
-### 📡 Estado de despliegues (02-oct)
+- `494a259` **Segunda vuelta de Ayuda y Soporte: responder por correo + coste de lecturas** â€” **3** Â· (a) **botÃ³n Responder** por mensaje en el drawer: mismo `mailto:` en pestaÃ±a nueva que usa Prospectos, pero con `subject` (`Re: â€¦`) y `body` (el texto del cliente + la fecha) ya escritos, para no copiar/pegar; se oculta si el ticket no tiene email. (b) **migraciÃ³n `0014_support_tickets_open_index`**: Ã­ndice cubriente `(status, user_id)` porque el conteo de badges con `status != 'resuelto'` **no podÃ­a usar el Ã­ndice** (`EXPLAIN`: `SEARCH â€¦ USING INDEX idx_support_tickets_user (user_id>?)`, o sea recorrÃ­a todos los tickets) y ademÃ¡s armaba un B-tree temporal para el `GROUP BY`; ahora el plan es `SEARCH â€¦ USING COVERING INDEX idx_support_tickets_open (status=? AND user_id>?)` y el `WHERE` lista `IN ('abierto','en_curso')` en vez de `!=` (mismo resultado, con los 3 estados del enum, y el test lo verifica con `EXPLAIN QUERY PLAN`). (c) **cambio de estado sin lecturas**: el badge se ajusta en local con el delta que yaknown el PATCH, asÃ­ que ya no hay refetch (un conteo leÃ­do justo despuÃ©s de escribir puede pegarle a una rÃ©plica atrasada y dejar todos los badges en cero). *Medido en prod:* conteo de badges **12 filas leÃ­das / 0,59 ms**, drawer de un cliente **10 filas / 0,35 ms**, respuesta de conteo **66 bytes** (antes hasta 200 tickets con el cuerpo completo), drawer **2,5 KB** y solo al abrirlo. `npm test` 23/23, `tsc` 0 en ambos, lint 0 errores, E2E admin 12/12 + mÃ³vil 5/5. **Datos de prueba:** 5 mensajes de `linkeabot@gmail.com` quedan en la D1 de producciÃ³n (3 abiertos, 1 en curso, 1 resuelto) para que se vea el badge y el drawer; se borran con `DELETE FROM support_tickets`.
+
+- `0588f1e` + `1f3c688` + `065b391` **Ayuda y Soporte â€” desplegado y revisado** â€” **3** Â· `0588f1e` tabla `0013_support_tickets` (con snapshots de email/nombre/plan, Ã­ndices por `user_id` y por `status`) + `POST /api/support` y `GET/PATCH /api/admin/support`; `1f3c688` modal compartido (ConfiguraciÃ³n + pie de pÃ¡gina, sin ruta `/soporte` duplicada) y bandeja en Clientes; `065b391` la revisiÃ³n que pidiÃ³ el usuario. **Worker en prod:** migraciÃ³n `0011`+`0013` aplicadas en remoto, deploy `ebd70dde` (previos `787c300d` y `832f57bf`); tabla vacÃ­a tras la prueba E2E. **Correcciones de la revisiÃ³n:** (a) *llamadas* â€” entrar a Clientes ya no baja la bandeja entera; ahora `GET /api/admin/support` sin `user_id` devuelve **un conteo por cliente** (`GROUP BY`, sin el cuerpo del mensaje) y el drawer pide `?user_id=` **solo de ese cliente**, con `LIMIT 50`; el filtro por `email` se fue, ahora es por `user_id` (el email del snapshot puede haber cambiado); (b) *cachÃ©* â€” **no se agregÃ³**: lo que queda por visita es un conteo indexado y cachearlo solo abre una ventana de badge viejo (las 3 lÃ­neas de cachÃ© se borraron por eso); (c) *lÃ­mites* â€” `isRateLimited` ahora acepta ventana: Soporte usa **5 por hora y por cuenta** (antes `RATE_WINDOW_MS=60 s` hacÃ­a que fueran 5/min, y cada intento es un INSERT); (d) *UI* â€” `Â¿Sobre quÃ© es?` respira 10px sobre las tarjetas (el `<legend>` no es item de la grilla en Chrome: las tarjetas pasaron a un `.sup-cat-grid`), separaciÃ³n real de 16px entre campos ("Mensaje" estaba pegado al input de "Asunto"), y la fila de ConfiguraciÃ³n queda en una lÃ­nea igual que sus vecinas (con dos lÃ­neas el `<span>` inline dibujaba el subtÃ­tulo **encima** del tÃ­tulo) + la de WhatsApp pasÃ³ a "Hablar por WhatsApp" para que no se confundieran. **Verificado:** `npm test` 19/19 (incluye 3 checks anti-regresiÃ³n de carga), `tsc` 0 en ambos, lint 0 errores (55 warnings preexistentes), E2E 12/12 desktop + 7/7 mÃ³vil, y envÃ­o real contra el worker de prod â†’ **201**; borradas las 2 filas de prueba (`SELECT` de 4 filas = 0,28 ms).
+
+- `10d8594` + `6ad53b4` **Identidad legal real + 2 pendientes nuevos** â€” **3** Â· legales actualizadas con el operador (**Alvaro Bastardo**, persona fÃ­sica, Cariaco, estado Sucre, Venezuela; jurisdicciÃ³n = CircunscripciÃ³n Judicial del estado Sucre; **queda solo `[email de contacto legal]` por crear**); `AGENTOSWEB_PENDIENTES.md` += **i18n multi-idioma** (selector de idiomas, `next-intl`/`react-i18next`, es+en primero) y **toasts estilo "Sileo"** (evaluar `sonner`; confirmar nombre con el usuario). Verificado: 3 rutas 200 con nombre, `tsc` 0, lint 0 errores.
+
+- `5749571` **Polish de UI (pedido del usuario, 04-oct)** â€” **3** Â· (a) logo de las docs ahora vuelve al panel (`Link href="/"` en `DocsShell`); (b) toggle de tema deduplicado: se quitÃ³ el Ã­tem "Modo Claro/Oscuro" del dropdown de usuario en `Topbar` (quedan 2 controles que nunca coexisten â€” botÃ³n de topbar en desktop, Ã­tem del hamburguesa en mÃ³vil â€” mÃ¡s el control 3 estados en ConfiguraciÃ³n â†’ Apariencia); (c) `AnalyticsView`: cachÃ© client-side 60 s por `agente:rango` â€” cambiar 7/30/90 dÃ­as no vuelve a llamar al worker (E2E: ronda 2 = 0 llamadas nuevas; el server-side sigue con su rate limit 30/min). `tsc` 0, lint 0 errores.
+
+- `2ed6869` + `e29bb8d` **DocumentaciÃ³n multi-pÃ¡gina + pÃ¡ginas legales** â€” **3** Â· `/docs` (Ã­ndice con cards + inicio rÃ¡pido), `/docs/widget`, `/docs/agentes`, `/docs/prospectos`, `/docs/analiticas`, `/docs/planes`, `/docs/api` (contenido factual del cÃ³digo: snippet exacto, endpoints, lÃ­mites, planes, BYOK) y legales `/terminos`, `/privacidad`, `/cookies` (baseline GDPR + CCPA/LGPD, placeholder `[Nombre del Operador]`, **flag de revisiÃ³n de abogado**). Infra: `DocsShell.tsx` (topbar + sidebar + `<details>` mÃ³vil), bloque `.doc-*` en `globals.css`, `middleware.ts` `PUBLIC_PATHS` +4, `Footer.tsx` enlaza rutas reales (**`#soporte` intacto**). Verificado: 10/10 rutas 200, `tsc` 0, lint 0 errores, capturas desktop/mÃ³vil/dark. *No toca worker ni Ayuda (la dejÃ³ el usuario para despuÃ©s).*
+
+- `0806fb2` **RediseÃ±o de ConfiguraciÃ³n** (Settings estilo ChatGPT/Gemini) â€” **3** Â· 5 secciones con sub-nav lateral (PC) / chips con scroll (mÃ³vil): Cuenta (identidad + accesos a FacturaciÃ³n/Agentes), Apariencia (claro/oscuro/**sistema** sincronizado con topbar + anti-FOUC en `layout.tsx`), Seguridad (cambiar contraseÃ±a + **sesiones activas** con cierre individual/todas, usa `list-sessions`/`revoke-session`), Plan (pill + vencimiento + barras de mensajes/agentes + CTA billing), Zona de peligro (eliminar cuenta con `confirmPhrase` = email). Tema: `theme` tri-estado en `Dashboard.tsx`. Fixes incluidos: proxy de auth reenvÃ­a `User-Agent` (antes las sesiones salÃ­an "node") y `list-sessions` se lee como array plano. *E2E local: capturas desktop oscuro/claro + mÃ³vil 390px con sesiones reales ("Edge Â· Windows", "Este dispositivo").* **Para el 2 (worker):** `user.deleteUser.enabled` en `auth.ts` para activar el botÃ³n de eliminar cuenta (hoy responde 404 y la UI lo informa); opcional sync `user.name`â†”`users.name` para permitir editar nombre (hoy es solo lectura).
+
+- `919f97f` **Drill-down mÃ³vil de ConfiguraciÃ³n estilo Gemini** â€” **3** Â· en mÃ³vil (â‰¤768px) los chips con scroll se reemplazan por menÃº (card de cuenta + filas Cuenta/Apariencia/Seguridad/Zona de peligro con chevron; peligro en rojo) â†’ tap abre la secciÃ³n con "â€¹ AtrÃ¡s"; desktop intacto (sidebar). Verificado 390px (menÃº/detalle) + 1440px (computed styles: menÃº oculto, nav visible).
+- `docs (04-oct)` **Backlog limpiado de items obsoletos** â€” **3** Â· `AGENTOSWEB_PENDIENTES.md`: FASE 2E cerrada (Secure + rotaciÃ³n hechos, `1677d42`), 6 criterios de aceptaciÃ³n del rediseÃ±o de Billing marcados, 3 items "PENDIENTE DE DESPLEGAR" pasados a "desplegado y verificado en prod", verificaciÃ³n visual responsive cerrada por el barrido 03-oct, `0008`â†’`0012` en la nota del rate limit. `PLANIFICACION_AGENTOSWEB.md`: backlog actualizado (ya no incluye rediseÃ±o de Billing ni Secure/rotaciÃ³n) y `0008`â†’`0012`. *âš ï¸ Para el 2:* el comentario de `auth.ts:59` aÃºn dice `0008` (tu archivo, lo dejo a vos); y **`user.deleteUser.enabled` sigue pendiente â€” el botÃ³n "Eliminar cuenta" responde 404 en prod**.
+
+- `92cb215` **AuditorÃ­a responsive del panel + 2 fixes en AnalÃ­ticas mÃ³vil** â€” **3** Â· *Todo el panel revisado (bloque "RESPONSIVE MÃ“VIL CONSOLIDADO" ya cubre sidebarâ†’hamburguesa, tablasâ†’tarjetas, grids, auth, topbar). Fixes: serie diaria con `overflow-x: auto` (90 dÃ­as se cortaba en pantallas angostas) y ejes del heatmap con `minmax(0,1fr)` (rÃ³tulos "6h/12h/18h" desalineaban las columnas). *Pendiente:* captura de telÃ©fono del usuario para validaciÃ³n visual.*
+- `7decf73` AnalÃ­ticas al estilo del panel: `MetricCard` compartido, `h3` 16/600, skeleton, `es-AR` â€” **2**
+- `63ea177` **AnalÃ­ticas V1 completa** + muro para Free: selector 7/30/90 dÃ­as, 6 KPIs con delta vs. perÃ­odo anterior, serie diaria, heatmap dÃ­aÃ—hora, embudo sesionesâ†’mensajesâ†’prospectos, top FAQs, prospectos por estado; endpoint `GET /api/analytics/:agentId` + proxy; gate **Starter+** (`403 plan_required` en Free); migraciÃ³n `0011` (`idx_messages_created`, local+remoto) â€” **2** Â· *E2E local 200/403 con datos sembrados y prod 200 con `agent-demo` (8 sesiones, 74 mensajes, heat 7Ã—24); deploy `ae967002`.*
+
+- `1677d42` **FASE 2E**: cookie `Secure` (`auth.ts`) + vista ConfiguraciÃ³n con "Cambiar contraseÃ±a" y rotaciÃ³n de sesiones (`SettingsView.tsx`) â€” **3** Â· *E2E: sesiÃ³n vieja muere, nueva viva, `INVALID_PASSWORD` mapeado; verificado local con `wrangler dev` (Set-Cookie con `Secure` + `__Secure-`). **Pendiente post-deploy:** login en navegador del usuario para confirmar que Chrome/Firefox aceptan la cookie Secure en localhost.*
+- `9b35bda` cintillo de plan sin puntito verde + tarjeta marcada sin ring de sombra â€” **3**
+- `580f0f7` fila de captura arriba en tarjetas, alerta de cupo al 80% e historial mensual de uso (`0010`) â€” **2**
+- `82b25ae` rediseÃ±o de Planes & FacturaciÃ³n, Agency a 8, BYOK desde Starter â€” **2**
+- `d112507` fix captura de prospectos: `lead_fields` default `name,email,phone` (migraciÃ³n `0008`) â€” **2**
+
+---
+
+## ðŸ“Œ Notas de coordinaciÃ³n
+
+### ðŸ“¡ Estado de despliegues (02-oct)
 
 | Componente | Estado |
 | --- | --- |
-| **Worker API** (prod) | ✅ Desplegado — `787c300d` (05-oct, Ayuda y Soporte + revisión de carga/límites). Antes `404a3a8f` (Analíticas V1.1: tz, estados por ventana, rate limit, caché). |
-| **Dashboard** (Cloudflare Pages) | ⏸️ **NO desplegado a propósito** — hasta que el proyecto esté listo. En local corre con `next dev`. |
-| **Landing** (`apps/landing`) | ⏸️ **NO existe aún** (solo `package.json` placeholder) — se construye y despliega cuando toque. |
+| **Worker API** (prod) | âœ… Desplegado â€” `787c300d` (05-oct, Ayuda y Soporte + revisiÃ³n de carga/lÃ­mites). Antes `404a3a8f` (AnalÃ­ticas V1.1: tz, estados por ventana, rate limit, cachÃ©). |
+| **Dashboard** (Cloudflare Pages) | â¸ï¸ **NO desplegado a propÃ³sito** â€” hasta que el proyecto estÃ© listo. En local corre con `next dev`. |
+| **Landing** (`apps/landing`) | â¸ï¸ **NO existe aÃºn** (solo `package.json` placeholder) â€” se construye y despliega cuando toque. |
 
-> 💬 **Para el Agente 2:** dashboard y landing **no son pendientes de deploy** — van después, cuando el proyecto esté listo. No hace falta repetirlo ni apurarlo; el único deploy vivo es el worker, y ese ya está al día. Si necesitás probar el panel, es en local (`localhost:3000`).
+> ðŸ’¬ **Para el Agente 2:** dashboard y landing **no son pendientes de deploy** â€” van despuÃ©s, cuando el proyecto estÃ© listo. No hace falta repetirlo ni apurarlo; el Ãºnico deploy vivo es el worker, y ese ya estÃ¡ al dÃ­a. Si necesitÃ¡s probar el panel, es en local (`localhost:3000`).
 
-- **✅ Sonda a prod CONFIRMADA (02-oct, Agente 3):** deploy `ae967002` verificado en vivo — el sign-in devuelve `__Secure-aow_auth.session_token=...; HttpOnly; Secure; SameSite=Lax`. La cookie `Secure` de `1677d42` **está activa en prod**. *Último paso:* prueba de login en navegador (localhost) del usuario.
+- **âœ… Sonda a prod CONFIRMADA (02-oct, Agente 3):** deploy `ae967002` verificado en vivo â€” el sign-in devuelve `__Secure-aow_auth.session_token=...; HttpOnly; Secure; SameSite=Lax`. La cookie `Secure` de `1677d42` **estÃ¡ activa en prod**. *Ãšltimo paso:* prueba de login en navegador (localhost) del usuario.
 
-### 🔎 Hallazgos de revisión — Analíticas V1 (02-oct, Agente 3 → 2)
-> ✅ `7decf73` resolvió el #3 (KPI FAQ → total en el hint de la tarjeta; `null → "Sin base previa"`) y unificó todo con `MetricCard` compartido.
-> ✅ `bb2f170` (deploy `404a3a8f`) resolvió **#1 y #2**:
-- ~~**"Prospectos por estado" mezcla ventanas**~~ ✅: ahora `SELECT status, COUNT(*) FROM leads WHERE agent_id=? AND created_at>=?` (ventana local, usa `idx_leads_dashboard`); verificado en prod: statuses suma = `kpis.leads` (14 = 14).
-- ~~**Horas y días calculados en UTC**~~ ✅: el panel manda `tz` (offset del navegador, `getTimezoneOffset` negado); el worker agrupa día/hora con `date(created_at, ?)` / `strftime('%H', …, ?)` en local y recorta las ventanas con el instante UTC exacto (los `WHERE` siguen usando índice; offset clamp −720..840 min, default 0). Verificado local y prod (04:30 UTC → 0h con tz −240).
-- ~~**KPI "FAQs sin IA" siempre dice "Nuevo"**~~ ✅ resuelto en `7decf73`.
-- **V1.1 también** (`bb2f170`): rate limit 30/min por dueño en `GET /api/analytics` (bucket in-memory, `isRateLimited`; probado 30×200 + 5×429) y caché KV `analytics:{user}:{agent}:{days}:{tz}` TTL 60s (2da llamada 156ms vs 1.8s fría).
-- *Nit pendiente:* las barras de la serie diaria escalan mensajes y sesiones con **máximos independientes** (`AnalyticsView.tsx`), no comparables entre series (aceptable con leyenda+tooltip).
+### ðŸ”Ž Hallazgos de revisiÃ³n â€” AnalÃ­ticas V1 (02-oct, Agente 3 â†’ 2)
+> âœ… `7decf73` resolviÃ³ el #3 (KPI FAQ â†’ total en el hint de la tarjeta; `null â†’ "Sin base previa"`) y unificÃ³ todo con `MetricCard` compartido.
+> âœ… `bb2f170` (deploy `404a3a8f`) resolviÃ³ **#1 y #2**:
+- ~~**"Prospectos por estado" mezcla ventanas**~~ âœ…: ahora `SELECT status, COUNT(*) FROM leads WHERE agent_id=? AND created_at>=?` (ventana local, usa `idx_leads_dashboard`); verificado en prod: statuses suma = `kpis.leads` (14 = 14).
+- ~~**Horas y dÃ­as calculados en UTC**~~ âœ…: el panel manda `tz` (offset del navegador, `getTimezoneOffset` negado); el worker agrupa dÃ­a/hora con `date(created_at, ?)` / `strftime('%H', â€¦, ?)` en local y recorta las ventanas con el instante UTC exacto (los `WHERE` siguen usando Ã­ndice; offset clamp âˆ’720..840 min, default 0). Verificado local y prod (04:30 UTC â†’ 0h con tz âˆ’240).
+- ~~**KPI "FAQs sin IA" siempre dice "Nuevo"**~~ âœ… resuelto en `7decf73`.
+- **V1.1 tambiÃ©n** (`bb2f170`): rate limit 30/min por dueÃ±o en `GET /api/analytics` (bucket in-memory, `isRateLimited`; probado 30Ã—200 + 5Ã—429) y cachÃ© KV `analytics:{user}:{agent}:{days}:{tz}` TTL 60s (2da llamada 156ms vs 1.8s frÃ­a).
+- *Nit pendiente:* las barras de la serie diaria escalan mensajes y sesiones con **mÃ¡ximos independientes** (`AnalyticsView.tsx`), no comparables entre series (aceptable con leyenda+tooltip).
 
-- **Deploys: por defecto solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`); el 3 avisa en este archivo y espera. **Excepción 05-oct:** el usuario autorizó al 3 a desplegar porque el 2 estaba en otra tarea (queda registrado arriba). Regla 5 sigue vigente: `next build` prohibido con el dev server vivo.
-- **Reparto actual:** Agente 2 = Planes & Facturación + worker core (cupo/plan/chat) + deploys + endpoints que pida la UI de Settings (eliminar cuenta, sesiones). Agente 3 = FASE 2E ✅ + UI del panel + **rediseño Configuración (03-oct)** ✅ + barrido mobile ✅ + **drill-down móvil de Configuración estilo Gemini (04-oct, `919f97f`)** ✅ (menú cuenta+secciones → tap abre sección con "‹ Atrás"; desktop intacto, verificado 390px + 1440px) + widget/landing (avisa antes de tocar). *Nota: el backlog "form inline" (`AGENTOSWEB_PENDIENTES.md`) quedó cerrado como resuelto por el form embebido; CSAT y cache purge siguen condicionados a pedido de cliente.*
+- **Deploys: por defecto solo el Agente 2** (`wrangler deploy` + `wrangler d1 migrations apply`); el 3 avisa en este archivo y espera. **ExcepciÃ³n 05-oct:** el usuario autorizÃ³ al 3 a desplegar porque el 2 estaba en otra tarea (queda registrado arriba). Regla 5 sigue vigente: `next build` prohibido con el dev server vivo.
+- **Reparto actual:** Agente 2 = Planes & FacturaciÃ³n + worker core (cupo/plan/chat) + deploys + endpoints que pida la UI de Settings (eliminar cuenta, sesiones). Agente 3 = FASE 2E âœ… + UI del panel + **rediseÃ±o ConfiguraciÃ³n (03-oct)** âœ… + barrido mobile âœ… + **drill-down mÃ³vil de ConfiguraciÃ³n estilo Gemini (04-oct, `919f97f`)** âœ… (menÃº cuenta+secciones â†’ tap abre secciÃ³n con "â€¹ AtrÃ¡s"; desktop intacto, verificado 390px + 1440px) + widget/landing (avisa antes de tocar). *Nota: el backlog "form inline" (`AGENTOSWEB_PENDIENTES.md`) quedÃ³ cerrado como resuelto por el form embebido; CSAT y cache purge siguen condicionados a pedido de cliente.*
 - `next build` prohibido con el dev server vivo (ver regla 5); para verificar: `npx tsc --noEmit` + `pnpm lint`.
+
