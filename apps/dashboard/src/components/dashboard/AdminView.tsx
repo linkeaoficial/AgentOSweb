@@ -197,7 +197,6 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
     loading: false,
     rows: [],
   });
-  const [savingTicket, setSavingTicket] = useState<string | null>(null);
 
   const loadOpenCounts = useCallback(async () => {
     try {
@@ -241,7 +240,6 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
 
   const setTicketStatus = useCallback(
     async (id: string, status: string) => {
-      setSavingTicket(id);
       try {
         const res = await fetch("/api/admin/support", {
           method: "PATCH",
@@ -270,8 +268,6 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
         toast.success(status === "resuelto" ? "Mensaje marcado como resuelto" : "Estado actualizado");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Error de red");
-      } finally {
-        setSavingTicket(null);
       }
     },
     [toast, drawer.rows]
@@ -946,22 +942,16 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                       </p>
                       <p className="sup-ticket-text">{t.message}</p>
                       <div className="sup-ticket-actions">
-                        <label className="sup-status-label" htmlFor={`sup-st-${t.id}`}>
-                          Estado
-                          <select
-                            id={`sup-st-${t.id}`}
-                            className="form-input"
+                        {/* El mismo dropdown del selector de Plan de la tabla de
+                            clientes: `select` nativo se ve como un select
+                            nativo, y este control ya existe. */}
+                        <div className="sup-status-select">
+                          <Dropdown
                             value={t.status}
-                            disabled={savingTicket === t.id}
-                            onChange={(e) => void setTicketStatus(t.id, e.target.value)}
-                          >
-                            {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                              <option key={v} value={v}>
-                                {l}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                            options={Object.entries(STATUS_LABELS).map(([v, l]) => ({ id: v, name: l }))}
+                            onChange={(v) => void setTicketStatus(t.id, v)}
+                          />
+                        </div>
                         {t.user_email ? (
                           // Responder es manual: el panel solo abre el correo del
                           // cliente con el asunto y su mensaje ya escritos, para

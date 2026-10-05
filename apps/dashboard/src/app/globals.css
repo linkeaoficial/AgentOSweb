@@ -8287,8 +8287,9 @@ body.dark-mode .support-modal {
     border: 1px solid var(--border-color);
     border-radius: 14px;
     padding: 14px;
-    margin-bottom: 12px;
     background: var(--bg-surface);
+    /* Sin margin-bottom: el `gap: 18px` de `.lead-drawer-body` ya separa las
+       tarjetas (con las dos sumaban 30px). */
 }
 
 .sup-ticket h3 {
@@ -8320,19 +8321,41 @@ body.dark-mode .support-modal {
     border-radius: 999px;
 }
 
+/* Los tres estados usan el color de texto sobre el tinte al 14%. Con un unico
+   hex el contraste cae a 2.9:1 en oscuro (el limite para texto chico es 4.5:1),
+   asi que cada tema lleva su tono. */
 .sup-status.is-abierto {
     background: rgba(217, 119, 6, 0.14);
-    color: #b45309;
+    color: #92400e;
 }
 
 .sup-status.is-en_curso {
     background: rgba(53, 89, 255, 0.14);
-    color: var(--primary-color);
+    color: #1d3fc4;
 }
 
 .sup-status.is-resuelto {
     background: rgba(22, 163, 74, 0.14);
-    color: #15803d;
+    color: #166534;
+}
+
+body.dark-mode .sup-status.is-abierto {
+    color: #fcd34d;
+}
+
+body.dark-mode .sup-status.is-en_curso {
+    color: #a5b4fc;
+}
+
+body.dark-mode .sup-status.is-resuelto {
+    color: #86efac;
+}
+
+/* Resuelto se ve, pero no compite con lo que hay que atender ahora: solo se
+   baja la opacidad del texto, los botones siguen a pleno. */
+.sup-ticket:has(.sup-status.is-resuelto) h3,
+.sup-ticket:has(.sup-status.is-resuelto) .sup-ticket-text {
+    opacity: 0.7;
 }
 
 .sup-ticket-meta {
@@ -8353,18 +8376,15 @@ body.dark-mode .support-modal {
     margin-bottom: 12px;
 }
 
-.sup-status-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--text-muted);
+.sup-ticket-text + .sup-ticket-actions {
+    margin-top: 2px;
 }
 
-.sup-status-label .form-input {
-    padding: 6px 10px;
-    font-size: 13px;
-    width: auto;
+/* Ancho del dropdown de estado: el `.dropdown-trigger` es `width: 100%` y en la
+   fila de acciones se mediría como la tarjeta entera. */
+.sup-status-select {
+    width: 148px;
+    flex: 0 0 auto;
 }
 
 .sup-ticket-actions {
@@ -8381,14 +8401,18 @@ body.dark-mode .support-modal {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    border-radius: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
     border: 1px solid var(--border-color);
     background: var(--bg-subtle);
     color: var(--text-main);
-    font-size: 13px;
+    font-size: 13.5px;
     text-decoration: none;
     white-space: nowrap;
+}
+
+body.dark-mode .sup-reply {
+    background-color: rgba(255, 255, 255, 0.04);
 }
 
 .sup-reply:hover {
