@@ -1905,6 +1905,115 @@ async function handleAgentDelete(request: Request, agentId: string, env: Env) {
 // Panel administrativo: listar todas las cuentas con su plan y consumo.
 // Solo admin/superadmin. El `user` de Better Auth manda (es el login); las filas
 // de `users` sin login se incluyen al final para que no queden invisibles.
+// --- Ayuda y Soporte ------------------------------------------------------
+// Categorias y estados son listas cerradas y se validan contra el codigo: el
+// formulario manda un string, no una clave foranea. Si manana se agrega una
+// categoria hay que tocar aca y en SupportModal.tsx.
+const SUPPORT_CATEGORIES = ["bug", "pregunta", "facturacion", "widget", "mejora"] as const;
+const SUPPORT_STATUSES = ["abierto", "en_curso", "resuelto"] as const;
+
+const clip = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+async function handleSupportCreate(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 401, origin);
+  // 5 por hora y por cuenta: frena el "se dio vuelta y lo reenvio" sin frenar a
+  // nadie que este escribiendo un problema de verdad.
+  if (isRateLimited(`support:${user.id}`, 5)) {
+    return json(
+      { error: "Ya nos escribiste varias veces. Te respondemos en breve, no hace falta insistir." },
+      429,
+      origin
+    );
+  }
+
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const category = clip(body.category, 20);
+  const subject = clip(body.subject, 140);
+  const message = clip(body.message, 4000);
+  if (!(SUPPORT_CATEGORIES as readonly string[]).includes(category)) {
+    return json({ error: "Elegí una categoría" }, 400, origin);
+  }
+  if (subject.length < 4) return json({ error: "Contá el asunto en pocas palabras" }, 400, origin);
+  if (message.length < 10) return json({ error: "Contanos un poco más para poder ayudarte" }, 400, origin);
+
+  // Copia de la cuenta (ver 0013): el admin tiene que poder leer el mensaje
+  // aunque el cliente borre su cuenta o cambie de correo.
+  const acct = await env.DB.prepare("SELECT email, name, plan FROM users WHERE id = ?")
+    .bind(user.id)
+    .first<{ email: string | null; name: string | null; plan: string | null }>();
+
+  const id = crypto.randomUUID();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO support_tickets
+         (id, user_id, user_email, user_name, user_plan, category, subject, message, status, page, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'abierto', ?, ?)`
+    )
+      .bind(
+        id,
+        user.id,
+        acct?.email ?? null,
+        acct?.name ?? null,
+        acct?.plan ?? null,
+        category,
+        subject,
+        message,
+        clip(body.page, 200) || null,
+        clip(request.headers.get("User-Agent"), 300) || null
+      )
+      .run();
+  } catch {
+    return json({ error: "No se pudo guardar el mensaje" }, 500, origin);
+  }
+  return json({ ok: true, id }, 201, origin);
+}
+
+async function handleAdminSupport(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user || !(user.superadmin || user.role === "admin")) {
+    return json({ error: "No autorizado" }, 403, origin);
+  }
+
+  if (request.method === "PATCH") {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const id = clip(body.id, 64);
+    const status = clip(body.status, 20);
+    if (!id || !(SUPPORT_STATUSES as readonly string[]).includes(status)) {
+      return json({ error: "Datos inválidos" }, 400, origin);
+    }
+    await env.DB.prepare(
+      "UPDATE support_tickets SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?"
+    )
+      .bind(status, id)
+      .run();
+    // Se relee en vez de mirar `changes`: 0 filas podria ser "no existe" o
+    // "ya estaba asi", y un ok sobre un id inexistente leeria como mentira.
+    const row = await env.DB.prepare("SELECT id FROM support_tickets WHERE id = ?")
+      .bind(id)
+      .first<{ id: string }>();
+    if (!row) return json({ error: "Ese mensaje ya no existe" }, 404, origin);
+    return json({ ok: true }, 200, origin);
+  }
+
+  const userId = (new URL(request.url).searchParams.get("user_id") || "").trim();
+  // Sin paginar y con tope de 200: es una bandeja humana (el admin mira el
+  // badge de cada cliente y abre un drawer), no un reporte. Si el volumen lo
+  // pide, se pagina como en Clientes.
+  // `rowid DESC` de desempate: `strftime` da milisegundos, asi que dos mensajes
+  // enviados en el mismo milisegundo quedan con la misma fecha y el orden de la
+  // bandeja seria el que devuelva D1.
+  const stmt = env.DB.prepare(
+    `SELECT id, user_id, user_email, user_name, user_plan, category, subject, message, status, page, user_agent, created_at, updated_at
+       FROM support_tickets ${userId ? "WHERE user_id = ?" : ""}
+      ORDER BY created_at DESC, rowid DESC LIMIT 200`
+  );
+  const rows = userId ? await stmt.bind(userId).all() : await stmt.all();
+  return json({ tickets: rows.results ?? [] }, 200, origin);
+}
+
 async function handleAdminUsers(request: Request, env: Env) {
   const origin = request.headers.get("Origin") || "*";
   const user = await resolveUser(request, env);
@@ -2522,6 +2631,14 @@ const historyMatch = url.pathname.match(/^\/api\/leads\/([^/]+)\/history$/);
       if (request.method === "DELETE") {
         return handleLeadDelete(request, leadsMatch[1], env);
       }
+    }
+
+    if (url.pathname === "/api/admin/support") {
+      return handleAdminSupport(request, env);
+    }
+
+    if (url.pathname === "/api/support" && request.method === "POST") {
+      return handleSupportCreate(request, env);
     }
 
     return json({ error: "Not found" }, 404);
