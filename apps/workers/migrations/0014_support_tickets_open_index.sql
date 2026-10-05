@@ -1,0 +1,11 @@
+-- 0014 - Indice cubriente para el conteo de badges de Ayuda y Soporte.
+--
+-- El panel pide, al entrar a Clientes, cuantos tickets sin resolver tiene cada
+-- cliente. Con `status != 'resuelto'` SQLite no puede usar el indice por estado
+-- (no es una busqueda de igualdad) y termina recorriendo TODOS los tickets; con
+-- el indice (status, user_id) la misma consulta se resuelve solo con el indice,
+-- sin tocar la tabla y sin arma un B-tree temporal para el GROUP BY.
+--
+-- El indice nuevo no reemplaza a idx_support_tickets_status (0013): este es el
+-- que se recorre cuando el drawer pide los tickets de un cliente.
+CREATE INDEX IF NOT EXISTS idx_support_tickets_open ON support_tickets (status, user_id);

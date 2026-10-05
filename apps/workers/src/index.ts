@@ -2015,13 +2015,15 @@ async function handleAdminSupport(request: Request, env: Env) {
     return json({ tickets: rows.results ?? [] }, 200, origin);
   }
 
-  // Badge por cliente: un GROUP BY sobre el indice de estado. Sin `user_id` el
-  // panel solo necesita el numero de pendientes, asi que los mensajes NO se
-  // bajan: traerlos enteros en cada visita a Clientes es justo lo que D1
-  // factura. El drawer de un cliente los pide aparte, y solo de ese cliente.
+  // Badge por cliente: un GROUP BY sobre el indice (status, user_id) de la
+  // migracion 0014, asi que se resuelve solo con el indice (sin leer la tabla ni
+  // armar un B-tree temporal). Sin `user_id` el panel solo necesita el numero de
+  // pendientes, asi que los mensajes NO se bajan: traerlos enteros en cada visita
+  // a Clientes es justo lo que D1 factura. El drawer de un cliente los pide
+  // aparte, y solo de ese cliente.
   const counts = await env.DB.prepare(
     `SELECT user_id, COUNT(*) AS open FROM support_tickets
-      WHERE status != 'resuelto' AND user_id IS NOT NULL
+      WHERE status IN ('abierto', 'en_curso') AND user_id IS NOT NULL
       GROUP BY user_id`
   ).all<{ user_id: string; open: number }>();
   return json({ open: counts.results ?? [] }, 200, origin);

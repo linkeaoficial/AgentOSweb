@@ -250,10 +250,23 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
         });
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) throw new Error(data.error || "No se pudo cambiar el estado");
+        // El contador se ajusta en local en vez de volver a pedirlo: el PATCH ya
+        // nos dijo el estado nuevo y ya sabemos de quien es el ticket. Asi el
+        // cambio de estado no cuesta ninguna lectura extra, y tampoco puede
+        // devolver un conteo viejo (una lectura apenas despues de escribir puede
+        // pegarle a una replica atrasada y dejar todos los badges en cero).
+        const prev = drawer.rows.find((t) => t.id === id);
+        const uid = prev?.user_id;
+        if (uid && prev.status !== status) {
+          const wasOpen = prev.status !== "resuelto";
+          const isOpen = status !== "resuelto";
+          setOpenCounts((cur) => {
+            const n = cur[uid] ?? 0;
+            if (wasOpen === isOpen) return cur;
+            return { ...cur, [uid]: Math.max(0, n + (isOpen ? 1 : -1)) };
+          });
+        }
         setDrawer((d) => ({ ...d, rows: d.rows.map((t) => (t.id === id ? { ...t, status } : t)) }));
-        // El badge de este cliente cambia con este PATCH: se refresca el conteo
-        // para que no quede un numero viejo.
-        void loadOpenCounts();
         toast.success(status === "resuelto" ? "Mensaje marcado como resuelto" : "Estado actualizado");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Error de red");
@@ -261,7 +274,7 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
         setSavingTicket(null);
       }
     },
-    [toast, loadOpenCounts]
+    [toast, drawer.rows]
   );
 
   const openDetail = useCallback((u: AdminUser) => {
@@ -932,22 +945,47 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
                         {t.page ? ` · ${t.page}` : ""}
                       </p>
                       <p className="sup-ticket-text">{t.message}</p>
-                      <label className="sup-status-label" htmlFor={`sup-st-${t.id}`}>
-                        Estado
-                        <select
-                          id={`sup-st-${t.id}`}
-                          className="form-input"
-                          value={t.status}
-                          disabled={savingTicket === t.id}
-                          onChange={(e) => void setTicketStatus(t.id, e.target.value)}
-                        >
-                          {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                            <option key={v} value={v}>
-                              {l}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <div className="sup-ticket-actions">
+                        <label className="sup-status-label" htmlFor={`sup-st-${t.id}`}>
+                          Estado
+                          <select
+                            id={`sup-st-${t.id}`}
+                            className="form-input"
+                            value={t.status}
+                            disabled={savingTicket === t.id}
+                            onChange={(e) => void setTicketStatus(t.id, e.target.value)}
+                          >
+                            {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                              <option key={v} value={v}>
+                                {l}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {t.user_email ? (
+                          // Responder es manual: el panel solo abre el correo del
+                          // cliente con el asunto y su mensaje ya escritos, para
+                          // no tener que copy/pegar nada.
+                          <a
+                            className="sup-reply"
+                            href={`mailto:${t.user_email}?subject=${encodeURIComponent(
+                              `Re: ${t.subject}`
+                            )}&body=${encodeURIComponent(
+                              `${t.message}\n\n—\nEscrito desde el panel el ${formatDate(t.created_at)}`
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={`Responder a ${t.user_email}`}
+                            aria-label={`Responder a ${t.user_email}`}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="4" width="20" height="16" rx="2" />
+                              <path d="m22 7-10 6L2 7" />
+                            </svg>
+                            Responder
+                          </a>
+                        ) : null}
+                      </div>
                     </section>
                   ))
                 )}

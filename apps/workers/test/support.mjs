@@ -22,6 +22,7 @@ const read = (p) => readFileSync(p, "utf8");
 const db = new DatabaseSync(":memory:");
 db.exec(read(resolve(REPO, "database/schema.sql")));
 db.exec(read(resolve(WORKERS, "migrations/0013_support_tickets.sql")));
+db.exec(read(resolve(WORKERS, "migrations/0014_support_tickets_open_index.sql")));
 
 let fails = 0;
 const check = (name, cond) => {
@@ -82,6 +83,34 @@ const openFor = (id) =>
   db.prepare("SELECT COUNT(*) c FROM support_tickets WHERE user_id = ? AND status != 'resuelto'").get(id).c;
 check("el badge cuenta solo lo que no esta resuelto", openFor("u1") === 0 && openFor("u2") === 1);
 
+// La consulta real del badge: mismos numeros que el `!=` pero con la lista
+// explicita de estados abiertos, que es lo que puede usar el indice (status,
+// user_id). Si alguien agrega un estado nuevo, esta comparacion lo delata.
+const badgeRows = db
+  .prepare(
+    "SELECT user_id, COUNT(*) AS open FROM support_tickets WHERE status IN ('abierto', 'en_curso') AND user_id IS NOT NULL GROUP BY user_id"
+  )
+  .all();
+check(
+  "el conteo por GROUP BY coincide con el conteo por cliente",
+  JSON.stringify(badgeRows) === JSON.stringify([{ user_id: "u2", open: 1 }]),
+  JSON.stringify(badgeRows)
+);
+// El plan tiene que ser solo indice: si vuelve "SCAN support_tickets" el conteo
+// se esta yendo a la tabla entera y hay que revisar la migracion 0014.
+const plan = db
+  .prepare(
+    "EXPLAIN QUERY PLAN SELECT user_id, COUNT(*) AS open FROM support_tickets WHERE status IN ('abierto', 'en_curso') AND user_id IS NOT NULL GROUP BY user_id"
+  )
+  .all()
+  .map((r) => r.detail)
+  .join(" | ");
+check(
+  "el conteo de badges se resuelve con indice, sin escanear la tabla",
+  plan.includes("idx_support_tickets_open") && !/SCAN support_tickets/.test(plan),
+  plan
+);
+
 // --- El panel no debe volver a bajar la bandeja entera ---
 const idx = db
   .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'support_tickets'")
@@ -115,6 +144,10 @@ check(
 // es lo que mas factura en D1, asi que queda prohibido volver a pedirla.
 const countsSql = workerSrc.match(/SELECT user_id, COUNT\(\*\) AS open[\s\S]*?GROUP BY user_id/)?.[0];
 check("el conteo de badges no arrastra el mensaje", countsSql !== undefined && !countsSql.includes("message"));
+check(
+  "el conteo de badges lista los estados abiertos en vez de usar !=",
+  /status IN \('abierto', 'en_curso'\)/.test(workerSrc ?? "")
+);
 const drawerLimit = Number(workerSrc.match(/FROM support_tickets WHERE user_id = \?[\s\S]*?LIMIT (\d+)/)?.[1]);
 check("el drawer de un cliente tiene tope de filas", drawerLimit > 0 && drawerLimit <= 50, `LIMIT ${drawerLimit}`);
 check(

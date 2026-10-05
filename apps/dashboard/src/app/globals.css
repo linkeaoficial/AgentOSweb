@@ -8367,6 +8367,35 @@ body.dark-mode .support-modal {
     width: auto;
 }
 
+.sup-ticket-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Abrir el correo del cliente: mismo gesto que en Prospectos, pero con el
+   asunto y su mensaje ya puestos (mailto con subject/body). */
+.sup-reply {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-subtle);
+    color: var(--text-main);
+    font-size: 13px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.sup-reply:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
 @media (max-width: 560px) {
     .support-modal {
         padding: 20px 18px 18px;
