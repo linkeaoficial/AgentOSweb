@@ -167,8 +167,19 @@ body.dark-mode {
 }
 
 /* ðŸ”âœ• Control de visibilidad de los dos Ã­conos del toggle */
-.sidebar-toggle-btn .icon-close {
+.sidebar-toggle-btn .icon-close,
+.sidebar-toggle-btn .icon-panel-left {
     display: none;
+}
+
+/* PC: sidebar abierto -> PanelLeft (cerrar) en vez de repetir la hamburguesa */
+@media (min-width: 769px) {
+    .sidebar:not(.collapsed) .sidebar-toggle-btn .icon-menu {
+        display: none;
+    }
+    .sidebar:not(.collapsed) .sidebar-toggle-btn .icon-panel-left {
+        display: block;
+    }
 }
 
 /* ðŸŒ‘ Backdrop mÃ³vil: fondo oscuro translÃºcido detrÃ¡s del menÃº desplegable */
@@ -4288,6 +4299,13 @@ body.dark-mode .nav-backdrop {
 
             .sidebar-header-actions .user-menu-wrap {
                 display: block;
+            }
+
+            /* Hamburguesa y campanita lado a lado: mismo tamaño de toque */
+            .sidebar-toggle-btn {
+                width: 38px;
+                height: 38px;
+                border-radius: 12px;
             }
 
             /* Ocultar notif/tema/avatar del topbar (ya están en el hamburguesa) */

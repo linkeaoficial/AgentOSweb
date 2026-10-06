@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import {
   IconMenu,
   IconClose,
+  IconPanelLeft,
   IconOverview,
   IconAgent,
   IconLeads,
@@ -70,6 +71,7 @@ export default function Sidebar({ collapsed, activeView, pageTitle, isDark, isAd
             <button className="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Expandir o colapsar menú" onClick={onToggle}>
               <IconMenu />
               <IconClose />
+              <IconPanelLeft />
             </button>
           </div>
         </div>
