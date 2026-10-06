@@ -1,5 +1,6 @@
 import Image from "next/image";
 import AgentSwitcher from "./AgentSwitcher";
+import NotificationsBell from "./NotificationsBell";
 import type { ReactNode } from "react";
 import {
   IconMenu,
@@ -11,7 +12,6 @@ import {
   IconBilling,
   IconSettings,
   IconUser,
-  IconBell,
   IconMoon,
   IconSun,
 } from "./icons";
@@ -66,10 +66,7 @@ export default function Sidebar({ collapsed, activeView, pageTitle, isDark, isAd
             </div>
           </div>
           <div className="sidebar-header-actions">
-            <button className="topbar-btn sidebar-notif" aria-label="Notificaciones">
-              <IconBell />
-              <span className="notif-badge" />
-            </button>
+            <NotificationsBell onNavigate={onNavigate} className="sidebar-notif" />
             <button className="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Expandir o colapsar menú" onClick={onToggle}>
               <IconMenu />
               <IconClose />

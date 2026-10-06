@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { IconBell, IconMoon, IconSun } from "./icons";
+import { IconMoon, IconSun } from "./icons";
+import NotificationsBell from "./NotificationsBell";
 import UserMenu from "./UserMenu";
 
 interface TopbarProps {
@@ -39,10 +42,8 @@ export default function Topbar({ pageTitle, isDark, onToggleTheme, onNavigate, o
             )}
           </div>
         )}
-        <button className="topbar-btn" id="notif-btn" aria-label="Notificaciones">
-          <IconBell />
-          <span className="notif-badge" />
-        </button>
+
+        <NotificationsBell onNavigate={onNavigate} />
 
         <button className="topbar-btn" id="theme-btn" aria-label="Cambiar tema" onClick={onToggleTheme}>
           {isDark ? <IconSun /> : <IconMoon />}

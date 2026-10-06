@@ -534,17 +534,27 @@ body.dark-mode .nav-backdrop {
             transform: translateY(1px);
         }
 
-        /* ðŸ”µ Indicador de notificaciÃ³n profesional (Azul elÃ©ctrico con brillo suave) */
+        /* 🔴 Contador de la campanita: cuántas nuevas desde la última apertura.
+           Punto rojo estático con el número adentro: el propio número ya es la
+           alerta, y un halo que late alrededor de un dígito se ve de 2015. */
         .notif-badge {
             position: absolute;
-            top: 9px;
-            right: 9px;
-            width: 6.5px;
-            height: 6.5px;
-            background-color: var(--primary-color);
-            box-shadow: 0 0 8px var(--primary-box-shadow-glow);
-            border-radius: 50%;
+            top: -6px;
+            right: -6px;
+            min-width: 17px;
+            height: 17px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background-color: #ef4444;
+            color: #ffffff;
             border: 1.5px solid var(--bg-surface);
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
         }
 
         /* ðŸ‘¤ Avatar circular interactivo */
@@ -3184,17 +3194,6 @@ body.dark-mode .nav-backdrop {
             }
         }
 
-        /* ?? Badge de notificaciones: pulso suave infinito */
-        @keyframes aow-notif-pulse {
-            0%   { box-shadow: 0 0 0 0 var(--primary-box-shadow-glow), 0 0 8px var(--primary-box-shadow-glow); }
-            70%  { box-shadow: 0 0 0 7px rgba(53, 89, 255, 0), 0 0 8px var(--primary-box-shadow-glow); }
-            100% { box-shadow: 0 0 0 0 rgba(53, 89, 255, 0), 0 0 8px var(--primary-box-shadow-glow); }
-        }
-
-        .notif-badge {
-            animation: aow-notif-pulse 2.4s ease-out infinite;
-        }
-
         /* ========================================================
            ?? MENÚ DE USUARIO (modal dropdown estilo Gemini)
            ======================================================== */
@@ -3353,6 +3352,121 @@ body.dark-mode .nav-backdrop {
 
         .user-menu-divider {
             background: var(--border-color);
+        }
+
+        /* ========================================================
+           🔔 CAMPANITA (reaprovecha .user-menu como popover y
+           .user-menu-item como fila: solo agregan ancho y layout)
+           ======================================================== */
+        .notif-menu {
+            width: min(340px, calc(100vw - 32px));
+        }
+
+        .notif-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 12px 8px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 5px;
+            color: var(--text-muted);
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .notif-count-pill {
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 18px;
+            text-align: center;
+            letter-spacing: 0;
+        }
+
+        .notif-item {
+            align-items: flex-start;
+            gap: 11px;
+        }
+
+        .notif-item-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+            margin-top: 1px;
+            border-radius: 9px;
+            background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+            color: var(--primary-color);
+        }
+
+        .notif-item-icon svg {
+            width: 15px;
+            height: 15px;
+            color: currentColor;
+        }
+
+        .notif-item:hover .notif-item-icon {
+            background: color-mix(in srgb, var(--primary-color) 16%, transparent);
+        }
+
+        .notif-item-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .notif-item-text strong {
+            font-size: 12.8px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .notif-item-text span {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .notif-item-time {
+            flex-shrink: 0;
+            align-self: flex-start;
+            margin-top: 2px;
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+
+        .notif-empty {
+            padding: 20px 12px;
+            text-align: center;
+            font-size: 12.5px;
+            color: var(--text-muted);
+        }
+
+        /* En móvil la campanita vive en la barra lateral, que ocupa todo el ancho
+           y la ancla bien a la derecha: con position: absolute colgando del
+           botón, los 340px del menú se salían 8px por la izquierda. Fija al
+           viewport el ancho siempre cabe (16px a cada lado). */
+        @media (max-width: 768px) {
+            .notif-menu {
+                position: fixed;
+                top: 72px;
+                right: 16px;
+                left: auto;
+                width: min(340px, calc(100vw - 32px));
+            }
         }
 
         /* ========================================================

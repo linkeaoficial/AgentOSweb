@@ -704,7 +704,12 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
   // Free no usa BYOK: si el agente quedó en BYOK con plan Free (vencimiento o
   // config previa al gate), se atiende con IA administrada y aplica el cupo.
   const byokBlocked = !isWorkersAI(agent) && (await isFreePlan(env, agent.user_id));
-  const useManaged = isWorkersAI(agent) || byokBlocked;
+  const hasValidSession = Boolean(
+    body.session_id &&
+      body.session_id !== "anon" &&
+      body.session_id.length >= 6
+  );
+  const useManaged = (isWorkersAI(agent) || byokBlocked) && hasValidSession;
   let managedLimit: number | null = null; // cupo efectivo del usuario si IA administrada
   if (useManaged) {
     // KV evita releer D1 en cada intento: 5 min una vez agotado (valor = plan,
@@ -2262,6 +2267,83 @@ async function handleUserNotice(request: Request, env: Env) {
   return json({ ok: true }, 200, origin);
 }
 
+// Campanita del panel. Todo se DERIVA de tablas que ya existen (soporte,
+// prospectos y el vencimiento del plan): no hay tabla de notificaciones ni un
+// emisor que mande nada, y el cursor de lectura es la columna 0015.
+//
+// El cursor es 'YYYY-MM-DD HH:MM:SS' UTC, el formato que escribe datetime('now')
+// y el que usa `created_at` de leads, asi que ahi la comparacion es de texto y
+// usa el indice. Soporte guarda otro formato (ver mas abajo). El vencimiento del
+// plan es solo 'YYYY-MM-DD' (dia de calendario, sin hora), por eso se compara
+// contra la FECHA del cursor y nunca contra la hora.
+async function handleNotifications(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+
+  const u = await env.DB.prepare(
+    "SELECT notifications_read_at, downgraded_from, plan_expires_at FROM users WHERE id = ?"
+  )
+    .bind(user.id)
+    .first<{ notifications_read_at: string | null; downgraded_from: string | null; plan_expires_at: string | null }>();
+  const readAt = u?.notifications_read_at ?? "1970-01-01 00:00:00";
+  const readDate = readAt.slice(0, 10);
+  const items: { type: string; at: string; count: number }[] = [];
+
+  // Soporte: solo admin, y solo lo que llego despues del cursor. El "sin
+  // resolver" persistente sigue siendo el badge de Clientes; aca se anuncia
+  // lo nuevo, que es lo unico que se descarta al abrir.
+  //
+  // datetime() de los dos lados: soporte guarda created_at con el DEFAULT de su
+  // migracion ('2026-10-06T13:45:01.123Z') y el cursor es datetime('now')
+  // ('2026-10-06 13:45:01'). Comparado como texto, la 'T' pesa mas que el
+  // espacio y TODO lo de hoy queda "nuevo" despues de leerlo: el badge se pegaba
+  // hasta medianoche.
+  // ponytail: tabla de ~12 filas, el escaneo completo cuesta nada; si algún día
+  // tiene millones, poner created_at en formato 'YYYY-MM-DD HH:MM:SS' como leads
+  // (backfill + DEFAULT) y volver a la comparacion de texto con el indice.
+  if (user.role === "admin") {
+    const s = await env.DB.prepare(
+      "SELECT COUNT(*) AS n, MAX(datetime(created_at)) AS at FROM support_tickets WHERE status IN ('abierto', 'en_curso') AND datetime(created_at) > datetime(?)"
+    )
+      .bind(readAt)
+      .first<{ n: number; at: string | null }>();
+    if (s?.at) items.push({ type: "support", at: s.at, count: s.n });
+  }
+
+  // Prospectos nuevos de los agentes de la cuenta (leads no tiene user_id:
+  // se llega por agents, con los indices de 0004).
+  const l = await env.DB.prepare(
+    "SELECT COUNT(*) AS n, MAX(created_at) AS at FROM leads WHERE created_at > ? AND agent_id IN (SELECT id FROM agents WHERE user_id = ?)"
+  )
+    .bind(readAt, user.id)
+    .first<{ n: number; at: string | null }>();
+  if (l?.at) items.push({ type: "leads", at: l.at, count: l.n });
+
+  // Plan vencido: el cron ya dejo `downgraded_from`. El modal lo anuncia una
+  // sola vez y la campanita lo conserva hasta la proxima lectura. Se compara
+  // por FECHA (el vencimiento no tiene hora): hoy leido, hoy borrado.
+  if (u?.downgraded_from && u.plan_expires_at && u.plan_expires_at > readDate) {
+    items.push({ type: "plan", at: u.plan_expires_at, count: 1 });
+  }
+
+  items.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  return json({ items }, 200, origin);
+}
+
+// Abrir la campanita marca todo como leido. No hay boton "marcar todo": los
+// items son punteros a datos que siguen vivos (el ticket en Clientes, el lead
+// en Prospectos), asi que descartarlos al abrir no pierde nada.
+async function handleNotificationsRead(request: Request, env: Env) {
+  const origin = request.headers.get("Origin") || "*";
+  const user = await resolveUser(request, env);
+  if (!user) return json({ error: "No autorizado" }, 403, origin);
+  await env.DB.prepare("UPDATE users SET notifications_read_at = datetime('now') WHERE id = ?")
+    .bind(user.id)
+    .run();
+  return json({ ok: true }, 200, origin);
+}
+
 // Historial de plan de una cuenta. Responde "¿que me contrataste y cuando?",
 // que antes no se podia contestar con evidencia. Admin mira cualquier cuenta;
 // el cliente solo la suya: la facturacion propia es de solo lectura y el
@@ -2583,6 +2665,12 @@ export default {
   }
   if (url.pathname === "/api/user/notice" && request.method === "POST") {
     return handleUserNotice(request, env);
+  }
+  if (url.pathname === "/api/notifications" && request.method === "GET") {
+    return handleNotifications(request, env);
+  }
+  if (url.pathname === "/api/notifications/read" && request.method === "POST") {
+    return handleNotificationsRead(request, env);
   }
 
   const eventsMatch = url.pathname.match(/^\/api\/admin\/users\/([^/]+)\/events$/);
