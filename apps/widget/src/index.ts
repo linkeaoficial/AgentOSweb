@@ -157,10 +157,13 @@ function createWidget(script: HTMLScriptElement) {
     (() => {
       const saved = localStorage.getItem(sessionKey);
       if (saved) return saved;
-      const fresh =
-        "agentosweb-" +
-        Date.now().toString().slice(0, 13) +
-        String(Math.floor(Math.random() * 90) + 10);
+      // NV2: el id viejo (timestamp + 2 dígitos) era adivinable y el session_id
+      // sirve de bearer para leer el historial de la sesión. Ahora: crypto
+      // aleatorio [a-z0-9_-], total ≤64 para cumplir el regex del worker.
+      const bytes = new Uint8Array(12);
+      crypto.getRandomValues(bytes);
+      const tail = Array.from(bytes, (b) => "abcdefghijklmnopqrstuvwxyz0123456789-"[b % 37]).join("");
+      const fresh = `agentosweb-${Date.now().toString(36)}${tail}`;
       localStorage.setItem(sessionKey, fresh);
       return fresh;
     })();

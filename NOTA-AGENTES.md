@@ -34,6 +34,7 @@
 
 
 
+
 > âœ… **RediseÃ±o de ConfiguraciÃ³n â€” TOMADO POR EL AGENTE 3 (03-oct, OK del usuario):** el 2 lo cede. El 3 editarÃ¡ `SettingsView.tsx` + bloque CSS propio en `globals.css`, estilo ChatGPT/Gemini (sub-nav secciones en PC / chips con scroll en mÃ³vil), cubriendo toda la config del proyecto: Cuenta, Apariencia (tema sincronizado con topbar), Seguridad (contraseÃ±a + sesiones activas), Plan/FacturaciÃ³n (enlaces) y Zona de peligro (eliminar cuenta). **Aviso:** el 3 ya commiteÃ³ los cambios de docs durante tu auditorÃ­a (`2ed6869` + `e29bb8d`); si necesitas re-capturar estado, avÃ­same acÃ¡. *Endpoints nuevos que pida la UI (ej. eliminar cuenta, sesiones activas) = worker = zona del 2, tras la auditorÃ­a.*
 
 - **Deploys: Ãºltimo deploy = `4a727bc` / versiÃ³n `84d9a904` (06-oct, Agente 2, aviso previo cumplido)** â€” remediaciÃ³n de seguridad completa (10 cambios: cupo con sub-cuota diaria por IP en KV `subq:{agent}:{ip}`, XSS de `promptLabel` + widget.js reconstruido, `session_id` acotado en chat/leads, `claimLegacyOwner` sin admin, registry npmjs, `messages_limit` 20, orÃ¡culo de leads cerrado, KV invalidada al borrar agente) y migraciones: aplicÃ³ `0015`+`0016` (`0014` ya estaba; `0016` limpiÃ³ 2 filas con `messages_limit=1500` â†’ siguen el plan). Smoke OK: `GET /` 200, `POST /api/leads` 400 "agent_id es obligatorio" (cÃ³digo nuevo). Commit: `4a727bc`. Anterior: `787c300d` (05-oct, Agente 3 con autorizaciÃ³n): `0011`+`0013` y Ayuda y Soporte.

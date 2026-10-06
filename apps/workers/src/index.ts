@@ -1789,7 +1789,10 @@ function planDefaults(plan: string | null | undefined) {
 // la creacion de agentes nuevos.
 function effectivePlan(user: { plan: string | null; plan_expires_at: string | null } | null | undefined): string {
   const plan = user?.plan ?? "free";
-  if (plan === "free" || plan === "starter") return plan;
+  // NV4 (decisión del dueño 06-oct): TODOS los planes de pago vencen al mes,
+  // starter incluido; solo free es permanente. La recarga la hace el dueño a
+  // mano (renew_months / handleUserUpdate extienden plan_expires_at).
+  if (plan === "free") return plan;
   const exp = user?.plan_expires_at;
   if (exp && exp < todayIso()) return "free";
   return plan;
@@ -1900,17 +1903,18 @@ async function handleAgentCreate(request: Request, env: Env) {
     .bind(user.id)
     .first<{ plan: string | null; agent_limit: number | null; plan_expires_at: string | null }>();
   const limit = effectiveAgentLimit(owner);
-  const countRow = await env.DB.prepare("SELECT COUNT(*) AS total FROM agents WHERE user_id = ?").bind(user.id).first<{ total: number }>();
-  if ((Number(countRow?.total) || 0) >= limit) {
-    return json({ error: `Alcanzaste el límite de tu plan (${limit} agente${limit === 1 ? "" : "s"}). Sube de plan para crear más.` }, 402, origin);
-  }
 
   const id = crypto.randomUUID();
   const defaultPrompt = "";
   const defaultWelcome = `Soy el asistente virtual de ${name}. ¿En qué te puedo colaborar hoy?`;
-  await env.DB.prepare(
-    "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model, lead_fields) VALUES (?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?, ?)"
-  ).bind(id, user.id, name, name, defaultPrompt, defaultWelcome, DEFAULT_MODEL_FAST, DEFAULT_LEAD_FIELDS).run();
+  // NV5: el COUNT vive dentro del propio INSERT (una sola sentencia), así dos
+  // creaciones simultáneas no se cuelan por encima del límite del plan.
+  const ins = await env.DB.prepare(
+    "INSERT INTO agents (id, user_id, name, header_title, system_prompt, welcome_message, mode, chat_provider, chat_model, lead_fields) SELECT ?, ?, ?, ?, ?, ?, 'managed', 'workers-ai', ?, ? WHERE (SELECT COUNT(*) FROM agents WHERE user_id = ?) < ?"
+  ).bind(id, user.id, name, name, defaultPrompt, defaultWelcome, DEFAULT_MODEL_FAST, DEFAULT_LEAD_FIELDS, user.id, limit).run();
+  if (!ins.meta.changes) {
+    return json({ error: `Alcanzaste el límite de tu plan (${limit} agente${limit === 1 ? "" : "s"}). Sube de plan para crear más.` }, 402, origin);
+  }
 
   return json({ ok: true, id }, 200, origin);
 }
