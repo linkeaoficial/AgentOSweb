@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   name TEXT,
   plan TEXT DEFAULT 'starter',               -- 'free', 'starter', 'pro', 'agency'
-  messages_limit INTEGER DEFAULT 1500,       -- Cupo mensual contratado
+  messages_limit INTEGER DEFAULT 20,       -- Cupo mensual contratado
   agent_limit INTEGER,                       -- Override de agentes (NULL = sigue el plan)
   messages_used INTEGER DEFAULT 0,           -- Contador mensual de consumo
   plan_expires_at TEXT,                      -- Vencimiento del plan 'YYYY-MM-DD' (NULL = sin vencimiento)

@@ -184,10 +184,11 @@ function createWidget(script: HTMLScriptElement) {
     avatarImg.src = cfg.avatar_url || logoUrl;
     $<HTMLImageElement>("chat-icon").src = cfg.bubble_logo_url || iconoChatUrl;
     const hasPrompts = cfg.prompts.length > 0;
+    const escape = (t:any)=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     promptList.innerHTML = cfg.prompts
       .map(
         (p) =>
-          `<div class="prompt-item" data-msg="${p.msg.replace(/"/g, "&quot;")}"><span>${p.label}</span>${svg(ICON_CHEVRON)}</div>`
+          `<div class="prompt-item" data-msg="${p.msg.replace(/"/g, "&quot;")}"><span>${escape(p.label)}</span>${svg(ICON_CHEVRON)}</div>`
       )
       .join("");
     quickPromptsTitle.style.display = hasPrompts ? "" : "none";

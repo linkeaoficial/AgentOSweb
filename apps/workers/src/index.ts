@@ -174,21 +174,25 @@ async function claimLegacyOwner(env: Env, su: { id: string; email: string; name?
       // La FK agents.user_id -> users(id) es ON DELETE CASCADE y no ON UPDATE
       // CASCADE, así que cambiar el id del padre está prohibido en cualquier
       // orden. defer_foreign_keys postpone la verificación hasta el COMMIT.
-      await env.DB.batch([
-        env.DB.prepare("PRAGMA defer_foreign_keys = ON"),
-        env.DB.prepare("UPDATE users SET id = ?, name = COALESCE(NULLIF(?, ''), name) WHERE id = ?").bind(su.id, su.name ?? "", legacy.id),
-        env.DB.prepare("UPDATE agents SET user_id = ? WHERE user_id = ?").bind(su.id, legacy.id),
-      ]);
-      // El dueño legacy pasa a ser admin: puede editar planes (Fase 2D).
-      await env.DB.prepare('UPDATE "user" SET role = \'admin\' WHERE id = ?').bind(su.id).run();
+      // Protección: solo transferir si legacy existe y no tiene conflicto activo.
+      const legacyHasAgents = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ? LIMIT 1").bind(legacy.id).first();
+      const targetHasAgents = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ? LIMIT 1").bind(su.id).first();
+      if (!targetHasAgents && legacyHasAgents) {
+        await env.DB.batch([
+          env.DB.prepare("PRAGMA defer_foreign_keys = ON"),
+          env.DB.prepare("UPDATE users SET id = ?, name = COALESCE(NULLIF(?, ''), name) WHERE id = ?").bind(su.id, su.name ?? "", legacy.id),
+          env.DB.prepare("UPDATE agents SET user_id = ? WHERE user_id = ?").bind(su.id, legacy.id),
+        ]);
+      // No promovemos automáticamente a admin para evitar takeover por email no verificado.
+      }
     }
     return;
   }
   // La cuenta nueva entra en free con un mes de período ya corriendo: desde el
   // alta se sabe que vence, sin depender de que alguien abra el panel.
   await env.DB.prepare(
-    "INSERT OR IGNORE INTO users (id, email, name, plan, plan_expires_at) VALUES (?, ?, ?, 'free', ?)"
-  ).bind(su.id, su.email, su.name ?? null, periodEnd()).run();
+    "INSERT OR IGNORE INTO users (id, email, name, plan, plan_expires_at, messages_limit) VALUES (?, ?, ?, 'free', ?, 20)"
+  ).bind(su.id, su.email, su.name ?? null, periodEnd(), 20).run();
   await ensureDefaultAgent(env, su.id, su.name);
 }
 
@@ -278,6 +282,11 @@ const RATE_WINDOW_MS = 60_000;
 // extracción con IA dentro del LLM si el ruido molesta.
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 const PHONE_RE = /(?:\+?\d[\s().-]?){6,}\d/;
+const SESSION_ID_RE = /^[a-zA-Z0-9_-]{8,64}$/;
+
+function isValidSessionId(sid?: unknown): sid is string {
+  return typeof sid === "string" && sid !== "anon" && SESSION_ID_RE.test(sid);
+}
 const NAME_RE = /(?:me llamo|mi nombre es|nombre es|soy)\s+([A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+(?:\s+[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+){0,2})/i;
 
 async function captureLead(agent: AgentRow, sessionId: string, message: string, env: Env) {
@@ -624,7 +633,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
   if (!body?.agent_id || typeof body.message !== "string") {
     return json({ error: "agent_id y message son obligatorios" }, 400, origin);
   }
-  if (body.message.trim().length === 0 || body.message.length > 1500) {
+  if (body.message.trim().length === 0 || body.message.length > 2000) {
     return json({ error: "Mensaje inválido" }, 400, origin);
   }
 
@@ -640,14 +649,17 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
     return json({ error: "Demasiadas solicitudes. Intenta en un minuto." }, 429, origin);
   }
 
+  const cleanSessionId = isValidSessionId(body.session_id) ? body.session_id : null;
+
   // Form embebido: se ofrece una vez por sesión cuando hay interés y captura activa.
   const wantsForm =
     agent.lead_capture === 1 &&
     hasInterest(body.message) &&
     (await (async () => {
+      if (!cleanSessionId) return true;
       const id = await env.DB
         .prepare("SELECT id FROM leads WHERE agent_id = ? AND session_id = ?")
-        .bind(agent.id, body.session_id || "anon")
+        .bind(agent.id, cleanSessionId)
         .first<{ id: string }>()
         .catch(() => null);
       return !id;
@@ -658,22 +670,24 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
 
   const safeHistory: { role: string; content: string }[] = [];
 
-  // 📜 Contexto conversacional: últimos 6 mensajes de la sesión
+  // 📜 Contexto conversacional: últimos 6 mensajes de la sesión (solo para sesiones válidas)
   try {
-    const convo = await env.DB.prepare(
-      "SELECT id FROM conversations WHERE agent_id = ? AND session_id = ?"
-    )
-      .bind(body.agent_id, body.session_id || "anon")
-      .first<{ id: string }>();
-    if (convo) {
-      const rows = await env.DB.prepare(
-        "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 6"
+    if (cleanSessionId) {
+      const convo = await env.DB.prepare(
+        "SELECT id FROM conversations WHERE agent_id = ? AND session_id = ?"
       )
-        .bind(convo.id)
-        .all<{ role: "user" | "assistant"; content: string }>();
-      for (const r of rows.results.reverse()) {
-        if (r.role === "user" || r.role === "assistant") {
-          safeHistory.push({ role: r.role, content: r.content.slice(0, 1500) });
+        .bind(body.agent_id, cleanSessionId)
+        .first<{ id: string }>();
+      if (convo) {
+        const rows = await env.DB.prepare(
+          "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 6"
+        )
+          .bind(convo.id)
+          .all<{ role: "user" | "assistant"; content: string }>();
+        for (const r of rows.results.reverse()) {
+          if (r.role === "user" || r.role === "assistant") {
+            safeHistory.push({ role: r.role, content: r.content.slice(0, 2000) });
+          }
         }
       }
     }
@@ -691,7 +705,7 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
       content: `${systemPrompt}\n\nBASE DE CONOCIMIENTO DEL NEGOCIO:\n${agent.knowledge_base || "Sin datos adicionales."}`,
     },
     ...safeHistory,
-    { role: "user", content: String(body.message).slice(0, 1500) },
+    { role: "user", content: String(body.message).slice(0, 2000) },
   ];
 
   const faqReply = matchFaq(agent, String(body.message)) || (await matchFaqSemantic(agent, String(body.message), env));
@@ -704,12 +718,9 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
   // Free no usa BYOK: si el agente quedó en BYOK con plan Free (vencimiento o
   // config previa al gate), se atiende con IA administrada y aplica el cupo.
   const byokBlocked = !isWorkersAI(agent) && (await isFreePlan(env, agent.user_id));
-  const hasValidSession = Boolean(
-    body.session_id &&
-      body.session_id !== "anon" &&
-      body.session_id.length >= 6
-  );
-  const useManaged = (isWorkersAI(agent) || byokBlocked) && hasValidSession;
+  // Toda llamada a IA administrada cuenta y se limita por cupo, venga o no con
+  // session_id válida: excluir sesiones sin id dejaría gasto sin tope.
+  const useManaged = isWorkersAI(agent) || byokBlocked;
   let managedLimit: number | null = null; // cupo efectivo del usuario si IA administrada
   if (useManaged) {
     // KV evita releer D1 en cada intento: 5 min una vez agotado (valor = plan,
@@ -726,6 +737,17 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
         await env.AGENT_CACHE.put(`quota:${agent.user_id}`, userInfo.plan ?? "free", { expirationTtl: 300 });
         return json({ reply: cupoReply(userInfo.plan) }, 200, origin);
       }
+      // 🛡️ Sub-cuota diaria por IP (≈10% del cupo mensual, mín. 5): una sola IP no
+      // puede agotar el cupo del tenant y dejar a los demás sin chat.
+      // ponytail: contador en KV con consistencia eventual; D1 si hiciera falta precisión.
+      const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+      const subKey = `subq:${agent.id}:${ip}`;
+      const subUsed = Number(await env.AGENT_CACHE.get(subKey) || 0);
+      const subLimit = Math.max(5, Math.ceil(limit / 10));
+      if (subUsed >= subLimit) {
+        return json({ reply: "Recibiste muchos mensajes seguidos desde esta red. Espera un poco y vuelve a intentarlo." }, 200, origin);
+      }
+      ctx.waitUntil(env.AGENT_CACHE.put(subKey, String(subUsed + 1), { expirationTtl: 86400 }));
     }
   }
 
@@ -749,34 +771,36 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
   await minDelay;
 
   const message = body.message;
-  const sessionId = body.session_id || "anon";
+  const sessionId = cleanSessionId;
   ctx.waitUntil(
     (async () => {
       try {
-        const convoId = crypto.randomUUID();
-        await env.DB.prepare(
-          `INSERT OR IGNORE INTO conversations (id, agent_id, session_id, updated_at)
-           VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
-        )
-          .bind(convoId, agent.id, sessionId)
-          .run();
+        if (sessionId) {
+          const convoId = crypto.randomUUID();
+          await env.DB.prepare(
+            `INSERT OR IGNORE INTO conversations (id, agent_id, session_id, updated_at)
+             VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
+          )
+            .bind(convoId, agent.id, sessionId)
+            .run();
 
-        const row = await env.DB.prepare(
-          "SELECT id FROM conversations WHERE agent_id = ? AND session_id = ?"
-        )
-          .bind(agent.id, sessionId)
-          .first<{ id: string }>();
+          const row = await env.DB.prepare(
+            "SELECT id FROM conversations WHERE agent_id = ? AND session_id = ?"
+          )
+            .bind(agent.id, sessionId)
+            .first<{ id: string }>();
 
-        await env.DB.batch([
-          env.DB.prepare("INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, 'user', ?)")
-            .bind(crypto.randomUUID(), row?.id || convoId, message),
-          env.DB.prepare("INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, 'assistant', ?)")
-            .bind(crypto.randomUUID(), row?.id || convoId, botReply),
-          env.DB.prepare("UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(
-            row?.id || convoId
-          ),
-        ]);
-// 🎯 Solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado)
+          await env.DB.batch([
+            env.DB.prepare("INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, 'user', ?)")
+              .bind(crypto.randomUUID(), row?.id || convoId, message),
+            env.DB.prepare("INSERT INTO messages (id, conversation_id, role, content) VALUES (?, ?, 'assistant', ?)")
+              .bind(crypto.randomUUID(), row?.id || convoId, botReply),
+            env.DB.prepare("UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").bind(
+              row?.id || convoId
+            ),
+          ]);
+        }
+        // 🎯 Solo la IA administrada consume cupo; BYOK paga su propia IA (ilimitado)
         if (useManaged && managedLimit != null) {
           // Incremento atómico: no suma si ya se alcanzó el límite (evita pasarse en ráfagas).
           await env.DB.prepare(
@@ -792,7 +816,9 @@ async function handleChat(request: Request, env: Env, ctx: ExecutionContext) {
         }
 
         // 🎯 Captura de prospectos: email/teléfono detectados se registran en la bandeja
-        await captureLead(agent, sessionId, message, env);
+        if (sessionId) {
+          await captureLead(agent, sessionId, message, env);
+        }
       } catch {
         // Persistencia best-effort
       }
@@ -1641,8 +1667,19 @@ async function handleLeadForm(request: Request, env: Env) {
     interest?: string;
     message?: string;
   };
-  if (!body.agent_id || typeof body.session_id !== "string") {
-    return json({ error: "agent_id y session_id son obligatorios" }, 400, origin);
+  if (!body.agent_id) {
+    return json({ error: "agent_id es obligatorio" }, 400, origin);
+  }
+  // session_id opcional (clientes antiguos pueden omitirlo → bucket "anon");
+  // si viene, debe ser acotado/válido para no escribir cadenas arbitrarias en D1.
+  const leadSessionId =
+    body.session_id == null || body.session_id === ""
+      ? "anon"
+      : isValidSessionId(body.session_id)
+        ? body.session_id
+        : null;
+  if (!leadSessionId) {
+    return json({ error: "session_id inválido" }, 400, origin);
   }
   const agent = await getAgent(body.agent_id, env);
   if (!agent) return json({ error: "Agente no existe" }, 404, origin);
@@ -1672,7 +1709,7 @@ async function handleLeadForm(request: Request, env: Env) {
   )
     .bind(agent.id, dupKey)
     .first<{ id: string }>();
-  if (dup) return json({ ok: true, duplicate: true }, 200, origin);
+  if (dup) return json({ ok: true }, 200, origin);
 
   try {
     await env.DB.prepare(
@@ -1687,7 +1724,7 @@ async function handleLeadForm(request: Request, env: Env) {
         phone || null,
         null, // notes: reservada para la nota interna del dueño
         (body.interest || body.message || "").trim().slice(0, 300) || "📋 Contacto capturado por formulario",
-        body.session_id
+        leadSessionId
       )
       .run();
     try {
@@ -1698,7 +1735,7 @@ async function handleLeadForm(request: Request, env: Env) {
   } catch {
     return json({ error: "No se pudo guardar el contacto" }, 500, origin);
   }
-  return json({ ok: true }, 201, origin);
+  return json({ ok: true }, 200, origin);
 }
 
 // ── Multi-agente: listar y crear ────────────────────────────────────────────────
@@ -1706,7 +1743,7 @@ async function handleLeadForm(request: Request, env: Env) {
 // los agentes (NULL = sigue el plan); `messages_limit` ya es por-usuario y editable.
 export const PLAN_DEFAULTS: Record<string, { agents: number; messages: number }> = {
   free: { agents: 1, messages: 20 },
-  starter: { agents: 1, messages: 1500 },
+  starter: { agents: 1, messages: 200 },
   pro: { agents: 3, messages: 6000 },
   agency: { agents: 8, messages: 25000 },
 };
@@ -1900,6 +1937,12 @@ async function handleAgentDelete(request: Request, agentId: string, env: Env) {
     env.DB.prepare("DELETE FROM leads WHERE agent_id = ?").bind(agentId),
     env.DB.prepare("DELETE FROM faq_hits WHERE agent_id = ?").bind(agentId),
     env.DB.prepare("DELETE FROM agents WHERE id = ? AND user_id = ?").bind(agentId, user.id),
+  ]);
+
+  // 🔑 Invalidar la cache KV al eliminar el agente
+  await Promise.all([
+    env.AGENT_CACHE.delete(`agent:${agentId}`).catch(() => {}),
+    env.AGENT_CACHE.delete(`faqvec:${agentId}`).catch(() => {}),
   ]);
 
   return json({ ok: true }, 200, origin);
