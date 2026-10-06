@@ -3154,11 +3154,14 @@ body.dark-mode .nav-backdrop {
             }
 
             /* En móvil el footer va al final del contenido, como en cualquier
-               página: sin position:sticky ni margin-top:auto, así deja de verse
-               siempre pegado abajo y solo aparece al bajar hasta el final. */
+               página: sin position:sticky (decidido el 05-oct). margin-top:auto
+               en vez de 24px: con contenido corto o vacío (vista sin datos del
+               worker) el flex del content-wrapper empuja el footer hasta el pie
+               en vez de dejarlo a media pantalla; con contenido largo el auto
+               vale 0 y el footer queda al final del scroll, igual que antes. */
             .dashboard-footer {
                 position: static;
-                margin-top: 24px;
+                margin-top: auto;
             }
 
             header.topbar {
