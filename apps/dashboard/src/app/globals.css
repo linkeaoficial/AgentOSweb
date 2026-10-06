@@ -140,6 +140,29 @@ body.dark-mode {
             display: block;
         }
 
+        /* Sidebar colapsado en escritorio: es el estado por defecto (y al que
+           vuelve cada resize), y antes se ocultaba TODA la marca, así que no
+           quedaba ni logo ni nombre en ningún lado. En 64px solo cabe una cosa
+           por fila, así que el logo queda arriba y el botón de expandir debajo;
+           el nombre vive en el topbar. En móvil esto no aplica (≤768px tiene su
+           propio bloque más abajo, que fuerza la marca visible). */
+        @media (min-width: 769px) {
+            aside.sidebar.collapsed .brand-left {
+                display: flex;
+            }
+
+            aside.sidebar.collapsed .brand-title {
+                display: none;
+            }
+
+            aside.sidebar.collapsed .brand-header {
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+                padding-bottom: 14px;
+            }
+        }
+
         /* BotÃ³n de expansiÃ³n tipo Gemini / Hamburguesa */
 .sidebar-toggle-btn {
     background: transparent;
