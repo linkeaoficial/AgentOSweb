@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
-import type { D1Database } from "@cloudflare/workers-types";
+import type { D1Database, KVNamespace } from "@cloudflare/workers-types";
 
 export interface AuthEnv {
   DB: D1Database;
+  AGENT_CACHE: KVNamespace;
   AUTH_SECRET?: string;
   AUTH_BASE_URL?: string;
   GOOGLE_CLIENT_ID?: string;
@@ -86,6 +87,28 @@ export function createAuth(env: AuthEnv) {
     session: { expiresIn: 60 * 60 * 24 * 7 }, // 7 días
     user: {
       additionalFields: roleField,
+      // "Eliminar cuenta" del panel (POST /api/auth/delete-user). Better Auth
+      // solo borra sus tablas (user/session/account); los datos de la app viven
+      // en otras y se cascadian acá antes de borrar la identidad: borrar la
+      // fila `users` dispara el CASCADE de la FK → agents → leads /
+      // conversaciones → messages / faq_hits / stats / usage_history, y
+      // plan_events va aparte (no tiene FK). support_tickets queda a propósito:
+      // su user_id es libre para que el soporte conserve el hilo de todas forms.
+      // Si beforeDelete falla, el endpoint devuelve 500 y la cuenta NO se
+      // borra (reintentable; nada queda a medias en las tablas de la app).
+      deleteUser: {
+        enabled: true,
+        beforeDelete: async (user) => {
+          const agents = await env.DB.prepare("SELECT id FROM agents WHERE user_id = ?").bind(user.id).all<{ id: string }>();
+          const kvKeys = agents.results.flatMap((a) => [`agent:${a.id}`, `faqvec:${a.id}`]);
+          kvKeys.push(`quota:${user.id}`);
+          await Promise.all(kvKeys.map((k) => env.AGENT_CACHE.delete(k)));
+          await env.DB.batch([
+            env.DB.prepare("DELETE FROM plan_events WHERE user_id = ?").bind(user.id),
+            env.DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id),
+          ]);
+        },
+      },
     },
   });
 }

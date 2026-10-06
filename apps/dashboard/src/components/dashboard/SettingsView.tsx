@@ -274,7 +274,9 @@ export default function SettingsView({ owner, theme, setTheme, onNavigate, onOpe
       toast.error(
         res.status === 404 || d.code === "NOT_FOUND"
           ? "La eliminación de cuenta todavía no está habilitada en el servidor."
-          : d.message || "No se pudo eliminar la cuenta"
+          : d.code === "SESSION_EXPIRED"
+            ? "Tu sesión es antigua para borrados: cierra sesión, vuelve a entrar y repite."
+            : d.message || "No se pudo eliminar la cuenta"
       );
       setShowDelete(false);
     } catch {
