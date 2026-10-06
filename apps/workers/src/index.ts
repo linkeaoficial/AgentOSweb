@@ -2634,15 +2634,17 @@ async function downgradeExpired(env: Env): Promise<number> {
   return n;
 }
 
-async function resetMonthlyQuota(env: Env): Promise<void> {
-  // Snapshot del mes que termina ANTES de poner el contador a cero (corre solo
-  // el día 1 UTC, así que 'now -1 day' es el mes anterior). Es lo que alimenta
-  // el historial de uso del panel; los meses en 0 no se guardan (ruido).
+async function resetMonthlyQuota(env: Env, prevMonth: string): Promise<void> {
+  // Snapshot del mes que termina ANTES de poner el contador a cero. El label se
+  // calcula en scheduled() (no con 'now -1 day'): si el cron del día 1 se cayó,
+  // el reset corre tarde y 'now -1 day' etiquetaría el mes equivocado.
+  // Los meses en 0 no se guardan (ruido). Correr tarde suma los mensajes del
+  // día perdido al mes anterior: preferible a no reiniciar el cupo de nadie.
   await env.DB.prepare(
     `INSERT INTO usage_history (user_id, month, messages)
-     SELECT id, strftime('%Y-%m', 'now', '-1 day'), messages_used FROM users WHERE messages_used > 0
+     SELECT id, ?, messages_used FROM users WHERE messages_used > 0
      ON CONFLICT(user_id, month) DO UPDATE SET messages = excluded.messages`
-  ).run();
+  ).bind(prevMonth).run();
   await env.DB.prepare("UPDATE users SET messages_used = 0").run();
 }
 
@@ -2672,10 +2674,24 @@ function authRequest(request: Request, env: Env): Request {
 export default {
   async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
     // Los cupos se cortan solos al vencer el plan (effectivePlan), pero el registro
-  // en la base se hace aqui: diario, para que el vencimiento no tarde un mes en
-  // verse. El reinicio mensual de mensajes sigue igual, solo el dia 1.
-  await downgradeExpired(env);
-  if (new Date().getUTCDate() === 1) await resetMonthlyQuota(env);
+    // en la base se hace aqui: diario, para que el vencimiento no tarde un mes en
+    // verse.
+    await downgradeExpired(env);
+    // NV7: el reinicio mensual ya no depende de acertar SOLO al día 1. El marker
+    // `quota:reset` en KV guarda el último mes reiniciado; si el cron del día 1
+    // se cae, el próximo disparo lo detecta (marker ≠ mes actual) y corre tarde
+    // —mejor tarde que nunca—. Sin marker y no es día 1: no se hace nada (no
+    // reiniciar a mitad de mes por ser la primera corrida tras el deploy).
+    const now = new Date();
+    const month = now.toISOString().slice(0, 7); // "YYYY-MM" en UTC
+    const last = await env.AGENT_CACHE.get("quota:reset");
+    if (now.getUTCDate() === 1 || (last !== null && last !== month)) {
+      const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+        .toISOString()
+        .slice(0, 7);
+      await resetMonthlyQuota(env, prev);
+      await env.AGENT_CACHE.put("quota:reset", month);
+    }
   },
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
