@@ -4230,6 +4230,15 @@ body.dark-mode .nav-backdrop {
             display: none;
         }
 
+        /* La campanita de la barra lateral vive dentro de un .user-menu-wrap
+           (el menú necesita el contenedor posicionado). En escritorio el botón
+           está oculto, pero el envoltorio seguía ahí con ancho 0: con el gap de
+           8px de .sidebar-header-actions desplazaba la hamburguesa 4px fuera
+           del centro. Oculto también el envoltorio; en móvil vuelve a verse. */
+        .sidebar-header-actions .user-menu-wrap {
+            display: none;
+        }
+
         .nav-menu-user {
             display: none;
         }
@@ -4275,6 +4284,10 @@ body.dark-mode .nav-backdrop {
             /* ?? Notificación vive en la cabecera junto al toggle */
             .sidebar-notif {
                 display: flex;
+            }
+
+            .sidebar-header-actions .user-menu-wrap {
+                display: block;
             }
 
             /* Ocultar notif/tema/avatar del topbar (ya están en el hamburguesa) */
