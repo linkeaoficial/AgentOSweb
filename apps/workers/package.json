@@ -7,7 +7,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:setup": "wrangler d1 execute agentosweb-db --file=../../database/schema.sql --remote",
-    "test": "node --experimental-sqlite test/support.mjs && node --experimental-sqlite test/notifications.mjs"
+    "test": "node --experimental-sqlite test/support.mjs && node --experimental-sqlite test/notifications.mjs && node test/sql-binds.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4",

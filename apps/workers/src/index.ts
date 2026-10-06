@@ -192,7 +192,7 @@ async function claimLegacyOwner(env: Env, su: { id: string; email: string; name?
   // alta se sabe que vence, sin depender de que alguien abra el panel.
   await env.DB.prepare(
     "INSERT OR IGNORE INTO users (id, email, name, plan, plan_expires_at, messages_limit) VALUES (?, ?, ?, 'free', ?, 20)"
-  ).bind(su.id, su.email, su.name ?? null, periodEnd(), 20).run();
+  ).bind(su.id, su.email, su.name ?? null, periodEnd()).run();
   await ensureDefaultAgent(env, su.id, su.name);
 }
 
