@@ -56,7 +56,8 @@ export function createAuth(env: AuthEnv) {
     // instancia: un atacante que reparta requests entre isolates ve el límite
     // multiplicado. El salto a D1 exige la tabla `rateLimit`, que NO está en
     // el schema de Better Auth (getMigrations no la crea) — hay que
-    // crearla a mano en una migración 0008 y setear storage: "database".
+    // crearla a mano en una migración (la libre más cercana: 0017) y setear
+    // storage: "database".
     rateLimit: { enabled: true },
     advanced: {
       trustedProxyHeaders: true,

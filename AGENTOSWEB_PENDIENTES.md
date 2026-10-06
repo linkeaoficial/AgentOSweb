@@ -7,6 +7,13 @@
 
 ## 🔒 Pendientes de Seguridad (prioridad máxima)
 
+### ⏸️ Pospuestos a futuro (registrado 06-oct-2026, Agente 2)
+- [ ] **NV1 — firma de la IP del visitante en el proxy de auth (activar al desplegar el panel):** hoy el rate limit de `/api/auth/*` decide por `x-client-ip` firmado con `OWNER_TOKEN`, pero esa cabecera solo existe si el panel corre detrás de Cloudflare (ahora mismo el panel corre en local). **Al desplegar el dashboard** hay que: (1) elegir dónde vive (Workers/Pages) y configurar `OWNER_TOKEN` en ese entorno, (2) hacer que el proxy firme la IP real sin que Cloudflare la pisie, (3) verificar en vivo `401,401,401,429` en sign-in. Mientras no se despliegue, el rate limit funciona en cubo compartido (molestia para el atacante, nunca un bypass) y no hay nada que hacer.
+- [ ] **NV8/NV9 (tooling opencode: digest y skills-lock)** — cerrados por bajo perfil hasta que se retome el setup de opencode.
+
+### ✅ Resueltos en la auditoría 06-oct-2026 (ver NOTA)
+- NV2 (session_id con crypto), NV4 (starter vence mensual), NV5 (tope de agentes atómico), NV6/NV10/NV11 (secretos verificados en prod), NV7 (reset mensual con marker KV), NV3 (huérfanos + auto-admin) → **todos remediados o refutados**; worker v `26e5778c`, smoke OK.
+
 ### 🚪 RUTA OFICIAL: Login multi-cliente (FASE 2 — decisión 25-sep-2026, plan aprobado)
 > **Decisión:** Better Auth (estándar de la industria, open-source, TypeScript, nativo Edge/D1) + **D1** como store + login social **Google/Apple** + email/password con hash scrypt. **Sin** Cloudflare Access (ese es para equipo interno, no clientes B2B/B2C), **sin** Clerk/Auth0 (costo por usuario), **sin** pasarela de pago en esta fase (sigue manual). Todo corre en Cloudflare: $0.
 > - **Dónde viven los datos:** D1 de Cloudflare (email, nombre, hash scrypt — nunca texto plano, sesiones, tokens OAuth Google/Apple). Idéntico desde Workers o Pages (binding D1 no cambia).
