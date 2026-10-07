@@ -227,8 +227,9 @@ export default function AdminView({ planDefaults }: AdminViewProps) {
       setDrawer({ id: u.id, loading: false, rows: data.tickets ?? [] });
     } catch {
       setDrawer({ id: u.id, loading: false, rows: [] });
+      toast.error("No se pudieron cargar los mensajes");
     }
-  }, []);
+  }, [toast]);
   // Ayuda y Soporte.
 // `openCounts` es lo unico que se carga al entrar: un conteo por cliente, una
 // fila por cliente con tickets abiertos. Los mensajes de cada uno se piden recien

@@ -1,65 +1,46 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
+import { sileo, type SileoButton } from "sileo";
 
-type ToastType = "success" | "error" | "info";
+// Wrapper sobre sileo: la API de useToast() no cambia (los ~55 call sites
+// siguen igual) y el render lo hace la librería. Se agrega `warning` y
+// `promise`, que antes no existían.
 
-interface ToastItem {
-  id: number;
-  message: string;
-  type: ToastType;
-}
+type ToastType = "success" | "error" | "info" | "warning";
 
 interface ToastApi {
-  success: (msg: string) => void;
-  error: (msg: string) => void;
-  info: (msg: string) => void;
+  success: (msg: string, description?: string) => void;
+  error: (msg: string, description?: string) => void;
+  info: (msg: string, description?: string) => void;
+  warning: (msg: string, description?: string) => void;
+  action: (msg: string, button: SileoButton) => void;
+  promise: typeof sileo.promise;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
 
-const DURATIONS: Record<ToastType, number> = { success: 3000, error: 5000, info: 3500 };
-
-let nextId = 1;
+const DURATIONS: Record<ToastType, number> = { success: 3000, error: 5000, info: 3500, warning: 4500 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
-
-  const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const show = useCallback((message: string, type: ToastType, description?: string) => {
+    sileo[type]({ title: message, ...(description ? { description } : {}), duration: DURATIONS[type] });
   }, []);
-
-  const show = useCallback(
-    (message: string, type: ToastType = "info") => {
-      const id = nextId++;
-      setToasts((prev) => [...prev.slice(-3), { id, message, type }]);
-      setTimeout(() => dismiss(id), DURATIONS[type]);
-    },
-    [dismiss]
-  );
 
   const api = useMemo<ToastApi>(
     () => ({
-      success: (m) => show(m, "success"),
-      error: (m) => show(m, "error"),
-      info: (m) => show(m, "info"),
+      success: (m, d) => show(m, "success", d),
+      error: (m, d) => show(m, "error", d),
+      info: (m, d) => show(m, "info", d),
+      warning: (m, d) => show(m, "warning", d),
+      action: (m, button) => sileo.action({ title: m, button, duration: 8000 }),
+      promise: sileo.promise,
     }),
     [show]
   );
 
-  return (
-    <ToastContext.Provider value={api}>
-      {children}
-      <div className="toasts-container" role="status" aria-live="polite">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.type}`}>
-            {t.message}
-          </div>
-        ))}
-      </div>
-    </ToastContext.Provider>
-  );
+  return <ToastContext.Provider value={api}>{children}</ToastContext.Provider>;
 }
 
 export function useToast(): ToastApi {

@@ -114,11 +114,20 @@ interface LeadDeltaData {
 }
 
 function ContactChip({ lead }: { lead: Lead }) {
+  const toast = useToast();
+  const copiar = async (t: string) => {
+    try {
+      await navigator.clipboard.writeText(t);
+      toast.success("Copiado");
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  };
   const chips: { label: string; onClick: () => void; children: ReactNode }[] = [];
   if (lead.email) {
     chips.push({
       label: lead.email,
-      onClick: () => navigator.clipboard?.writeText(lead.email!),
+      onClick: () => void copiar(lead.email!),
       children: (
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -130,7 +139,7 @@ function ContactChip({ lead }: { lead: Lead }) {
   if (lead.phone) {
     chips.push({
       label: lead.phone,
-      onClick: () => navigator.clipboard?.writeText(lead.phone!),
+      onClick: () => void copiar(lead.phone!),
       children: (
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -283,7 +292,7 @@ function ActionIcons({ lead, onView, onViewHistory, onRequestDelete }: { lead: L
         <button
           type="button"
           className="icon-btn is-disabled"
-          onClick={() => toast.info("⚠️ No se capturó un teléfono para este prospecto")}
+          onClick={() => toast.warning("No se capturó un teléfono para este prospecto")}
           title="No se capturó teléfono"
           aria-label="Teléfono no capturado"
         >
@@ -309,7 +318,7 @@ function ActionIcons({ lead, onView, onViewHistory, onRequestDelete }: { lead: L
         <button
           type="button"
           className="icon-btn is-disabled"
-          onClick={() => toast.info("⚠️ No se capturó un email para este prospecto")}
+          onClick={() => toast.warning("No se capturó un email para este prospecto")}
           title="No se capturó email"
           aria-label="Email no capturado"
         >
@@ -351,6 +360,15 @@ function LeadDrawer({
   const [draft, setDraft] = useState(lead.notes ?? "");
   const [savingNote, setSavingNote] = useState(false);
   const [noteChanged, setNoteChanged] = useState(false);
+
+  const copiar = async (t: string) => {
+    try {
+      await navigator.clipboard.writeText(t);
+      toast.success("Copiado");
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  };
 
   useEffect(() => {
     setDraft(lead.notes ?? "");
@@ -423,7 +441,7 @@ function LeadDrawer({
             <h3>Información de contacto</h3>
             <div className="lead-drawer-contact">
               {lead.email ? (
-                <button type="button" className="lead-drawer-contact-item" onClick={() => navigator.clipboard?.writeText(lead.email!)}>
+                <button type="button" className="lead-drawer-contact-item" onClick={() => void copiar(lead.email!)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="4" width="20" height="16" rx="2" />
                     <path d="m22 7-10 6L2 7" />
@@ -435,7 +453,7 @@ function LeadDrawer({
                 </button>
               ) : null}
               {lead.phone ? (
-                <button type="button" className="lead-drawer-contact-item" onClick={() => navigator.clipboard?.writeText(lead.phone!)}>
+                <button type="button" className="lead-drawer-contact-item" onClick={() => void copiar(lead.phone!)}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
                   </svg>
@@ -1254,7 +1272,7 @@ export default function LeadsView({ agentId }: LeadsViewProps) {
       // Si se cortó por el tope, avisarlo: un CSV de 5.000 filas cuando el filtro
       // matchea 40.000 es un archivo incompleto sin que se note.
       if (target > EXPORT_CAP) {
-        toast.error(`CSV limitado a ${EXPORT_CAP} de ${target} prospectos`);
+        toast.warning(`CSV limitado a ${EXPORT_CAP} de ${target} prospectos`, "Dividí el archivo en partes para exportar el resto.");
       } else {
         toast.success(`${rows.length} prospecto${rows.length === 1 ? "" : "s"} exportado${rows.length === 1 ? "" : "s"}`);
       }

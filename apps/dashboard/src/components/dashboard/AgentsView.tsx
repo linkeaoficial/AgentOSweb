@@ -636,7 +636,7 @@ function WidgetMock({
       const data = (await res.json()) as { reply?: string };
       reply = data.reply || "¡Recibido! ¿En qué más te puedo colaborar?";
     } catch {
-      reply = "¡Recibido! ¿En qué más te puedo colaborar?";
+      reply = "No pude conectar con el agente. Intentá de nuevo en unos segundos.";
     }
     setMessages((m) => [...m.filter((x) => !x.typing), { text: reply, sender: "bot" }]);
     setSending(false);
@@ -1681,7 +1681,10 @@ export default function AgentsView({ apiBase, agentId, plan, onActiveChange, onC
                               }
                             : d
                         );
-                        toast.info("API Key marcada para eliminar. Publica cambios para aplicarlo.");
+                        toast.action("API Key marcada para eliminar. Publica cambios para aplicarlo.", {
+                          title: "Publicar",
+                          onClick: () => void save(),
+                        });
                       }}
                     >
                       Quitar API Key

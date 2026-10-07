@@ -135,11 +135,11 @@ export default function BillingView({ owner, planDefaults, agentsCount, onSaved 
 
   const save = useCallback(async () => {
     if (!Number.isInteger(agentLimit) || agentLimit < 1) {
-      toast.error("El límite de agentes debe ser 1 o más");
+      toast.warning("El límite de agentes debe ser 1 o más");
       return;
     }
     if (!Number.isInteger(messagesLimit) || messagesLimit < 1) {
-      toast.error("Los mensajes por mes deben ser 1 o más");
+      toast.warning("Los mensajes por mes deben ser 1 o más");
       return;
     }
     setSaving(true);

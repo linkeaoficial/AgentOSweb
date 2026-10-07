@@ -17,6 +17,7 @@ import RenewalModal from "./RenewalModal";
 import SettingsView, { type ThemePref } from "./SettingsView";
 import SupportModal from "./SupportModal";
 import { useToast } from "./notifications";
+import { Toaster } from "sileo";
 import { IconOverview } from "./icons";
 import { API_BASE } from "./config";
 
@@ -181,31 +182,32 @@ export default function Dashboard() {
 
   const handleCreateAgent = useCallback(
     (name: string): Promise<boolean> => {
-      return fetch("/api/agents", {
+      const crea = fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
-      })
-        .then(async (r) => {
-          const d = (await r.json().catch(() => ({}))) as { ok?: boolean; id?: string; error?: string };
-          if (!r.ok || !d.ok || !d.id) throw new Error(d.error || "No se pudo crear el agente");
-          return d.id;
+      }).then(async (r) => {
+        const d = (await r.json().catch(() => ({}))) as { ok?: boolean; id?: string; error?: string };
+        if (!r.ok || !d.ok || !d.id) throw new Error(d.error || "No se pudo crear el agente");
+        return d.id;
+      });
+      return toast
+        .promise(crea, {
+          loading: { title: "Creando agente…" },
+          success: { title: "Agente creado. Ahora edítalo a tu gusto." },
+          error: (e) => ({ title: e instanceof Error ? e.message : "No se pudo crear el agente" }),
         })
-        .then((id) => {
-          toast.success("Agente creado. Ahora edítalo a tu gusto.");
-          return loadAgents()
+        .then((id) =>
+          loadAgents()
             .then(() => {
               localStorage.setItem(AGENT_CACHE_KEY, id);
               setCurrentAgentId(id);
               setActiveView("view-agents");
             })
             .then(() => true)
-            .catch(() => false);
-        })
-        .catch((e) => {
-          toast.error(e instanceof Error ? e.message : "Error al crear el agente");
-          return false;
-        });
+            .catch(() => false)
+        )
+        .catch(() => false);
     },
     [toast, loadAgents]
   );
@@ -304,15 +306,18 @@ export default function Dashboard() {
     [closeMobileMenu]
   );
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard?.writeText(getScript(currentAgentId)).then(() => {
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(getScript(currentAgentId));
       toast.success("Script copiado al portapapeles");
-    });
+    } catch {
+      toast.error("No se pudo copiar el script", "Copiá el código manualmente del recuadro.");
+    }
   }, [toast, currentAgentId]);
 
   const handleAgentsChanged = useCallback(() => {
-    loadAgents().catch(() => {});
-  }, [loadAgents]);
+    loadAgents().catch(() => toast.error("No se pudo actualizar la lista de agentes"));
+  }, [loadAgents, toast]);
 
   const handleAgentDeleted = useCallback(
     (deletedId: string) => {
@@ -321,9 +326,9 @@ export default function Dashboard() {
           const next = list.find((a) => a.id !== deletedId);
           if (next) handleSelectAgent(next.id);
         })
-        .catch(() => {});
+        .catch(() => toast.error("No se pudo actualizar la lista de agentes"));
     },
-    [loadAgents, handleSelectAgent]
+    [loadAgents, handleSelectAgent, toast]
   );
 
   const openLogout = useCallback(() => {
@@ -340,6 +345,7 @@ export default function Dashboard() {
 
   return (
     <>
+      <Toaster position="bottom-right" offset={24} theme={isDark ? "light" : "dark"} />
       <div className={`nav-backdrop ${!collapsed && isMobile ? "show" : ""}`} id="nav-backdrop" aria-hidden="true" onClick={closeMobileMenu} />
 
       <Sidebar
@@ -436,7 +442,17 @@ export default function Dashboard() {
           </svg>
         }
         onClose={() => setShowLogout(false)}
-    onConfirm={async () => { await new Promise((r) => setTimeout(r, 400)); await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {}); window.location.replace("/login"); }}
+    onConfirm={async () => {
+      await new Promise((r) => setTimeout(r, 400));
+      const ok = await fetch("/api/auth/sign-out", { method: "POST" })
+        .then((r) => r.ok || r.status === 401)
+        .catch(() => false);
+      if (!ok) {
+        toast.error("No se pudo cerrar la sesión. Intentá de nuevo.");
+        return;
+      }
+      window.location.replace("/login");
+    }}
     />
 
       <SupportModal

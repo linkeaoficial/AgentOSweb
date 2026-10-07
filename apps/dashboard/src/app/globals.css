@@ -2597,74 +2597,6 @@ body.dark-mode .nav-backdrop {
             background: #52525b;
         }
 
-        /* ðŸž Toast estilo dark graphite con borde sutil */
-        .toasts-container {
-            position: fixed;
-            bottom: 25px;
-            right: 25px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            max-width: min(360px, calc(100vw - 50px));
-            pointer-events: none;
-        }
-
-        .toast {
-            background-color: #0f172a;
-            color: #f8fafc;
-            border: 1px solid #334155;
-            border-radius: 12px;
-            padding: 12px 18px;
-            font-size: 13px;
-            font-weight: 500;
-            letter-spacing: -0.1px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-            animation: toast-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            pointer-events: auto;
-        }
-
-        body.dark-mode .toast {
-            background-color: #202024;
-            border-color: #3f3f46;
-            color: #e4e4e7;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-
-        @keyframes toast-in {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .toast::before {
-            content: '';
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .toast-success::before {
-            background-color: #34d399;
-        }
-
-        .toast-error::before {
-            background-color: #f87171;
-        }
-
-        .toast-info::before {
-            background-color: #60a5fa;
-        }
-
         @media (max-width: 1024px) {
             .metrics-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -8587,4 +8519,11 @@ body.dark-mode .sup-reply {
     .sup-actions button {
         width: 100%;
     }
+}
+
+/* --- Sileo: la lib inyecta su CSS al final del <head> en runtime, así que
+   estos overrides van al final del archivo y con !important para ganarle. */
+[data-sileo-title] {
+    text-transform: none !important;
+    font-size: 0.9rem !important;
 }
