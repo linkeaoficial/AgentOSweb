@@ -885,7 +885,7 @@ function Skeleton() {
         {[0, 1, 2].map((i) => (
           <div key={i} className="panel-card">
             <div className="faq-skeleton-row" style={{ width: "38%", height: 14, marginBottom: 16 }} />
-            <div className="faq-skeleton-row" style={{ height: 40 }} />
+            <div className="faq-skeleton-row" style={{ height: 40, marginBottom: 10 }} />
             <div className="faq-skeleton-row" style={{ height: 40 }} />
           </div>
         ))}
