@@ -7920,16 +7920,21 @@ body.dark-mode .nav-backdrop {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 15px;
-    font-weight: 700;
+    /* Misma tipografía que la marca del panel (.brand-title h2):
+       16.5px / 600 / -0.3px — antes 15px / 700 y se notaba distinta. */
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
     color: var(--text-main);
     text-decoration: none;
 }
 .doc-brand-sub {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-muted);
     margin-left: 2px;
+    letter-spacing: normal;
 }
 .doc-topnav {
     display: flex;
